@@ -10,30 +10,24 @@
   <link rel="stylesheet" href="./style.css">
 </head>
 <body>
+  <div class="page-topline" aria-hidden="true"></div>
   <main class="page">
     <section class="shell" aria-labelledby="login-title">
-      <header class="topbar">
-        <a href="#" class="lang-link">KOR</a>
-        <span class="lang-divider">|</span>
-        <a href="#" class="lang-link">ENG</a>
-      </header>
-
-      <div class="hero-brand">
-        <div class="brand-mark" aria-hidden="true">
-          <span class="brand-mark-core"></span>
-        </div>
-        <div class="brand-copy">
-          <p class="brand-title">POSTECH</p>
-          <p class="brand-subtitle">POHANG UNIVERSITY OF SCIENCE AND TECHNOLOGY</p>
-        </div>
-      </div>
-
       <div class="login-panel">
+        <header class="panel-header">
+          <div class="lang-switch" aria-label="Language selector">
+            <a href="#" class="lang-chip is-active">KOR</a>
+            <a href="#" class="lang-chip">ENG</a>
+          </div>
+
+          <div class="hero-brand">
+            <img src="./logo-mark.svg" alt="POSTECH anniversary style logo" class="brand-image">
+          </div>
+        </header>
+
         <div class="title-lockup">
-          <p class="service-label">POSTECH 구성원 서비스</p>
-          <p class="service-label service-label-en">POSTECH MEMBER SERVICE</p>
           <h1 id="login-title">통합로그인</h1>
-          <p class="panel-subtitle">Single Sign-On</p>
+          <p class="panel-subtitle panel-subtitle-strong">PODIUM</p>
         </div>
 
         <form id="login-form" class="login-form">
@@ -62,31 +56,30 @@
           <div class="utility-row">
             <label class="checkline">
               <input type="checkbox" name="rememberId">
-              <span>아이디 저장</span>
+              <span>아이디 정보 저장</span>
             </label>
-
-            <a href="#" class="inline-help">2차인증 등록 안내</a>
           </div>
         </form>
 
-        <nav class="link-grid" aria-label="계정 관련 메뉴">
-          <a href="#" class="menu-link">비밀번호 변경</a>
-          <a href="#" class="menu-link">비밀번호 초기화</a>
-          <a href="#" class="menu-link">계정 잠김 해제</a>
-          <a href="#" class="menu-link">계정 신청</a>
+        <nav class="bottom-links" aria-label="계정 관련 메뉴">
+          <a href="#" class="icon-link">
+            <span class="icon-circle user-plus" aria-hidden="true"></span>
+            <span>계정 등록</span>
+          </a>
+          <a href="#" class="icon-link">
+            <span class="icon-circle lock-icon" aria-hidden="true"></span>
+            <span>비밀번호 변경</span>
+          </a>
+          <a href="#" class="icon-link">
+            <span class="icon-circle shield-icon" aria-hidden="true"></span>
+            <span>2차 인증 등록 안내</span>
+          </a>
         </nav>
-
-        <section class="support-box" aria-label="지원 정보">
-          <p class="support-title">안내</p>
-          <p>교외 인터넷망에서 접속 시 2차 인증이 필요할 수 있습니다.</p>
-          <p class="support-en">The multi-factor authentication service may be required outside the campus network.</p>
-        </section>
       </div>
     </section>
 
     <footer class="footer">
-      <p>(37673) 경상북도 포항시 남구 청암로 77(효자동 산31)</p>
-      <p>77 Cheongam-Ro, Nam-Gu, Pohang, Gyeongbuk, Korea 37673</p>
+      <p>(37673) 경상북도 포항시 남구 청암로 77(효자동 산31) TEL. 054-279-2520</p>
       <p>COPYRIGHT Pohang University of Science and Technology. ALL RIGHTS RESERVED.</p>
     </footer>
   </main>
