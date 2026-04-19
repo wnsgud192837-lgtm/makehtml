@@ -11,7 +11,7 @@
 </head>
 <body>
   <div class="page-topline" aria-hidden="true"></div>
-  <main class="page">
+  <main class="page" id="login-page">
     <section class="shell" aria-labelledby="login-title">
       <div class="login-panel">
         <header class="panel-header">
@@ -59,6 +59,8 @@
               <span>아이디 정보 저장</span>
             </label>
           </div>
+
+          <p class="login-message" id="login-message" aria-live="polite"></p>
         </form>
 
         <nav class="bottom-links" aria-label="계정 관련 메뉴">
@@ -82,6 +84,66 @@
       <p>(37673) 경상북도 포항시 남구 청암로 77(효자동 산31) TEL. 054-279-2520</p>
       <p>COPYRIGHT Pohang University of Science and Technology. ALL RIGHTS RESERVED.</p>
     </footer>
+  </main>
+
+  <main class="dashboard-page is-hidden" id="dashboard-page">
+    <div class="dashboard-shell">
+      <header class="dashboard-header">
+        <div class="dashboard-logo">
+          <span class="logo-bolt" aria-hidden="true"></span>
+          <span class="logo-text">민주노총</span>
+        </div>
+        <a href="#" class="english-link">ENGLISH SITE</a>
+      </header>
+
+      <nav class="dashboard-nav" aria-label="주요 메뉴">
+        <a href="#">소개</a>
+        <a href="#">소식</a>
+        <a href="#">노동안담</a>
+        <a href="#">자료</a>
+        <a href="#">부설기관</a>
+        <a href="#">업무</a>
+        <button type="button" class="menu-button" aria-label="메뉴 열기">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+      </nav>
+
+      <section class="search-row" aria-label="검색 및 바로가기">
+        <label class="search-box">
+          <span class="visually-hidden">검색</span>
+          <input type="text" value="궁금하신 내용을 입력해주세요" aria-label="검색어">
+          <span class="search-icon" aria-hidden="true"></span>
+        </label>
+      </section>
+
+      <section class="dashboard-grid">
+        <section class="news-column">
+          <div class="notice-tabs" role="tablist" aria-label="게시판 탭">
+            <button type="button" class="tab-button">공지사항</button>
+            <button type="button" class="tab-button is-active">성명·보도</button>
+            <button type="button" class="tab-button">기타공고</button>
+          </div>
+
+          <ul class="notice-list">
+            <li><span>■ 민주노총 주간 홍보 일정 (4/20~4/26)</span><time datetime="2026-04-17">2026.04.17</time></li>
+            <li><span>[채재요청] 2026 최악의 살인기업 선정식</span><time datetime="2026-04-17">2026.04.17</time></li>
+            <li><span>[성명] 공공부문 개혁의 절반만 내놓은 정부, 처우개선 종합대책 즉각 마련하라</span><time datetime="2026-04-16">2026.04.16</time></li>
+            <li><span>[성명] 노동절 대체 휴일 불가 확인, 모든 노동자에게 ‘쉴 권리’ 보장하라</span><time datetime="2026-04-16">2026.04.16</time></li>
+          </ul>
+        </section>
+      </section>
+
+      <aside class="social-rail" aria-label="소셜 링크">
+        <a href="#" class="social-circle social-up" aria-label="맨 위로"></a>
+        <a href="#" class="social-circle social-facebook" aria-label="Facebook"></a>
+        <a href="#" class="social-circle social-youtube" aria-label="YouTube"></a>
+        <a href="#" class="social-circle social-instagram" aria-label="Instagram"></a>
+        <a href="#" class="social-circle social-x" aria-label="X"></a>
+        <a href="#" class="social-circle social-telegram" aria-label="Telegram"></a>
+      </aside>
+    </div>
   </main>
 
   <script src="./main.js" defer></script>
