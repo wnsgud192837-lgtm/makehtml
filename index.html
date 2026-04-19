@@ -7,87 +7,97 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
-  <link href="./style.css" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css">
 </head>
 <body>
-  <div class="page-shell">
-    <header class="site-header">
-      <div class="brand-lockup">
-        <div class="brand-mark" aria-hidden="true">P</div>
-        <div class="brand-copy">
-          <p class="brand-name">POSTECH</p>
-          <p class="brand-subtitle">POHANG UNIVERSITY OF SCIENCE AND TECHNOLOGY</p>
-        </div>
+  <main class="page">
+    <section class="hero" aria-labelledby="login-title">
+      <div class="hero-brand">
+        <p class="brand-title">POSTECH</p>
+        <p class="brand-subtitle">POHANG UNIVERSITY OF SCIENCE AND TECHNOLOGY</p>
       </div>
-      <div class="header-links">
-        <a href="#" aria-label="Korean">KOR</a>
-        <span>|</span>
-        <a href="#" aria-label="English">ENG</a>
-      </div>
-    </header>
 
-    <main class="content-wrap">
-      <section class="login-card" aria-labelledby="login-title">
-        <div class="card-heading">
-          <p class="eyebrow">POSTECH MEMBER SERVICE</p>
-          <h1 id="login-title">통합로그인</h1>
-          <p class="eyebrow english">Single Sign-On</p>
+      <div class="login-panel">
+        <div class="panel-topline">
+          <span>POSTECH 구성원 서비스</span>
+          <span class="divider" aria-hidden="true"></span>
+          <span>POSTECH MEMBER SERVICE</span>
         </div>
 
-        <form class="login-form" id="login-form">
+        <h1 id="login-title">통합로그인</h1>
+        <p class="panel-subtitle">Single Sign-On</p>
+
+        <form id="login-form" class="login-form">
           <label class="field">
-            <span>아이디</span>
-            <input type="text" name="userId" placeholder="해모수 ID" autocomplete="username" />
+            <span class="visually-hidden">해모수 ID</span>
+            <input
+              type="text"
+              name="userId"
+              placeholder="해모수 ID"
+              autocomplete="username"
+            >
           </label>
 
           <label class="field">
-            <span>비밀번호</span>
-            <input type="password" name="password" placeholder="Password" autocomplete="current-password" />
+            <span class="visually-hidden">비밀번호</span>
+            <input
+              type="password"
+              name="password"
+              placeholder="Password"
+              autocomplete="current-password"
+            >
           </label>
 
-          <div class="actions">
-            <label class="remember-option">
-              <input type="checkbox" name="remember" />
+          <button type="submit" class="login-button">로그인</button>
+
+          <div class="utility-row">
+            <label class="checkline">
+              <input type="checkbox" name="rememberId">
               <span>아이디 저장</span>
             </label>
-            <a href="#" class="help-link">비밀번호 찾기</a>
-          </div>
 
-          <button class="login-button" type="submit">로그인</button>
+            <div class="utility-links">
+              <a href="#help-links">계정지원</a>
+              <a href="#mfa-guide">2차인증 등록 안내</a>
+            </div>
+          </div>
         </form>
 
-        <div class="notice-grid">
-          <article class="notice-block">
-            <h2>안내</h2>
-            <p>POSTECH 구성원 서비스를 위해 통합계정으로 로그인합니다.</p>
-            <p class="english">Sign in with your integrated account to access POSTECH member services.</p>
-          </article>
-          <article class="notice-block">
-            <h2>2차인증 등록 안내</h2>
-            <p>교외 인터넷망 접속 시 2차 인증이 필요할 수 있습니다.</p>
-            <p class="english">Multi-factor authentication may be required when accessing from outside the campus network.</p>
-          </article>
+        <div class="notice-stack">
+          <section class="notice-box" aria-labelledby="mfa-guide">
+            <h2 id="mfa-guide">2차인증 등록 안내</h2>
+            <p>교외 인터넷망에서 접속 시 2차 인증이 필요합니다.</p>
+            <p>본인 소유의 스마트폰에 2차인증 APP 설치가 필요하오니 로그인 화면의 안내를 참고하여 이용해 주십시오.</p>
+            <p class="notice-en">The multi-factor authentication service is required when accessing outside the campus network.</p>
+          </section>
+
+          <section class="notice-box notice-box-muted">
+            <h2>문의처</h2>
+            <p>로그인 및 계정 문의: 054-279-2517, hemos@postech.ac.kr</p>
+            <p>보안/2차인증 문의: 054-279-2514, security@postech.ac.kr</p>
+          </section>
         </div>
 
-        <nav class="quick-links" aria-label="관련 링크">
+        <nav id="help-links" class="help-links" aria-label="계정 관련 링크">
           <a href="#">비밀번호 변경</a>
           <a href="#">비밀번호 초기화</a>
           <a href="#">계정 잠김 해제</a>
-          <a href="#">2차인증 등록 안내</a>
+          <a href="#">계정 신청</a>
         </nav>
 
-        <p class="status-message" id="status-message" aria-live="polite">
-          이 페이지는 POSTECH SSO 화면을 참고해 구현한 정적 데모입니다.
+        <p id="status-message" class="status-message" aria-live="polite">
+          POSTECH SSO 로그인 화면을 기준으로 구현한 정적 데모입니다.
         </p>
-      </section>
-    </main>
+      </div>
+    </section>
 
-    <footer class="site-footer">
+    <footer class="footer">
       <p>(37673) 경상북도 포항시 남구 청암로 77(효자동 산31)</p>
       <p>77 Cheongam-Ro, Nam-Gu, Pohang, Gyeongbuk, Korea 37673</p>
       <p>COPYRIGHT Pohang University of Science and Technology. ALL RIGHTS RESERVED.</p>
     </footer>
-  </div>
-  <script defer type="text/javascript" src="./main.js"></script>
+  </main>
+
+  <script src="./main.js" defer></script>
 </body>
 </html>
