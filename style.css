@@ -180,63 +180,7 @@ input {
 }
 
 .utility-links a:hover,
-.help-links a:hover {
-  color: var(--blue-800);
-}
-
-.notice-stack {
-  margin-top: 18px;
-  display: grid;
-  gap: 10px;
-}
-
-.notice-box {
-  padding: 14px 15px;
-  border: 1px solid var(--line);
-  background: var(--blue-100);
-}
-
-.notice-box-muted {
-  background: #f7f9fc;
-}
-
-.notice-box h2 {
-  margin: 0 0 8px;
-  font-size: 0.95rem;
-  color: var(--blue-900);
-}
-
-.notice-box p {
-  margin: 0;
-  font-size: 0.83rem;
-  line-height: 1.65;
-}
-
-.notice-box p + p {
-  margin-top: 4px;
-}
-
-.notice-en {
-  color: var(--muted);
-}
-
-.help-links {
-  display: flex;
-  justify-content: center;
-  gap: 8px 18px;
-  flex-wrap: wrap;
-  margin-top: 18px;
-  padding-top: 16px;
-  border-top: 1px solid var(--line);
-  font-size: 0.86rem;
-  color: var(--muted);
-}
-
-.status-message {
-  min-height: 1.5em;
-  margin: 16px 0 0;
-  text-align: center;
-  font-size: 0.84rem;
+.utility-links a:hover {
   color: var(--blue-800);
 }
 
@@ -265,9 +209,5 @@ input {
   .utility-row {
     align-items: flex-start;
     flex-direction: column;
-  }
-
-  .help-links {
-    gap: 8px 12px;
   }
 }
