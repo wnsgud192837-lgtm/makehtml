@@ -87,62 +87,120 @@
   </main>
 
   <main class="dashboard-page is-hidden" id="dashboard-page">
-    <div class="dashboard-shell">
-      <header class="dashboard-header">
-        <div class="dashboard-logo">
-          <span class="logo-bolt" aria-hidden="true"></span>
-          <span class="logo-text">민주노총</span>
+    <div class="app-shell">
+      <header class="app-header">
+        <div class="app-brand">
+          <img src="./logo-mark.png" alt="POSTECH anniversary style logo" class="app-brand-image">
+          <div class="app-brand-copy">
+            <p class="app-brand-title">POSTECH STUDENT EXPERIENCE</p>
+            <p class="app-brand-subtitle">납부자 / 미납부자 플로우 데모</p>
+          </div>
         </div>
-        <a href="#" class="english-link">ENGLISH SITE</a>
+        <button type="button" class="ghost-button" id="logout-button">로그아웃</button>
       </header>
 
-      <nav class="dashboard-nav" aria-label="주요 메뉴">
-        <a href="#">소개</a>
-        <a href="#">소식</a>
-        <a href="#">노동안담</a>
-        <a href="#">자료</a>
-        <a href="#">부설기관</a>
-        <a href="#">업무</a>
-        <button type="button" class="menu-button" aria-label="메뉴 열기">
-          <span></span>
-          <span></span>
-          <span></span>
-        </button>
+      <nav class="app-nav" aria-label="주요 메뉴">
+        <a href="#">대시보드</a>
+        <a href="#">포인트</a>
+        <a href="#">토큰</a>
+        <a href="#">세컨더리 마켓</a>
+        <a href="#">거버넌스</a>
+        <a href="#">대여사업</a>
       </nav>
 
-      <section class="search-row" aria-label="검색 및 바로가기">
-        <label class="search-box">
-          <span class="visually-hidden">검색</span>
-          <input type="text" value="궁금하신 내용을 입력해주세요" aria-label="검색어">
-          <span class="search-icon" aria-hidden="true"></span>
-        </label>
+      <section class="hero-panel">
+        <div class="hero-copy">
+          <p class="hero-kicker">12. 사용자 플로우</p>
+          <h2>POSTECH 학생회비 앱 시뮬레이션</h2>
+          <p>로그인 이후 납부자와 미납부자가 어떤 경로로 이동하고, 포인트와 거버넌스 토큰이 어떻게 변하는지 기존 메인 레이아웃 위에서 바로 확인할 수 있는 인터랙티브 데모입니다.</p>
+        </div>
+
+        <div class="hero-actions">
+          <button type="button" class="mode-button is-active" data-mode="payer">납부자 모드</button>
+          <button type="button" class="mode-button" data-mode="nonpayer">미납부자 모드</button>
+        </div>
       </section>
 
-      <section class="dashboard-grid">
-        <section class="news-column">
-          <div class="notice-tabs" role="tablist" aria-label="게시판 탭">
-            <button type="button" class="tab-button">공지사항</button>
-            <button type="button" class="tab-button is-active">성명·보도</button>
-            <button type="button" class="tab-button">기타공고</button>
+      <section class="status-grid">
+        <article class="status-card status-card-profile">
+          <div class="avatar-badge" id="avatar-badge">P1</div>
+          <div class="status-copy">
+            <p class="status-label">내 캐릭터 / 등급</p>
+            <h3 id="character-name">기본 캐릭터</h3>
+            <p id="character-grade">브론즈 등급</p>
           </div>
+        </article>
 
-          <ul class="notice-list">
-            <li><span>■ 민주노총 주간 홍보 일정 (4/20~4/26)</span><time datetime="2026-04-17">2026.04.17</time></li>
-            <li><span>[채재요청] 2026 최악의 살인기업 선정식</span><time datetime="2026-04-17">2026.04.17</time></li>
-            <li><span>[성명] 공공부문 개혁의 절반만 내놓은 정부, 처우개선 종합대책 즉각 마련하라</span><time datetime="2026-04-16">2026.04.16</time></li>
-            <li><span>[성명] 노동절 대체 휴일 불가 확인, 모든 노동자에게 ‘쉴 권리’ 보장하라</span><time datetime="2026-04-16">2026.04.16</time></li>
-          </ul>
-        </section>
+        <article class="status-card">
+          <p class="status-label">포인트</p>
+          <strong id="points-value">0P</strong>
+          <span id="points-meta">납부 후 즉시 지급</span>
+        </article>
+
+        <article class="status-card">
+          <p class="status-label">거버넌스 토큰</p>
+          <strong id="token-value">0</strong>
+          <span id="token-meta">행사 참여 / 대여 시 지급</span>
+        </article>
+
+        <article class="status-card">
+          <p class="status-label">납부 상태</p>
+          <strong id="payment-status">미납부</strong>
+          <span id="payment-meta">전환 전 안내 배너 노출</span>
+        </article>
       </section>
 
-      <aside class="social-rail" aria-label="소셜 링크">
-        <a href="#" class="social-circle social-up" aria-label="맨 위로"></a>
-        <a href="#" class="social-circle social-facebook" aria-label="Facebook"></a>
-        <a href="#" class="social-circle social-youtube" aria-label="YouTube"></a>
-        <a href="#" class="social-circle social-instagram" aria-label="Instagram"></a>
-        <a href="#" class="social-circle social-x" aria-label="X"></a>
-        <a href="#" class="social-circle social-telegram" aria-label="Telegram"></a>
-      </aside>
+      <section class="content-grid">
+        <article class="board-panel">
+          <header class="panel-titlebar">
+            <div>
+              <p class="panel-kicker" id="flow-code">12-1</p>
+              <h3 id="flow-title">납부자 플로우</h3>
+            </div>
+            <div class="progress-chip" id="progress-chip">0 / 8 단계</div>
+          </header>
+
+          <ol class="step-list" id="step-list">
+            <li class="step-item is-active" data-step="0">
+              <button type="button" class="step-button">
+                <span class="step-index">01</span>
+                <span class="step-text">
+                  <strong>앱 접속 및 학번 인증</strong>
+                  <small>포스텍 학번으로 로그인. 내 캐릭터, 등급, 포인트, 거버넌스 토큰 현황이 메인 화면에 표시.</small>
+                </span>
+              </button>
+            </li>
+          </ol>
+        </article>
+
+        <aside class="side-panel">
+          <article class="detail-panel">
+            <header class="panel-titlebar panel-titlebar-compact">
+              <div>
+                <p class="panel-kicker">현재 단계</p>
+                <h3 id="detail-title">앱 접속 및 학번 인증</h3>
+              </div>
+            </header>
+            <p class="detail-text" id="detail-text">포스텍 학번으로 로그인. 내 캐릭터, 등급, 포인트, 거버넌스 토큰 현황이 메인 화면에 표시.</p>
+            <button type="button" class="primary-action" id="step-action">이 단계 실행</button>
+          </article>
+
+          <article class="market-panel">
+            <header class="panel-titlebar panel-titlebar-compact">
+              <div>
+                <p class="panel-kicker">실시간 요약</p>
+                <h3>시장 / 서비스 보드</h3>
+              </div>
+            </header>
+            <ul class="market-list">
+              <li><span>행사 참여권 시세</span><strong id="market-price">1.55x</strong></li>
+              <li><span>대여사업 이용권</span><strong id="rental-status">잠김</strong></li>
+              <li><span>예산 투표 가능 여부</span><strong id="vote-status">불가</strong></li>
+              <li><span>이월 가능 상태</span><strong id="carry-status">대기</strong></li>
+            </ul>
+          </article>
+        </aside>
+      </section>
     </div>
   </main>
 
