@@ -11,21 +11,30 @@
 </head>
 <body>
   <main class="page">
-    <section class="hero" aria-labelledby="login-title">
+    <section class="shell" aria-labelledby="login-title">
+      <header class="topbar">
+        <a href="#" class="lang-link">KOR</a>
+        <span class="lang-divider">|</span>
+        <a href="#" class="lang-link">ENG</a>
+      </header>
+
       <div class="hero-brand">
-        <p class="brand-title">POSTECH</p>
-        <p class="brand-subtitle">POHANG UNIVERSITY OF SCIENCE AND TECHNOLOGY</p>
+        <div class="brand-mark" aria-hidden="true">
+          <span class="brand-mark-core"></span>
+        </div>
+        <div class="brand-copy">
+          <p class="brand-title">POSTECH</p>
+          <p class="brand-subtitle">POHANG UNIVERSITY OF SCIENCE AND TECHNOLOGY</p>
+        </div>
       </div>
 
       <div class="login-panel">
-        <div class="panel-topline">
-          <span>POSTECH 구성원 서비스</span>
-          <span class="divider" aria-hidden="true"></span>
-          <span>POSTECH MEMBER SERVICE</span>
+        <div class="title-lockup">
+          <p class="service-label">POSTECH 구성원 서비스</p>
+          <p class="service-label service-label-en">POSTECH MEMBER SERVICE</p>
+          <h1 id="login-title">통합로그인</h1>
+          <p class="panel-subtitle">Single Sign-On</p>
         </div>
-
-        <h1 id="login-title">통합로그인</h1>
-        <p class="panel-subtitle">Single Sign-On</p>
 
         <form id="login-form" class="login-form">
           <label class="field">
@@ -33,7 +42,7 @@
             <input
               type="text"
               name="userId"
-              placeholder="아이디"
+              placeholder="해모수 ID"
               autocomplete="username"
             >
           </label>
@@ -56,11 +65,22 @@
               <span>아이디 저장</span>
             </label>
 
-            <div class="utility-links">
-              <a href="#">계정지원</a>
-            </div>
+            <a href="#" class="inline-help">2차인증 등록 안내</a>
           </div>
         </form>
+
+        <nav class="link-grid" aria-label="계정 관련 메뉴">
+          <a href="#" class="menu-link">비밀번호 변경</a>
+          <a href="#" class="menu-link">비밀번호 초기화</a>
+          <a href="#" class="menu-link">계정 잠김 해제</a>
+          <a href="#" class="menu-link">계정 신청</a>
+        </nav>
+
+        <section class="support-box" aria-label="지원 정보">
+          <p class="support-title">안내</p>
+          <p>교외 인터넷망에서 접속 시 2차 인증이 필요할 수 있습니다.</p>
+          <p class="support-en">The multi-factor authentication service may be required outside the campus network.</p>
+        </section>
       </div>
     </section>
 
