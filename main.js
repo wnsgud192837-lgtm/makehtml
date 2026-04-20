@@ -94,8 +94,8 @@ const placeholderCopy = {
       text: "행사 체크인, 참여권 재고, 운영 현황을 관리자 권한으로 확인하고 조정할 수 있습니다."
     },
     market: {
-      title: "공지 및 배너 관리",
-      text: "납부 전환 안내, 비교 배너, 캠페인 문구를 관리자 모드에서 운영할 수 있습니다."
+      title: "공지 관리",
+      text: "이 메뉴에서 학생에게 노출할 공지를 등록하고 삭제할 수 있습니다."
     },
     governance: {
       title: "거버넌스 안건 관리",
@@ -504,6 +504,10 @@ function switchView(view) {
 
   if (placeholderText) {
     placeholderText.classList.toggle("is-hidden", isAdminNoticeView);
+  }
+
+  if (noticeMessage && !isAdminNoticeView) {
+    noticeMessage.textContent = "";
   }
 }
 
