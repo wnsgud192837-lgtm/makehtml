@@ -389,9 +389,19 @@ input {
   font-weight: 700;
 }
 
-.app-nav a {
+.app-nav-item {
+  border: 0;
+  background: transparent;
   color: inherit;
   font-size: 0.98rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  white-space: nowrap;
+}
+
+.app-nav-item.is-active {
+  color: #ffe7f5;
 }
 
 .hero-panel {
@@ -455,7 +465,7 @@ input {
 
 .status-grid {
   display: grid;
-  grid-template-columns: 1.2fr 1fr 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
   margin-bottom: 22px;
 }
@@ -512,12 +522,17 @@ input {
   font-size: 0.9rem;
 }
 
-.content-grid {
+.view-section {
+  min-height: 0;
+}
+
+.dashboard-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.8fr);
   gap: 22px;
 }
 
+.calendar-panel,
 .board-panel,
 .detail-panel,
 .market-panel {
@@ -656,6 +671,141 @@ input {
   cursor: pointer;
 }
 
+.primary-action:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+  color: #6f7e92;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.calendar-cell {
+  min-height: 116px;
+  padding: 12px;
+  border: 1px solid #dce3ee;
+  border-radius: 20px;
+  background: #fbfcfe;
+  display: grid;
+  align-content: space-between;
+  gap: 14px;
+}
+
+.calendar-cell.is-empty {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.calendar-cell.is-today {
+  border-color: rgba(23, 63, 125, 0.38);
+  box-shadow: inset 0 0 0 2px rgba(23, 63, 125, 0.08);
+}
+
+.calendar-cell.tone-paid {
+  background: linear-gradient(180deg, rgba(201, 15, 113, 0.08), #fbfcfe);
+}
+
+.calendar-cell.tone-benefit {
+  background: linear-gradient(180deg, rgba(23, 63, 125, 0.08), #fbfcfe);
+}
+
+.calendar-cell.tone-governance {
+  background: linear-gradient(180deg, rgba(58, 116, 198, 0.12), #fbfcfe);
+}
+
+.calendar-cell.tone-alert {
+  background: linear-gradient(180deg, rgba(255, 180, 0, 0.16), #fbfcfe);
+}
+
+.calendar-date {
+  color: #173f7d;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.calendar-event {
+  color: #243246;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.calendar-empty {
+  color: #9aa7b8;
+  font-size: 0.82rem;
+}
+
+.points-panel {
+  min-height: 420px;
+}
+
+.points-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.points-history-item,
+.points-history-empty {
+  padding: 18px 20px;
+  border: 1px solid #dce3ee;
+  border-radius: 18px;
+  background: #fbfcfe;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.points-history-item strong,
+.points-history-empty p {
+  display: block;
+  margin: 0;
+  color: #1d2635;
+  font-size: 0.98rem;
+}
+
+.points-history-item span,
+.points-history-empty span {
+  display: block;
+  margin-top: 6px;
+  color: #66768c;
+  font-size: 0.84rem;
+}
+
+.points-history-item b {
+  font-size: 1rem;
+  white-space: nowrap;
+}
+
+.points-history-item b.is-positive {
+  color: #173f7d;
+}
+
+.points-history-item b.is-negative {
+  color: var(--magenta);
+}
+
+.placeholder-panel {
+  min-height: 260px;
+}
+
 .market-list {
   list-style: none;
   margin: 0;
@@ -679,12 +829,8 @@ input {
 @media (max-width: 1100px) {
   .hero-panel,
   .status-grid,
-  .content-grid {
+  .dashboard-layout {
     grid-template-columns: 1fr;
-  }
-
-  .status-card-profile {
-    grid-template-columns: 72px 1fr;
   }
 }
 
@@ -739,9 +885,28 @@ input {
   }
 
   .hero-panel,
+  .calendar-panel,
   .board-panel,
   .detail-panel,
   .market-panel {
     padding: 18px 16px;
+  }
+
+  .calendar-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .calendar-weekdays {
+    display: none;
+  }
+
+  .calendar-cell {
+    min-height: 96px;
+  }
+
+  .points-history-item,
+  .points-history-empty {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

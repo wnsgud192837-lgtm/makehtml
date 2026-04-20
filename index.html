@@ -92,20 +92,20 @@
         <div class="app-brand">
           <img src="./logo-mark.png" alt="POSTECH anniversary style logo" class="app-brand-image">
           <div class="app-brand-copy">
-            <p class="app-brand-title">POSTECH STUDENT EXPERIENCE</p>
-            <p class="app-brand-subtitle">납부 여부에 따라 분기되는 학생 경험 설계</p>
+            <p class="app-brand-title">POSTECH</p>
+            <p class="app-brand-subtitle">포인트</p>
           </div>
         </div>
         <button type="button" class="ghost-button" id="logout-button">로그아웃</button>
       </header>
 
       <nav class="app-nav" aria-label="주요 메뉴">
-        <a href="#">대시보드</a>
-        <a href="#">포인트</a>
-        <a href="#">토큰</a>
-        <a href="#">세컨더리 마켓</a>
-        <a href="#">거버넌스</a>
-        <a href="#">대여사업</a>
+        <button type="button" class="app-nav-item is-active" data-view="dashboard">대시보드</button>
+        <button type="button" class="app-nav-item" data-view="points">포인트</button>
+        <button type="button" class="app-nav-item" data-view="tokens">토큰</button>
+        <button type="button" class="app-nav-item" data-view="market">세컨더리 마켓</button>
+        <button type="button" class="app-nav-item" data-view="governance">거버넌스</button>
+        <button type="button" class="app-nav-item" data-view="rental">대여사업</button>
       </nav>
 
       <section class="hero-panel">
@@ -121,20 +121,17 @@
         </div>
       </section>
 
-      <section class="status-grid">
-        <article class="status-card status-card-profile">
-          <div class="avatar-badge" id="avatar-badge">P1</div>
-          <div class="status-copy">
-            <p class="status-label">내 캐릭터 / 등급</p>
-            <h3 id="character-name">기본 캐릭터</h3>
-            <p id="character-grade">브론즈 등급</p>
-          </div>
+      <section class="status-grid" id="status-grid">
+        <article class="status-card">
+          <p class="status-label">납부 여부</p>
+          <strong id="payment-status">미납부</strong>
+          <span id="payment-meta">전환 전 안내 배너 노출</span>
         </article>
 
         <article class="status-card">
           <p class="status-label">포인트</p>
           <strong id="points-value">0P</strong>
-          <span id="points-meta">납부 후 즉시 지급</span>
+          <span id="points-meta">잔여 포인트</span>
         </article>
 
         <article class="status-card">
@@ -142,64 +139,79 @@
           <strong id="token-value">0</strong>
           <span id="token-meta">행사 참여 / 대여 시 지급</span>
         </article>
+      </section>
 
-        <article class="status-card">
-          <p class="status-label">납부 상태</p>
-          <strong id="payment-status">미납부</strong>
-          <span id="payment-meta">전환 전 안내 배너 노출</span>
+      <section class="view-section" id="dashboard-view">
+        <div class="dashboard-layout">
+          <article class="calendar-panel">
+            <header class="panel-titlebar">
+              <div>
+                <p class="panel-kicker">캘린더</p>
+                <h3 id="calendar-month-label">2026년 4월</h3>
+              </div>
+              <div class="progress-chip" id="calendar-summary">주요 일정 0건</div>
+            </header>
+            <div class="calendar-weekdays" aria-hidden="true">
+              <span>일</span>
+              <span>월</span>
+              <span>화</span>
+              <span>수</span>
+              <span>목</span>
+              <span>금</span>
+              <span>토</span>
+            </div>
+            <div class="calendar-grid" id="calendar-grid"></div>
+          </article>
+
+          <aside class="side-panel">
+            <article class="detail-panel">
+              <header class="panel-titlebar panel-titlebar-compact">
+                <div>
+                  <p class="panel-kicker">선택 모드</p>
+                  <h3 id="flow-title">납부자 경험 설계</h3>
+                </div>
+              </header>
+              <p class="detail-text" id="detail-text">납부 상태에 따라 어떤 일정과 보상이 열리는지 대시보드에서 확인할 수 있습니다.</p>
+              <button type="button" class="primary-action" id="step-action">다음 단계 반영</button>
+            </article>
+
+            <article class="market-panel">
+              <header class="panel-titlebar panel-titlebar-compact">
+                <div>
+                  <p class="panel-kicker">일정 요약</p>
+                  <h3>이번 달 핵심 액션</h3>
+                </div>
+              </header>
+              <ul class="market-list" id="calendar-agenda"></ul>
+            </article>
+          </aside>
+        </div>
+      </section>
+
+      <section class="view-section is-hidden" id="points-view">
+        <article class="board-panel points-panel">
+          <header class="panel-titlebar">
+            <div>
+              <p class="panel-kicker">포인트</p>
+              <h3>포인트 사용 내역</h3>
+            </div>
+            <div class="progress-chip" id="points-history-total">0건</div>
+          </header>
+
+          <ul class="points-history-list" id="points-history-list"></ul>
         </article>
       </section>
 
-      <section class="content-grid">
-        <article class="board-panel">
+      <section class="view-section is-hidden" id="placeholder-view">
+        <article class="board-panel placeholder-panel">
           <header class="panel-titlebar">
             <div>
-              <p class="panel-kicker" id="flow-code">12-1</p>
-              <h3 id="flow-title">납부자 경험 설계</h3>
+              <p class="panel-kicker">준비 중</p>
+              <h3 id="placeholder-title">상세 설계 예정</h3>
             </div>
-            <div class="progress-chip" id="progress-chip">0 / 8 단계</div>
           </header>
-
-          <ol class="step-list" id="step-list">
-            <li class="step-item is-active" data-step="0">
-              <button type="button" class="step-button">
-                <span class="step-index">01</span>
-                <span class="step-text">
-                  <strong>앱 접속 및 학번 인증</strong>
-                  <small>포스텍 학번으로 로그인. 내 캐릭터, 등급, 포인트, 거버넌스 토큰 현황이 메인 화면에 표시.</small>
-                </span>
-              </button>
-            </li>
-          </ol>
+          <p class="detail-text" id="placeholder-text">이 메뉴는 다음 단계에서 구체적인 상호작용을 설계할 예정입니다.</p>
         </article>
-
-        <aside class="side-panel">
-          <article class="detail-panel">
-            <header class="panel-titlebar panel-titlebar-compact">
-              <div>
-                <p class="panel-kicker">현재 단계</p>
-                <h3 id="detail-title">앱 접속 및 학번 인증</h3>
-              </div>
-            </header>
-            <p class="detail-text" id="detail-text">포스텍 학번으로 로그인. 내 캐릭터, 등급, 포인트, 거버넌스 토큰 현황이 메인 화면에 표시.</p>
-            <button type="button" class="primary-action" id="step-action">이 단계 실행</button>
-          </article>
-
-          <article class="market-panel">
-            <header class="panel-titlebar panel-titlebar-compact">
-              <div>
-                <p class="panel-kicker">실시간 요약</p>
-                <h3>시장 / 서비스 보드</h3>
-              </div>
-            </header>
-            <ul class="market-list">
-              <li><span>행사 참여권 시세</span><strong id="market-price">1.55x</strong></li>
-              <li><span>대여사업 이용권</span><strong id="rental-status">잠김</strong></li>
-              <li><span>예산 투표 가능 여부</span><strong id="vote-status">불가</strong></li>
-              <li><span>이월 가능 상태</span><strong id="carry-status">대기</strong></li>
-            </ul>
-          </article>
-        </aside>
       </section>
     </div>
   </main>

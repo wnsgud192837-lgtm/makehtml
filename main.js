@@ -4,6 +4,13 @@ const dashboardPage = document.querySelector("#dashboard-page");
 const loginMessage = document.querySelector("#login-message");
 const logoutButton = document.querySelector("#logout-button");
 const modeButtons = Array.from(document.querySelectorAll("[data-mode]"));
+const navItems = Array.from(document.querySelectorAll(".app-nav-item"));
+const statusGrid = document.querySelector("#status-grid");
+const dashboardView = document.querySelector("#dashboard-view");
+const pointsView = document.querySelector("#points-view");
+const placeholderView = document.querySelector("#placeholder-view");
+const placeholderTitle = document.querySelector("#placeholder-title");
+const placeholderText = document.querySelector("#placeholder-text");
 const stepList = document.querySelector("#step-list");
 const flowCode = document.querySelector("#flow-code");
 const flowTitle = document.querySelector("#flow-title");
@@ -24,11 +31,42 @@ const marketPrice = document.querySelector("#market-price");
 const rentalStatus = document.querySelector("#rental-status");
 const voteStatus = document.querySelector("#vote-status");
 const carryStatus = document.querySelector("#carry-status");
+const calendarMonthLabel = document.querySelector("#calendar-month-label");
+const calendarSummary = document.querySelector("#calendar-summary");
+const calendarGrid = document.querySelector("#calendar-grid");
+const calendarAgenda = document.querySelector("#calendar-agenda");
+const pointsHistoryList = document.querySelector("#points-history-list");
+const pointsHistoryTotal = document.querySelector("#points-history-total");
+
+const placeholderCopy = {
+  tokens: {
+    title: "토큰 화면 설계 예정",
+    text: "거버넌스 토큰 적립, 사용, 소각 흐름을 이 메뉴에서 분리해 설계할 예정입니다."
+  },
+  market: {
+    title: "세컨더리 마켓 설계 예정",
+    text: "거래 보드, AMM 시세, 구매 전환 흐름을 이 메뉴에서 구체화할 예정입니다."
+  },
+  governance: {
+    title: "거버넌스 설계 예정",
+    text: "예산 투표, 안건 제안, 토큰 소각 규칙을 이 메뉴에서 구체화할 예정입니다."
+  },
+  rental: {
+    title: "대여사업 설계 예정",
+    text: "대여 가능 자산, 예약 상태, 납부자 우선권 흐름을 이 메뉴에서 구체화할 예정입니다."
+  }
+};
 
 const scenarios = {
   payer: {
     code: "12-1",
     title: "납부자 경험 설계",
+    calendarEvents: [
+      { day: 4, label: "학생회비 납부 시작", tone: "paid" },
+      { day: 12, label: "봄축제 체크인", tone: "benefit" },
+      { day: 18, label: "대여사업 오픈", tone: "benefit" },
+      { day: 25, label: "예산 투표", tone: "governance" }
+    ],
     steps: [
       {
         title: "01 앱 접속 및 학번 인증",
@@ -50,6 +88,12 @@ const scenarios = {
           state.character = "기본 캐릭터";
           state.grade = "브론즈 등급";
           state.avatar = "P1";
+          state.pointHistory.push({
+            title: "학생회비 납부 리워드 지급",
+            date: "2026.04.04",
+            amount: 31000,
+            type: "earn"
+          });
         }
       },
       {
@@ -61,6 +105,12 @@ const scenarios = {
           state.tokens += 1;
           state.market = "1.32x";
           state.pointsMeta = "행사 참여로 4,000P 사용";
+          state.pointHistory.push({
+            title: "봄축제 참여권 사용",
+            date: "2026.04.12",
+            amount: -4000,
+            type: "use"
+          });
         }
       },
       {
@@ -81,6 +131,12 @@ const scenarios = {
           state.market = "1.68x";
           state.points += 2500;
           state.pointsMeta = "토큰 매도로 2,500P 회수";
+          state.pointHistory.push({
+            title: "세컨더리 마켓 정산",
+            date: "2026.04.16",
+            amount: 2500,
+            type: "earn"
+          });
         }
       },
       {
@@ -92,6 +148,12 @@ const scenarios = {
           state.carry = "이월 후보";
           state.character = "확장 캐릭터";
           state.avatar = "P2";
+          state.pointHistory.push({
+            title: "캐릭터 아이템 및 ETF 운용",
+            date: "2026.04.20",
+            amount: -6000,
+            type: "use"
+          });
         }
       },
       {
@@ -120,6 +182,12 @@ const scenarios = {
   nonpayer: {
     code: "12-2",
     title: "미납부자 전환 설계",
+    calendarEvents: [
+      { day: 6, label: "비교 배너 노출", tone: "alert" },
+      { day: 11, label: "행사권 시세 상승", tone: "alert" },
+      { day: 19, label: "전환 혜택 안내", tone: "paid" },
+      { day: 24, label: "납부 전환 마감", tone: "governance" }
+    ],
     steps: [
       {
         title: "01 앱 접속",
@@ -150,6 +218,12 @@ const scenarios = {
           state.points = -18000;
           state.market = "1.62x";
           state.paymentMeta = "행사권 구매 비용 증가";
+          state.pointHistory.push({
+            title: "행사 참여권 구매",
+            date: "2026.04.11",
+            amount: -18000,
+            type: "use"
+          });
         }
       },
       {
@@ -175,6 +249,12 @@ const scenarios = {
           state.grade = "입문 등급";
           state.avatar = "N2";
           state.rental = "전환 후 가능";
+          state.pointHistory.push({
+            title: "납부 전환 후 포인트 지급",
+            date: "2026.04.19",
+            amount: 31000,
+            type: "earn"
+          });
         }
       }
     ]
@@ -193,11 +273,13 @@ const baseState = {
   rental: "잠김",
   vote: "불가",
   carry: "대기",
-  pointsMeta: "납부 후 즉시 지급",
-  tokenMeta: "행사 참여 / 대여 시 지급"
+  pointsMeta: "잔여 포인트",
+  tokenMeta: "행사 참여 / 대여 시 지급",
+  pointHistory: []
 };
 
 let currentMode = "payer";
+let currentView = "dashboard";
 let activeStepIndex = 0;
 let completedSteps = new Set();
 let state = { ...baseState };
@@ -206,10 +288,12 @@ function resetScenario(mode) {
   currentMode = mode;
   activeStepIndex = 0;
   completedSteps = new Set();
-  state = { ...baseState };
+  state = { ...baseState, pointHistory: [] };
   updateModeButtons();
   renderScenario();
   renderStatus();
+  renderCalendar();
+  renderPointsHistory();
 }
 
 function updateModeButtons() {
@@ -253,6 +337,27 @@ function renderScenario() {
   bindStepButtons();
 }
 
+function switchView(view) {
+  currentView = view;
+  navItems.forEach((item) => {
+    item.classList.toggle("is-active", item.dataset.view === view);
+  });
+
+  const isDashboard = view === "dashboard";
+  const isPoints = view === "points";
+
+  if (statusGrid) statusGrid.classList.toggle("is-hidden", !isDashboard);
+  if (dashboardView) dashboardView.classList.toggle("is-hidden", !isDashboard);
+  if (pointsView) pointsView.classList.toggle("is-hidden", !isPoints);
+  if (placeholderView) placeholderView.classList.toggle("is-hidden", isDashboard || isPoints);
+
+  if (!isDashboard && !isPoints) {
+    const copy = placeholderCopy[view];
+    if (placeholderTitle && copy) placeholderTitle.textContent = copy.title;
+    if (placeholderText && copy) placeholderText.textContent = copy.text;
+  }
+}
+
 function bindStepButtons() {
   const stepItems = Array.from(document.querySelectorAll(".step-item"));
   stepItems.forEach((item) => {
@@ -276,9 +381,6 @@ function syncDetailPanel() {
 }
 
 function renderStatus() {
-  if (avatarBadge) avatarBadge.textContent = state.avatar;
-  if (characterName) characterName.textContent = state.character;
-  if (characterGrade) characterGrade.textContent = state.grade;
   if (pointsValue) pointsValue.textContent = `${state.points.toLocaleString()}P`;
   if (pointsMeta) pointsMeta.textContent = state.pointsMeta;
   if (tokenValue) tokenValue.textContent = String(state.tokens);
@@ -289,6 +391,84 @@ function renderStatus() {
   if (rentalStatus) rentalStatus.textContent = state.rental;
   if (voteStatus) voteStatus.textContent = state.vote;
   if (carryStatus) carryStatus.textContent = state.carry;
+}
+
+function renderCalendar() {
+  const scenario = scenarios[currentMode];
+  const events = scenario.calendarEvents || [];
+  const eventByDay = new Map(events.map((event) => [event.day, event]));
+  const monthDate = new Date(2026, 3, 1);
+  const monthName = `${monthDate.getFullYear()}년 ${monthDate.getMonth() + 1}월`;
+  const firstDay = monthDate.getDay();
+  const lastDate = new Date(2026, 4, 0).getDate();
+  const cells = [];
+
+  if (calendarMonthLabel) calendarMonthLabel.textContent = monthName;
+  if (calendarSummary) calendarSummary.textContent = `주요 일정 ${events.length}건`;
+
+  for (let index = 0; index < firstDay; index += 1) {
+    cells.push('<div class="calendar-cell is-empty" aria-hidden="true"></div>');
+  }
+
+  for (let day = 1; day <= lastDate; day += 1) {
+    const event = eventByDay.get(day);
+    const classes = ["calendar-cell"];
+    if (day === 20) classes.push("is-today");
+    if (event) classes.push(`tone-${event.tone}`);
+
+    cells.push(`
+      <article class="${classes.join(" ")}">
+        <span class="calendar-date">${day}</span>
+        ${event ? `<strong class="calendar-event">${event.label}</strong>` : '<span class="calendar-empty">일정 없음</span>'}
+      </article>
+    `);
+  }
+
+  if (calendarGrid) {
+    calendarGrid.innerHTML = cells.join("");
+  }
+
+  if (calendarAgenda) {
+    calendarAgenda.innerHTML = events
+      .map((event) => `<li><span>4월 ${event.day}일</span><strong>${event.label}</strong></li>`)
+      .join("");
+  }
+}
+
+function renderPointsHistory() {
+  const history = state.pointHistory;
+
+  if (pointsHistoryTotal) {
+    pointsHistoryTotal.textContent = `${history.length}건`;
+  }
+
+  if (!pointsHistoryList) return;
+
+  if (history.length === 0) {
+    pointsHistoryList.innerHTML = `
+      <li class="points-history-empty">
+        <p>아직 반영된 포인트 사용 내역이 없습니다.</p>
+        <span>대시보드에서 단계 반영 후 포인트 변동을 확인할 수 있습니다.</span>
+      </li>
+    `;
+    return;
+  }
+
+  pointsHistoryList.innerHTML = history
+    .slice()
+    .reverse()
+    .map((entry) => `
+      <li class="points-history-item">
+        <div>
+          <strong>${entry.title}</strong>
+          <span>${entry.date}</span>
+        </div>
+        <b class="${entry.type === "use" ? "is-negative" : "is-positive"}">
+          ${entry.amount > 0 ? "+" : ""}${entry.amount.toLocaleString()}P
+        </b>
+      </li>
+    `)
+    .join("");
 }
 
 function applyCurrentStep() {
@@ -306,6 +486,8 @@ function applyCurrentStep() {
 
   renderScenario();
   renderStatus();
+  renderCalendar();
+  renderPointsHistory();
 }
 
 if (stepAction) {
@@ -316,6 +498,14 @@ modeButtons.forEach((button) => {
   button.addEventListener("click", () => {
     if (button.dataset.mode) {
       resetScenario(button.dataset.mode);
+    }
+  });
+});
+
+navItems.forEach((item) => {
+  item.addEventListener("click", () => {
+    if (item.dataset.view) {
+      switchView(item.dataset.view);
     }
   });
 });
@@ -350,6 +540,7 @@ if (loginForm) {
     }
 
     resetScenario("payer");
+    switchView("dashboard");
 
     if (loginPage) loginPage.classList.add("is-hidden");
     if (dashboardPage) dashboardPage.classList.remove("is-hidden");
@@ -357,3 +548,4 @@ if (loginForm) {
 }
 
 resetScenario("payer");
+switchView("dashboard");
