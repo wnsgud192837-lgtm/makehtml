@@ -700,6 +700,15 @@ function switchView(view) {
   const isGovernanceView = view === "governance";
   const isAdminGovernanceView = currentRole === "admin" && isGovernanceView;
   const isStudentGovernanceView = currentRole === "student" && isGovernanceView;
+  const isStudentDashboardNoticeView = currentRole === "student" && isDashboard;
+
+  if (heroNoticeList) {
+    heroNoticeList.classList.toggle("is-hidden", !isStudentDashboardNoticeView);
+  }
+
+  if (heroDescription) {
+    heroDescription.classList.toggle("is-hidden", currentRole === "student" || isAdminNoticeView || isGovernanceView);
+  }
 
   if (noticeAdminPanel) {
     noticeAdminPanel.classList.toggle("is-hidden", !isAdminNoticeView);
