@@ -9,6 +9,7 @@ const appRoleSubtitle = document.querySelector("#app-role-subtitle");
 const heroKicker = document.querySelector("#hero-kicker");
 const heroTitle = document.querySelector("#hero-title");
 const heroDescription = document.querySelector("#hero-description");
+const heroNoticeList = document.querySelector("#hero-notice-list");
 const heroActions = document.querySelector("#hero-actions");
 const statusGrid = document.querySelector("#status-grid");
 const dashboardView = document.querySelector("#dashboard-view");
@@ -16,6 +17,10 @@ const pointsView = document.querySelector("#points-view");
 const placeholderView = document.querySelector("#placeholder-view");
 const placeholderTitle = document.querySelector("#placeholder-title");
 const placeholderText = document.querySelector("#placeholder-text");
+const noticeAdminPanel = document.querySelector("#notice-admin-panel");
+const noticeForm = document.querySelector("#notice-form");
+const noticeMessage = document.querySelector("#notice-message");
+const adminNoticeList = document.querySelector("#admin-notice-list");
 const paymentLabel = document.querySelector("#payment-label");
 const pointsLabel = document.querySelector("#points-label");
 const tokenLabel = document.querySelector("#token-label");
@@ -139,12 +144,30 @@ const adminState = {
   ]
 };
 
+let noticeItems = [
+  {
+    title: "2026 봄축제 체크인 안내",
+    content: "4월 12일 13시부터 학생회관 앞 부스에서 QR 체크인이 진행됩니다.",
+    date: "2026.04.20"
+  },
+  {
+    title: "학생회비 납부 리워드 지급",
+    content: "학생회비를 납부하면 즉시 31,000포인트가 지급됩니다.",
+    date: "2026.04.20"
+  },
+  {
+    title: "대여사업 오픈 예정",
+    content: "프린터, 계산기, 우산 대여 서비스가 4월 24일에 오픈합니다.",
+    date: "2026.04.18"
+  }
+];
+
 const roleConfigs = {
   student: {
     subtitle: "학생 모드",
     heroKicker: "학생 서비스",
-    heroTitle: "POSTECH 학생회비 앱 사용자 흐름 설계",
-    heroDescription: "학생 로그인 이후 납부 상태에 따라 혜택과 전환 유도가 어떻게 달라지는지 확인할 수 있습니다.",
+    heroTitle: "공지사항",
+    heroDescription: "학생에게 노출되는 최신 공지 목록입니다.",
     labels: {
       payment: "납부 여부",
       points: "포인트",
@@ -411,6 +434,14 @@ let activeStepIndex = 0;
 let completedSteps = new Set();
 let state = { ...baseState };
 
+function formatDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}.${month}.${day}`;
+}
+
 function applyRoleLayout(role) {
   const roleConfig = roleConfigs[role];
 
@@ -420,6 +451,8 @@ function applyRoleLayout(role) {
   if (heroKicker) heroKicker.textContent = roleConfig.heroKicker;
   if (heroTitle) heroTitle.textContent = roleConfig.heroTitle;
   if (heroDescription) heroDescription.textContent = roleConfig.heroDescription;
+  if (heroDescription) heroDescription.classList.toggle("is-hidden", role === "student");
+  if (heroNoticeList) heroNoticeList.classList.toggle("is-hidden", role !== "student");
   if (paymentLabel) paymentLabel.textContent = roleConfig.labels.payment;
   if (pointsLabel) pointsLabel.textContent = roleConfig.labels.points;
   if (tokenLabel) tokenLabel.textContent = roleConfig.labels.token;
@@ -431,6 +464,8 @@ function applyRoleLayout(role) {
       item.textContent = roleConfig.nav[view];
     }
   });
+
+  renderNoticeLists();
 }
 
 function resetScenario(mode) {
@@ -475,6 +510,16 @@ function switchView(view) {
     const copy = placeholderCopy[currentRole]?.[view];
     if (placeholderTitle && copy) placeholderTitle.textContent = copy.title;
     if (placeholderText && copy) placeholderText.textContent = copy.text;
+  }
+
+  const isAdminNoticeView = currentRole === "admin" && view === "market";
+
+  if (noticeAdminPanel) {
+    noticeAdminPanel.classList.toggle("is-hidden", !isAdminNoticeView);
+  }
+
+  if (placeholderText) {
+    placeholderText.classList.toggle("is-hidden", isAdminNoticeView);
   }
 }
 
@@ -586,6 +631,28 @@ function renderPointsHistory() {
     .join("");
 }
 
+function renderNoticeLists() {
+  const noticeMarkup = noticeItems
+    .map((notice) => `
+      <li class="notice-item">
+        <div class="notice-meta">
+          <strong>${notice.title}</strong>
+          <span>${notice.date}</span>
+        </div>
+        <p>${notice.content}</p>
+      </li>
+    `)
+    .join("");
+
+  if (heroNoticeList) {
+    heroNoticeList.innerHTML = noticeMarkup;
+  }
+
+  if (adminNoticeList) {
+    adminNoticeList.innerHTML = noticeMarkup;
+  }
+}
+
 function applyCurrentStep() {
   if (currentRole !== "student") return;
 
@@ -603,6 +670,30 @@ function applyCurrentStep() {
 
   renderStatus();
   renderCalendar();
+  renderPointsHistory();
+}
+
+function handleStudentPayment() {
+  if (currentRole !== "student") return;
+
+  const isSettled =
+    state.paymentStatus === "납부 완료" || state.paymentStatus === "납부 전환";
+
+  if (isSettled) return;
+
+  state.paymentStatus = "납부 완료";
+  state.paymentMeta = "31,000포인트 지급 완료";
+  state.points += 31000;
+  state.pointsMeta = "학생회비 납부로 31,000P 지급";
+
+  state.pointHistory.push({
+    title: "학생회비 납부 리워드 지급",
+    date: formatDate(new Date()),
+    amount: 31000,
+    type: "earn"
+  });
+
+  renderStatus();
   renderPointsHistory();
 }
 
@@ -637,6 +728,47 @@ if (calendarNextButton) {
       currentCalendarMonth += 1;
       renderCalendar();
     }
+  });
+}
+
+if (paymentButton) {
+  paymentButton.addEventListener("click", () => {
+    handleStudentPayment();
+  });
+}
+
+if (noticeForm) {
+  noticeForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+
+    if (currentRole !== "admin") return;
+
+    const formData = new FormData(noticeForm);
+    const title = String(formData.get("title") || "").trim();
+    const content = String(formData.get("content") || "").trim();
+
+    if (!title || !content) {
+      if (noticeMessage) {
+        noticeMessage.textContent = "공지 제목과 내용을 모두 입력해야 합니다.";
+      }
+      return;
+    }
+
+    noticeItems = [
+      {
+        title,
+        content,
+        date: formatDate(new Date())
+      },
+      ...noticeItems
+    ];
+
+    if (noticeMessage) {
+      noticeMessage.textContent = "공지가 등록되었습니다.";
+    }
+
+    noticeForm.reset();
+    renderNoticeLists();
   });
 }
 

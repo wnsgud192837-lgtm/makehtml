@@ -115,6 +115,7 @@
           <p class="hero-kicker" id="hero-kicker">12. 서비스 설계</p>
           <h2 id="hero-title">POSTECH 학생회비 앱 사용자 흐름 설계</h2>
           <p id="hero-description">로그인 이후 사용자의 납부 상태를 기준으로 접근 권한, 보상, 참여 수단이 자연스럽게 갈라지도록 구조를 설계했습니다. 납부자는 혜택이 확장되고, 미납부자는 비교와 전환 유도를 거치며 납부 전환의 필요성을 이해하게 됩니다.</p>
+          <ul class="notice-list is-hidden" id="hero-notice-list"></ul>
         </div>
 
         <div class="hero-actions" id="hero-actions">
@@ -189,6 +190,26 @@
             </div>
           </header>
           <p class="detail-text" id="placeholder-text">이 메뉴는 다음 단계에서 구체적인 상호작용을 설계할 예정입니다.</p>
+
+          <section class="notice-admin is-hidden" id="notice-admin-panel">
+            <form class="notice-form" id="notice-form">
+              <label class="notice-field">
+                <span>공지 제목</span>
+                <input type="text" name="title" placeholder="공지 제목을 입력하세요" maxlength="80">
+              </label>
+
+              <label class="notice-field">
+                <span>공지 내용</span>
+                <textarea name="content" placeholder="학생에게 보여줄 공지 내용을 입력하세요" rows="5" maxlength="400"></textarea>
+              </label>
+
+              <button type="submit" class="login-button notice-submit">공지 등록</button>
+            </form>
+
+            <p class="login-message" id="notice-message" aria-live="polite"></p>
+
+            <ul class="notice-list notice-list-admin" id="admin-notice-list"></ul>
+          </section>
         </article>
       </section>
     </div>
