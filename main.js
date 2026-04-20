@@ -421,7 +421,6 @@ let supabase = null;
 let isMarketSyncing = false;
 let lastMarketSyncSource = "local";
 let isGovernanceSyncing = false;
-let currentAuthMode = "demo";
 
 function formatDate(date) {
   const year = date.getFullYear();
@@ -479,39 +478,6 @@ function getMarketUserKey() {
 
 function getGovernanceUserKey() {
   return `${currentRole}:${currentUserId}`;
-}
-
-function enterDashboard(role, userId, authMode = "demo") {
-  currentRole = role;
-  currentUserId = userId;
-  currentAuthMode = authMode;
-  applyRoleLayout(currentRole);
-  resetScenario(roleConfigs[currentRole].defaultMode);
-  switchView("dashboard");
-  void syncMarketStateFromSupabase();
-  void syncGovernanceFromSupabase();
-
-  if (loginPage) loginPage.classList.add("is-hidden");
-  if (dashboardPage) dashboardPage.classList.remove("is-hidden");
-}
-
-async function tryRestoreSupabaseSession() {
-  const client = initSupabase();
-  if (!client) return false;
-
-  try {
-    const { data, error } = await client.auth.getSession();
-    if (error) throw error;
-
-    const sessionUser = data.session?.user;
-    if (!sessionUser) return false;
-
-    enterDashboard("student", sessionUser.id, "supabase");
-    return true;
-  } catch (error) {
-    console.error("Supabase session restore failed:", error);
-    return false;
-  }
 }
 
 async function ensureRemoteMarketSeed() {
@@ -2131,24 +2097,13 @@ if (governanceList) {
 }
 
 if (logoutButton) {
-  logoutButton.addEventListener("click", async () => {
-    if (currentAuthMode === "supabase") {
-      const client = initSupabase();
-      if (client) {
-        const { error } = await client.auth.signOut();
-        if (error) {
-          console.error("Supabase sign out failed:", error);
-        }
-      }
-    }
-
+  logoutButton.addEventListener("click", () => {
     if (dashboardPage) dashboardPage.classList.add("is-hidden");
     if (loginPage) loginPage.classList.remove("is-hidden");
     if (loginForm) loginForm.reset();
     if (loginMessage) loginMessage.textContent = "";
     currentRole = "student";
     currentUserId = "student";
-    currentAuthMode = "demo";
     applyRoleLayout(currentRole);
     resetScenario(roleConfigs[currentRole].defaultMode);
     switchView("dashboard");
@@ -2156,46 +2111,24 @@ if (logoutButton) {
 }
 
 if (loginForm) {
-  loginForm.addEventListener("submit", async (event) => {
+  loginForm.addEventListener("submit", (event) => {
     event.preventDefault();
 
     const formData = new FormData(loginForm);
     const userId = String(formData.get("userId") || "").trim();
     const password = String(formData.get("password") || "").trim();
 
+    let nextRole = "";
+
     if (userId === "admin" && password === "admin") {
-      if (loginMessage) loginMessage.textContent = "";
-      enterDashboard("admin", "admin", "demo");
-      return;
+      nextRole = "admin";
+    } else if (userId === "student" && password === "student") {
+      nextRole = "student";
     }
 
-    const client = initSupabase();
-    if (!client) {
+    if (!nextRole) {
       if (loginMessage) {
-        loginMessage.textContent = "로그인 서비스를 초기화하지 못했습니다.";
-      }
-      return;
-    }
-
-    if (!userId || !password) {
-      if (loginMessage) {
-        loginMessage.textContent = "이메일과 비밀번호를 모두 입력해야 합니다.";
-      }
-      return;
-    }
-
-    if (loginMessage) {
-      loginMessage.textContent = "로그인 확인 중입니다.";
-    }
-
-    const { data, error } = await client.auth.signInWithPassword({
-      email: userId,
-      password
-    });
-
-    if (error || !data.user) {
-      if (loginMessage) {
-        loginMessage.textContent = "Supabase 계정 이메일 또는 비밀번호가 올바르지 않습니다.";
+        loginMessage.textContent = "아이디 또는 비밀번호가 올바르지 않습니다.";
       }
       return;
     }
@@ -2204,7 +2137,16 @@ if (loginForm) {
       loginMessage.textContent = "";
     }
 
-    enterDashboard("student", data.user.id, "supabase");
+    currentRole = nextRole;
+    currentUserId = userId;
+    applyRoleLayout(currentRole);
+    resetScenario(roleConfigs[currentRole].defaultMode);
+    switchView("dashboard");
+    void syncMarketStateFromSupabase();
+    void syncGovernanceFromSupabase();
+
+    if (loginPage) loginPage.classList.add("is-hidden");
+    if (dashboardPage) dashboardPage.classList.remove("is-hidden");
   });
 }
 
@@ -2218,4 +2160,3 @@ applyRoleLayout(currentRole);
 resetScenario(roleConfigs[currentRole].defaultMode);
 switchView("dashboard");
 void syncGovernanceFromSupabase();
-void tryRestoreSupabaseSession();
