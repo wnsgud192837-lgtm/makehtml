@@ -142,50 +142,26 @@
       </section>
 
       <section class="view-section" id="dashboard-view">
-        <div class="dashboard-layout">
-          <article class="calendar-panel">
-            <header class="panel-titlebar">
-              <div>
-                <p class="panel-kicker">캘린더</p>
-                <h3 id="calendar-month-label">2026년 4월</h3>
-              </div>
-              <div class="progress-chip" id="calendar-summary">주요 일정 0건</div>
-            </header>
-            <div class="calendar-weekdays" aria-hidden="true">
-              <span>일</span>
-              <span>월</span>
-              <span>화</span>
-              <span>수</span>
-              <span>목</span>
-              <span>금</span>
-              <span>토</span>
+        <article class="calendar-panel">
+          <header class="panel-titlebar">
+            <button type="button" class="calendar-nav-button" id="calendar-prev-button" aria-label="이전 달">&larr;</button>
+            <div>
+              <p class="panel-kicker">캘린더</p>
+              <h3 id="calendar-month-label">2026년 4월</h3>
             </div>
-            <div class="calendar-grid" id="calendar-grid"></div>
-          </article>
-
-          <aside class="side-panel">
-            <article class="detail-panel">
-              <header class="panel-titlebar panel-titlebar-compact">
-                <div>
-                  <p class="panel-kicker">선택 모드</p>
-                  <h3 id="flow-title">납부자 경험 설계</h3>
-                </div>
-              </header>
-              <p class="detail-text" id="detail-text">납부 상태에 따라 어떤 일정과 보상이 열리는지 대시보드에서 확인할 수 있습니다.</p>
-              <button type="button" class="primary-action" id="step-action">다음 단계 반영</button>
-            </article>
-
-            <article class="market-panel">
-              <header class="panel-titlebar panel-titlebar-compact">
-                <div>
-                  <p class="panel-kicker">일정 요약</p>
-                  <h3>이번 달 핵심 액션</h3>
-                </div>
-              </header>
-              <ul class="market-list" id="calendar-agenda"></ul>
-            </article>
-          </aside>
-        </div>
+            <button type="button" class="calendar-nav-button" id="calendar-next-button" aria-label="다음 달">&rarr;</button>
+          </header>
+          <div class="calendar-weekdays" aria-hidden="true">
+            <span>일</span>
+            <span>월</span>
+            <span>화</span>
+            <span>수</span>
+            <span>목</span>
+            <span>금</span>
+            <span>토</span>
+          </div>
+          <div class="calendar-grid" id="calendar-grid"></div>
+        </article>
       </section>
 
       <section class="view-section is-hidden" id="points-view">

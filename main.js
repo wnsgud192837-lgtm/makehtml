@@ -11,30 +11,16 @@ const pointsView = document.querySelector("#points-view");
 const placeholderView = document.querySelector("#placeholder-view");
 const placeholderTitle = document.querySelector("#placeholder-title");
 const placeholderText = document.querySelector("#placeholder-text");
-const stepList = document.querySelector("#step-list");
-const flowCode = document.querySelector("#flow-code");
-const flowTitle = document.querySelector("#flow-title");
-const progressChip = document.querySelector("#progress-chip");
-const detailTitle = document.querySelector("#detail-title");
-const detailText = document.querySelector("#detail-text");
-const stepAction = document.querySelector("#step-action");
-const avatarBadge = document.querySelector("#avatar-badge");
-const characterName = document.querySelector("#character-name");
-const characterGrade = document.querySelector("#character-grade");
 const pointsValue = document.querySelector("#points-value");
 const pointsMeta = document.querySelector("#points-meta");
 const tokenValue = document.querySelector("#token-value");
 const tokenMeta = document.querySelector("#token-meta");
 const paymentStatus = document.querySelector("#payment-status");
 const paymentMeta = document.querySelector("#payment-meta");
-const marketPrice = document.querySelector("#market-price");
-const rentalStatus = document.querySelector("#rental-status");
-const voteStatus = document.querySelector("#vote-status");
-const carryStatus = document.querySelector("#carry-status");
 const calendarMonthLabel = document.querySelector("#calendar-month-label");
-const calendarSummary = document.querySelector("#calendar-summary");
 const calendarGrid = document.querySelector("#calendar-grid");
-const calendarAgenda = document.querySelector("#calendar-agenda");
+const calendarPrevButton = document.querySelector("#calendar-prev-button");
+const calendarNextButton = document.querySelector("#calendar-next-button");
 const pointsHistoryList = document.querySelector("#points-history-list");
 const pointsHistoryTotal = document.querySelector("#points-history-total");
 
@@ -280,6 +266,7 @@ const baseState = {
 
 let currentMode = "payer";
 let currentView = "dashboard";
+let currentCalendarMonth = 3;
 let activeStepIndex = 0;
 let completedSteps = new Set();
 let state = { ...baseState };
@@ -290,7 +277,6 @@ function resetScenario(mode) {
   completedSteps = new Set();
   state = { ...baseState, pointHistory: [] };
   updateModeButtons();
-  renderScenario();
   renderStatus();
   renderCalendar();
   renderPointsHistory();
@@ -300,41 +286,6 @@ function updateModeButtons() {
   modeButtons.forEach((button) => {
     button.classList.toggle("is-active", button.dataset.mode === currentMode);
   });
-}
-
-function renderScenario() {
-  const scenario = scenarios[currentMode];
-
-  if (flowCode) flowCode.textContent = scenario.code;
-  if (flowTitle) flowTitle.textContent = scenario.title;
-  if (progressChip) progressChip.textContent = `${completedSteps.size} / ${scenario.steps.length} 단계`;
-
-  if (stepList) {
-    stepList.innerHTML = scenario.steps
-      .map((step, index) => {
-        const classes = [
-          "step-item",
-          index === activeStepIndex ? "is-active" : "",
-          completedSteps.has(index) ? "is-complete" : ""
-        ].filter(Boolean).join(" ");
-
-        return `
-          <li class="${classes}" data-step="${index}">
-            <button type="button" class="step-button">
-              <span class="step-index">${String(index + 1).padStart(2, "0")}</span>
-              <span class="step-text">
-                <strong>${step.title}</strong>
-                <small>${step.description}</small>
-              </span>
-            </button>
-          </li>
-        `;
-      })
-      .join("");
-  }
-
-  syncDetailPanel();
-  bindStepButtons();
 }
 
 function switchView(view) {
@@ -358,28 +309,6 @@ function switchView(view) {
   }
 }
 
-function bindStepButtons() {
-  const stepItems = Array.from(document.querySelectorAll(".step-item"));
-  stepItems.forEach((item) => {
-    item.addEventListener("click", () => {
-      activeStepIndex = Number(item.dataset.step || 0);
-      renderScenario();
-    });
-  });
-}
-
-function syncDetailPanel() {
-  const scenario = scenarios[currentMode];
-  const step = scenario.steps[activeStepIndex];
-
-  if (detailTitle) detailTitle.textContent = step.title;
-  if (detailText) detailText.textContent = step.description;
-  if (stepAction) {
-    stepAction.textContent = completedSteps.has(activeStepIndex) ? "이미 반영됨" : step.actionLabel;
-    stepAction.disabled = completedSteps.has(activeStepIndex);
-  }
-}
-
 function renderStatus() {
   if (pointsValue) pointsValue.textContent = `${state.points.toLocaleString()}P`;
   if (pointsMeta) pointsMeta.textContent = state.pointsMeta;
@@ -387,52 +316,45 @@ function renderStatus() {
   if (tokenMeta) tokenMeta.textContent = state.tokenMeta;
   if (paymentStatus) paymentStatus.textContent = state.paymentStatus;
   if (paymentMeta) paymentMeta.textContent = state.paymentMeta;
-  if (marketPrice) marketPrice.textContent = state.market;
-  if (rentalStatus) rentalStatus.textContent = state.rental;
-  if (voteStatus) voteStatus.textContent = state.vote;
-  if (carryStatus) carryStatus.textContent = state.carry;
 }
 
 function renderCalendar() {
-  const scenario = scenarios[currentMode];
-  const events = scenario.calendarEvents || [];
-  const eventByDay = new Map(events.map((event) => [event.day, event]));
-  const monthDate = new Date(2026, 3, 1);
-  const monthName = `${monthDate.getFullYear()}년 ${monthDate.getMonth() + 1}월`;
-  const firstDay = monthDate.getDay();
-  const lastDate = new Date(2026, 4, 0).getDate();
+  if (!calendarGrid) return;
+
+  const firstDay = new Date(2026, currentCalendarMonth, 1).getDay();
+  const lastDate = new Date(2026, currentCalendarMonth + 1, 0).getDate();
   const cells = [];
 
-  if (calendarMonthLabel) calendarMonthLabel.textContent = monthName;
-  if (calendarSummary) calendarSummary.textContent = `주요 일정 ${events.length}건`;
+  if (calendarMonthLabel) {
+    calendarMonthLabel.textContent = `2026년 ${currentCalendarMonth + 1}월`;
+  }
+
+  if (calendarPrevButton) {
+    calendarPrevButton.disabled = currentCalendarMonth === 0;
+  }
+
+  if (calendarNextButton) {
+    calendarNextButton.disabled = currentCalendarMonth === 11;
+  }
 
   for (let index = 0; index < firstDay; index += 1) {
     cells.push('<div class="calendar-cell is-empty" aria-hidden="true"></div>');
   }
 
   for (let day = 1; day <= lastDate; day += 1) {
-    const event = eventByDay.get(day);
     const classes = ["calendar-cell"];
-    if (day === 20) classes.push("is-today");
-    if (event) classes.push(`tone-${event.tone}`);
+    if (currentCalendarMonth === 3 && day === 20) {
+      classes.push("is-today");
+    }
 
     cells.push(`
       <article class="${classes.join(" ")}">
         <span class="calendar-date">${day}</span>
-        ${event ? `<strong class="calendar-event">${event.label}</strong>` : '<span class="calendar-empty">일정 없음</span>'}
       </article>
     `);
   }
 
-  if (calendarGrid) {
-    calendarGrid.innerHTML = cells.join("");
-  }
-
-  if (calendarAgenda) {
-    calendarAgenda.innerHTML = events
-      .map((event) => `<li><span>4월 ${event.day}일</span><strong>${event.label}</strong></li>`)
-      .join("");
-  }
+  calendarGrid.innerHTML = cells.join("");
 }
 
 function renderPointsHistory() {
@@ -484,14 +406,9 @@ function applyCurrentStep() {
     activeStepIndex += 1;
   }
 
-  renderScenario();
   renderStatus();
   renderCalendar();
   renderPointsHistory();
-}
-
-if (stepAction) {
-  stepAction.addEventListener("click", applyCurrentStep);
 }
 
 modeButtons.forEach((button) => {
@@ -509,6 +426,24 @@ navItems.forEach((item) => {
     }
   });
 });
+
+if (calendarPrevButton) {
+  calendarPrevButton.addEventListener("click", () => {
+    if (currentCalendarMonth > 0) {
+      currentCalendarMonth -= 1;
+      renderCalendar();
+    }
+  });
+}
+
+if (calendarNextButton) {
+  calendarNextButton.addEventListener("click", () => {
+    if (currentCalendarMonth < 11) {
+      currentCalendarMonth += 1;
+      renderCalendar();
+    }
+  });
+}
 
 if (logoutButton) {
   logoutButton.addEventListener("click", () => {
