@@ -910,23 +910,6 @@ input {
   line-height: 1.6;
 }
 
-.governance-vote-form {
-  display: grid;
-  gap: 12px;
-}
-
-.governance-option-choice {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.governance-result-count {
-  margin-left: 8px;
-  color: #173f7d;
-  font-size: 0.84rem;
-}
-
 .governance-actions {
   display: flex;
   align-items: center;

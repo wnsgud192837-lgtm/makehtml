@@ -45,9 +45,6 @@ const calendarPrevButton = document.querySelector("#calendar-prev-button");
 const calendarNextButton = document.querySelector("#calendar-next-button");
 const pointsHistoryList = document.querySelector("#points-history-list");
 const pointsHistoryTotal = document.querySelector("#points-history-total");
-const supabaseUrl = window.APP_SUPABASE_URL || "";
-const supabasePublishableKey = window.APP_SUPABASE_PUBLISHABLE_KEY || "";
-const supabaseClientFactory = window.supabase?.createClient;
 const today = new Date();
 const highlightedMonth = today.getFullYear() === 2026 ? today.getMonth() : -1;
 const highlightedDay = today.getFullYear() === 2026 ? today.getDate() : -1;
@@ -401,7 +398,6 @@ const baseState = {
 let currentMode = "payer";
 let currentView = "dashboard";
 let currentRole = "student";
-let currentUserId = "student";
 let currentCalendarMonth = highlightedMonth >= 0 ? highlightedMonth : 3;
 let activeStepIndex = 0;
 let completedSteps = new Set();
@@ -417,10 +413,6 @@ let studentGovernanceState = {
   votedPollIds: []
 };
 let tokenMarketMessage = "";
-let supabase = null;
-let isMarketSyncing = false;
-let lastMarketSyncSource = "local";
-let isGovernanceSyncing = false;
 
 function formatDate(date) {
   const year = date.getFullYear();
@@ -458,352 +450,6 @@ function buildQuickPollUrl(title, description, options) {
   });
 
   return `https://app.polling.com/quick-poll?${query.toString()}`;
-}
-
-function initSupabase() {
-  if (!supabaseClientFactory || !supabaseUrl || !supabasePublishableKey) {
-    return null;
-  }
-
-  if (!supabase) {
-    supabase = supabaseClientFactory(supabaseUrl, supabasePublishableKey);
-  }
-
-  return supabase;
-}
-
-function getMarketUserKey() {
-  return `${currentRole}:${currentUserId}`;
-}
-
-function getGovernanceUserKey() {
-  return `${currentRole}:${currentUserId}`;
-}
-
-async function ensureRemoteMarketSeed() {
-  const client = initSupabase();
-  if (!client) return false;
-
-  const { data: existingPool, error: poolFetchError } = await client
-    .from("market_pools")
-    .select("market_key")
-    .eq("market_key", "haemaji-festival")
-    .maybeSingle();
-
-  if (poolFetchError) throw poolFetchError;
-
-  if (!existingPool) {
-    const { error: poolInsertError } = await client
-      .from("market_pools")
-      .insert({
-        market_key: "haemaji-festival",
-        point_reserve: INITIAL_TOKEN_MARKET_STATE.pointReserve,
-        event_token_reserve: INITIAL_TOKEN_MARKET_STATE.eventTokenReserve
-      });
-
-    if (poolInsertError) throw poolInsertError;
-  }
-
-  const userKey = getMarketUserKey();
-  const { data: existingPosition, error: positionFetchError } = await client
-    .from("market_user_positions")
-    .select("user_key")
-    .eq("market_key", "haemaji-festival")
-    .eq("user_key", userKey)
-    .maybeSingle();
-
-  if (positionFetchError) throw positionFetchError;
-
-  if (!existingPosition) {
-    const { error: positionInsertError } = await client
-      .from("market_user_positions")
-      .insert({
-        market_key: "haemaji-festival",
-        user_key: userKey,
-        token_balance: INITIAL_TOKEN_MARKET_STATE.userEventTokens,
-        point_delta: INITIAL_TOKEN_MARKET_STATE.pointDelta
-      });
-
-    if (positionInsertError) throw positionInsertError;
-  }
-
-  return true;
-}
-
-async function syncMarketStateFromSupabase() {
-  const client = initSupabase();
-  if (!client || isMarketSyncing) return false;
-
-  isMarketSyncing = true;
-
-  try {
-    await ensureRemoteMarketSeed();
-
-    const userKey = getMarketUserKey();
-    const [{ data: pool, error: poolError }, { data: position, error: positionError }, { data: trades, error: tradesError }] =
-      await Promise.all([
-        client
-          .from("market_pools")
-          .select("point_reserve,event_token_reserve")
-          .eq("market_key", "haemaji-festival")
-          .single(),
-        client
-          .from("market_user_positions")
-          .select("token_balance,point_delta")
-          .eq("market_key", "haemaji-festival")
-          .eq("user_key", userKey)
-          .single(),
-        client
-          .from("trade_logs")
-          .select("side,quantity,point_amount,created_at")
-          .eq("market_key", "haemaji-festival")
-          .eq("user_key", userKey)
-          .order("created_at", { ascending: false })
-          .limit(20)
-      ]);
-
-    if (poolError) throw poolError;
-    if (positionError) throw positionError;
-    if (tradesError) throw tradesError;
-
-    studentTokenMarketState = {
-      pointReserve: pool.point_reserve,
-      eventTokenReserve: pool.event_token_reserve,
-      userEventTokens: position.token_balance,
-      pointDelta: position.point_delta,
-      purchaseHistory: trades.map((trade) => ({
-        title: `해맞이 한마당 토큰 ${trade.quantity}개 ${trade.side === "buy" ? "구매" : "판매"}`,
-        date: formatDate(new Date(trade.created_at)),
-        amount: trade.side === "buy" ? -trade.point_amount : trade.point_amount,
-        type: trade.side === "buy" ? "use" : "earn"
-      }))
-    };
-
-    persistTokenMarketState();
-    lastMarketSyncSource = "supabase";
-
-    if (currentRole === "student") {
-      state = buildStudentState();
-      renderStatus();
-      renderPointsHistory();
-      renderTokenMarket();
-    }
-
-    return true;
-  } catch (error) {
-    console.error("Supabase market sync failed:", error);
-    tokenMarketMessage = "DB 동기화에 실패해 브라우저 저장값으로 유지합니다.";
-    lastMarketSyncSource = "local";
-    renderTokenMarket();
-    return false;
-  } finally {
-    isMarketSyncing = false;
-  }
-}
-
-async function persistMarketTradeToSupabase(side, quantity, pointAmount, nextState, beforePrice, afterPrice) {
-  const client = initSupabase();
-  if (!client) return false;
-
-  const userKey = getMarketUserKey();
-
-  const { error: poolError } = await client
-    .from("market_pools")
-    .update({
-      point_reserve: nextState.pointReserve,
-      event_token_reserve: nextState.eventTokenReserve,
-      updated_at: new Date().toISOString()
-    })
-    .eq("market_key", "haemaji-festival");
-
-  if (poolError) throw poolError;
-
-  const { error: positionError } = await client
-    .from("market_user_positions")
-    .upsert({
-      market_key: "haemaji-festival",
-      user_key: userKey,
-      token_balance: nextState.userEventTokens,
-      point_delta: nextState.pointDelta,
-      updated_at: new Date().toISOString()
-    });
-
-  if (positionError) throw positionError;
-
-  const { error: tradeError } = await client
-    .from("trade_logs")
-    .insert({
-      market_key: "haemaji-festival",
-      user_key: userKey,
-      side,
-      quantity,
-      point_amount: pointAmount,
-      price_before: beforePrice,
-      price_after: afterPrice
-    });
-
-  if (tradeError) throw tradeError;
-
-  lastMarketSyncSource = "supabase";
-  return true;
-}
-
-async function persistMarketResetToSupabase() {
-  const client = initSupabase();
-  if (!client) return false;
-
-  const userKey = getMarketUserKey();
-
-  const { error: poolError } = await client
-    .from("market_pools")
-    .upsert({
-      market_key: "haemaji-festival",
-      point_reserve: INITIAL_TOKEN_MARKET_STATE.pointReserve,
-      event_token_reserve: INITIAL_TOKEN_MARKET_STATE.eventTokenReserve,
-      updated_at: new Date().toISOString()
-    });
-
-  if (poolError) throw poolError;
-
-  const { error: positionError } = await client
-    .from("market_user_positions")
-    .upsert({
-      market_key: "haemaji-festival",
-      user_key: userKey,
-      token_balance: 0,
-      point_delta: 0,
-      updated_at: new Date().toISOString()
-    });
-
-  if (positionError) throw positionError;
-
-  lastMarketSyncSource = "supabase";
-  return true;
-}
-
-function mapGovernancePollsFromSupabase(polls, votes) {
-  const voteCountsByPoll = new Map();
-
-  votes.forEach((vote) => {
-    const counts = voteCountsByPoll.get(vote.poll_id) || [];
-    counts[vote.option_index] = (counts[vote.option_index] || 0) + 1;
-    voteCountsByPoll.set(vote.poll_id, counts);
-  });
-
-  return polls.map((poll) => {
-    const counts = voteCountsByPoll.get(poll.id) || [];
-    return {
-      id: poll.id,
-      title: poll.title,
-      description: poll.description,
-      options: Array.isArray(poll.options) ? poll.options : [],
-      url: poll.url,
-      createdAt: formatDate(new Date(poll.created_at)),
-      voteCount: counts.reduce((sum, count) => sum + (count || 0), 0),
-      optionCounts: (Array.isArray(poll.options) ? poll.options : []).map((_, index) => counts[index] || 0)
-    };
-  });
-}
-
-async function syncGovernanceFromSupabase() {
-  const client = initSupabase();
-  if (!client || isGovernanceSyncing) return false;
-
-  isGovernanceSyncing = true;
-
-  try {
-    const userKey = getGovernanceUserKey();
-    const [{ data: polls, error: pollsError }, { data: votes, error: votesError }, { data: myVotes, error: myVotesError }] =
-      await Promise.all([
-        client
-          .from("governance_polls")
-          .select("id,title,description,options,url,created_at")
-          .order("created_at", { ascending: false }),
-        client
-          .from("governance_votes")
-          .select("poll_id,option_index"),
-        client
-          .from("governance_votes")
-          .select("poll_id")
-          .eq("user_key", userKey)
-      ]);
-
-    if (pollsError) throw pollsError;
-    if (votesError) throw votesError;
-    if (myVotesError) throw myVotesError;
-
-    governancePolls = mapGovernancePollsFromSupabase(polls || [], votes || []);
-    persistGovernancePolls();
-
-    const votedPollIds = (myVotes || []).map((vote) => vote.poll_id);
-    studentGovernanceState = {
-      ...studentGovernanceState,
-      votedPollIds
-    };
-    persistStudentGovernanceState();
-
-    if (currentRole === "admin") {
-      state = buildAdminState();
-      renderStatus();
-    } else if (currentRole === "student") {
-      state = buildStudentState();
-      renderStatus();
-    }
-
-    renderGovernanceList();
-    return true;
-  } catch (error) {
-    console.error("Supabase governance sync failed:", error);
-    return false;
-  } finally {
-    isGovernanceSyncing = false;
-  }
-}
-
-async function persistGovernancePollToSupabase(poll) {
-  const client = initSupabase();
-  if (!client) return false;
-
-  const { error } = await client.from("governance_polls").insert({
-    id: poll.id,
-    title: poll.title,
-    description: poll.description,
-    options: poll.options,
-    url: poll.url,
-    created_at: new Date().toISOString()
-  });
-
-  if (error) throw error;
-  return true;
-}
-
-async function deleteGovernancePollFromSupabase(pollId) {
-  const client = initSupabase();
-  if (!client) return false;
-
-  const { error } = await client
-    .from("governance_polls")
-    .delete()
-    .eq("id", pollId);
-
-  if (error) throw error;
-  return true;
-}
-
-async function persistGovernanceVoteToSupabase(pollId, optionIndex) {
-  const client = initSupabase();
-  if (!client) return false;
-
-  const { error } = await client
-    .from("governance_votes")
-    .insert({
-      poll_id: pollId,
-      user_key: getGovernanceUserKey(),
-      option_index: optionIndex
-    });
-
-  if (error) throw error;
-  return true;
 }
 
 function cloneInitialTokenMarketState() {
@@ -970,12 +616,6 @@ function renderTokenMarket() {
           현재 풀은 <b>x = 포인트 준비금</b>, <b>y = 행사 토큰 준비금</b> 구조로 동작합니다.
           학생이 토큰을 매수하면 풀 안의 행사 토큰이 줄고, 그만큼 다음 가격이 즉시 상승합니다.
         </p>
-
-        <div class="governance-status">${
-          lastMarketSyncSource === "supabase"
-            ? "Supabase DB와 동기화 중입니다."
-            : "현재는 브라우저 저장값 기준으로 동작 중입니다."
-        }</div>
 
         <div class="token-market-stats">
           <article>
@@ -1204,7 +844,7 @@ function persistPaymentState() {
 function buildAdminState() {
   const totalPaidStudents = paymentState.studentPaid ? 1 : 0;
   const totalGrantedPoints = paymentState.studentPaid ? 31000 : 0;
-  const totalVotes = governancePolls.reduce((sum, poll) => sum + (poll.voteCount || 0), 0);
+  const totalVotes = studentGovernanceState.votedPollIds.length;
 
   return {
     points: totalGrantedPoints,
@@ -1578,23 +1218,7 @@ function renderGovernanceList() {
       const hasVoted = studentGovernanceState.votedPollIds.includes(poll.id);
       const canVote = currentRole === "student" && !hasVoted && studentGovernanceState.tokens > 0;
       const optionHtml = poll.options
-        .map((option, optionIndex) =>
-          currentRole === "student"
-            ? `
-              <li>
-                <label class="governance-option-choice">
-                  <input
-                    type="radio"
-                    name="option-${escapeHtml(poll.id)}"
-                    value="${optionIndex}"
-                    ${hasVoted ? "disabled" : ""}
-                  >
-                  <span>${escapeHtml(option)}</span>
-                </label>
-              </li>
-            `
-            : `<li>${escapeHtml(option)} <strong class="governance-result-count">${(poll.optionCounts?.[optionIndex] || 0).toLocaleString()}표</strong></li>`
-        )
+        .map((option) => `<li>${escapeHtml(option)}</li>`)
         .join("");
 
       const adminActions =
@@ -1610,34 +1234,33 @@ function renderGovernanceList() {
       const studentActions =
         currentRole === "student"
           ? `
-            <form class="governance-vote-form" data-poll-id="${poll.id}">
-              <div class="governance-actions">
-                <button
-                  type="submit"
-                  class="vote-button"
-                  ${canVote ? "" : "disabled"}
-                >
-                  ${
-                    hasVoted
-                      ? "투표 완료"
-                      : studentGovernanceState.tokens > 0
-                        ? "투표 결과 저장"
-                        : "토큰 부족"
-                  }
-                </button>
-                <a href="${poll.url}" target="_blank" rel="noopener noreferrer" class="ghost-link">미리보기</a>
-              </div>
-            </form>
+            <div class="governance-actions">
+              <button
+                type="button"
+                class="vote-button"
+                data-poll-id="${poll.id}"
+                ${canVote ? "" : "disabled"}
+              >
+                ${
+                  hasVoted
+                    ? "투표 완료"
+                    : studentGovernanceState.tokens > 0
+                      ? "익명 투표하기"
+                      : "토큰 부족"
+                }
+              </button>
+              <a href="${poll.url}" target="_blank" rel="noopener noreferrer" class="ghost-link">미리보기</a>
+            </div>
           `
           : "";
 
       const statusText =
         currentRole === "admin"
-          ? `관리자: 총 ${(poll.voteCount || 0).toLocaleString()}표 저장됨`
+          ? "관리자: Polling.com 익명 투표 URL 생성 완료"
           : hasVoted
-            ? "학생: 이 안건의 투표 결과가 저장되었습니다."
+            ? "학생: 이 안건은 이미 익명 투표를 완료했습니다."
             : studentGovernanceState.tokens > 0
-              ? "학생: 선택지를 고르면 토큰 1개를 사용해 결과가 저장됩니다."
+              ? "학생: 토큰 1개를 사용해 익명 외부 투표를 열 수 있습니다."
               : "학생: 남은 거버넌스 토큰이 없습니다.";
 
       return `
@@ -1736,7 +1359,7 @@ if (paymentButton) {
 }
 
 if (tokenMarketPanel) {
-  tokenMarketPanel.addEventListener("submit", async (event) => {
+  tokenMarketPanel.addEventListener("submit", (event) => {
     const target = event.target;
 
     if (!(target instanceof HTMLFormElement)) return;
@@ -1747,7 +1370,6 @@ if (tokenMarketPanel) {
 
     const formData = new FormData(target);
     const quantity = Math.max(1, Math.floor(Number(formData.get("quantity") || 1)));
-    const beforePrice = getTokenMarketSpotPrice();
 
     if (target.id === "token-buy-form") {
       const quote = getTokenBuyQuote(quantity);
@@ -1764,7 +1386,7 @@ if (tokenMarketPanel) {
         return;
       }
 
-      const nextState = {
+      studentTokenMarketState = {
         ...studentTokenMarketState,
         pointReserve: quote.nextPointReserve,
         eventTokenReserve: quote.nextEventTokenReserve,
@@ -1781,24 +1403,9 @@ if (tokenMarketPanel) {
         ]
       };
 
-      studentTokenMarketState = nextState;
       persistTokenMarketState();
-      try {
-        await persistMarketTradeToSupabase(
-          "buy",
-          quantity,
-          quote.cost,
-          nextState,
-          beforePrice,
-          nextState.pointReserve / nextState.eventTokenReserve
-        );
-      } catch (error) {
-        console.error("Supabase buy sync failed:", error);
-        tokenMarketMessage = "구매는 반영됐지만 DB 저장에는 실패했습니다.";
-      }
       state = buildStudentState();
-      tokenMarketMessage =
-        tokenMarketMessage || `${quantity}개 구매 완료. 다음 즉시 가격이 상승했습니다.`;
+      tokenMarketMessage = `${quantity}개 구매 완료. 다음 즉시 가격이 상승했습니다.`;
       renderStatus();
       renderPointsHistory();
       renderTokenMarket();
@@ -1814,7 +1421,7 @@ if (tokenMarketPanel) {
         return;
       }
 
-      const nextState = {
+      studentTokenMarketState = {
         ...studentTokenMarketState,
         pointReserve: quote.nextPointReserve,
         eventTokenReserve: quote.nextEventTokenReserve,
@@ -1831,31 +1438,16 @@ if (tokenMarketPanel) {
         ]
       };
 
-      studentTokenMarketState = nextState;
       persistTokenMarketState();
-      try {
-        await persistMarketTradeToSupabase(
-          "sell",
-          quantity,
-          quote.payout,
-          nextState,
-          beforePrice,
-          nextState.pointReserve / nextState.eventTokenReserve
-        );
-      } catch (error) {
-        console.error("Supabase sell sync failed:", error);
-        tokenMarketMessage = "판매는 반영됐지만 DB 저장에는 실패했습니다.";
-      }
       state = buildStudentState();
-      tokenMarketMessage =
-        tokenMarketMessage || `${quantity}개 판매 완료. 다음 즉시 가격이 하락했습니다.`;
+      tokenMarketMessage = `${quantity}개 판매 완료. 다음 즉시 가격이 하락했습니다.`;
       renderStatus();
       renderPointsHistory();
       renderTokenMarket();
     }
   });
 
-  tokenMarketPanel.addEventListener("click", async (event) => {
+  tokenMarketPanel.addEventListener("click", (event) => {
     const target = event.target;
 
     if (!(target instanceof HTMLElement)) return;
@@ -1863,15 +1455,8 @@ if (tokenMarketPanel) {
 
     studentTokenMarketState = cloneInitialTokenMarketState();
     persistTokenMarketState();
-    try {
-      await persistMarketResetToSupabase();
-    } catch (error) {
-      console.error("Supabase market reset failed:", error);
-      tokenMarketMessage = "리셋은 반영됐지만 DB 저장에는 실패했습니다.";
-    }
     state = buildStudentState();
-    tokenMarketMessage =
-      tokenMarketMessage || "해맞이 한마당 AMM 풀이 초기 상태로 리셋되었습니다.";
+    tokenMarketMessage = "해맞이 한마당 AMM 풀이 초기 상태로 리셋되었습니다.";
     renderStatus();
     renderPointsHistory();
     renderTokenMarket();
@@ -1915,7 +1500,7 @@ if (noticeForm) {
 }
 
 if (pollForm) {
-  pollForm.addEventListener("submit", async (event) => {
+  pollForm.addEventListener("submit", (event) => {
     event.preventDefault();
 
     if (currentRole !== "admin") return;
@@ -1935,31 +1520,19 @@ if (pollForm) {
       return;
     }
 
-    const nextPoll = {
-      id: createPollId(),
-      title,
-      description,
-      options,
-      url: buildQuickPollUrl(title, description, options),
-      createdAt: formatDate(new Date()),
-      voteCount: 0,
-      optionCounts: options.map(() => 0)
-    };
+    governancePolls = [
+      {
+        id: createPollId(),
+        title,
+        description,
+        options,
+        url: buildQuickPollUrl(title, description, options),
+        createdAt: formatDate(new Date())
+      },
+      ...governancePolls
+    ];
 
-    governancePolls = [nextPoll, ...governancePolls];
     persistGovernancePolls();
-
-    try {
-      await persistGovernancePollToSupabase(nextPoll);
-    } catch (error) {
-      console.error("Supabase poll create failed:", error);
-      if (pollMessage) {
-        pollMessage.textContent = "투표는 등록됐지만 DB 저장에는 실패했습니다.";
-      }
-      renderGovernanceList();
-      return;
-    }
-
     renderGovernanceList();
     state = buildAdminState();
     renderStatus();
@@ -1969,7 +1542,6 @@ if (pollForm) {
     }
 
     pollForm.reset();
-    void syncGovernanceFromSupabase();
   });
 }
 
@@ -1995,46 +1567,21 @@ if (adminNoticeList) {
 }
 
 if (governanceList) {
-  governanceList.addEventListener("click", async (event) => {
+  governanceList.addEventListener("click", (event) => {
     const target = event.target;
 
     if (!(target instanceof HTMLElement)) return;
 
     const pollIndex = target.dataset.pollIndex;
     if (currentRole === "admin" && typeof pollIndex !== "undefined") {
-      const poll = governancePolls[Number(pollIndex)];
-      if (!poll) return;
-
       governancePolls.splice(Number(pollIndex), 1);
       persistGovernancePolls();
-      try {
-        await deleteGovernancePollFromSupabase(poll.id);
-      } catch (error) {
-        console.error("Supabase poll delete failed:", error);
-        if (pollMessage) {
-          pollMessage.textContent = "투표 삭제는 반영됐지만 DB 저장에는 실패했습니다.";
-        }
-        renderGovernanceList();
-        return;
-      }
       renderGovernanceList();
-      state = buildAdminState();
-      renderStatus();
       if (pollMessage) {
         pollMessage.textContent = "투표가 삭제되었습니다.";
       }
-      void syncGovernanceFromSupabase();
       return;
     }
-  });
-
-  governanceList.addEventListener("submit", async (event) => {
-    const target = event.target;
-
-    if (!(target instanceof HTMLFormElement)) return;
-    if (!target.classList.contains("governance-vote-form")) return;
-
-    event.preventDefault();
 
     const pollId = target.dataset.pollId;
     if (currentRole !== "student" || !pollId) return;
@@ -2045,14 +1592,7 @@ if (governanceList) {
     if (studentGovernanceState.votedPollIds.includes(pollId)) return;
     if (studentGovernanceState.tokens < 1) return;
 
-    const formData = new FormData(target);
-    const optionIndex = Number(formData.get(`option-${pollId}`));
-    if (!Number.isInteger(optionIndex) || optionIndex < 0 || optionIndex >= poll.options.length) {
-      if (pollMessage) {
-        pollMessage.textContent = "투표할 선택지를 먼저 골라야 합니다.";
-      }
-      return;
-    }
+    window.open(poll.url, "_blank", "noopener,noreferrer");
 
     studentGovernanceState = {
       tokens: studentGovernanceState.tokens - 1,
@@ -2060,39 +1600,9 @@ if (governanceList) {
     };
     persistStudentGovernanceState();
 
-    governancePolls = governancePolls.map((item) =>
-      item.id === pollId
-        ? {
-            ...item,
-            voteCount: (item.voteCount || 0) + 1,
-            optionCounts: item.options.map((_, index) =>
-              index === optionIndex
-                ? (item.optionCounts?.[index] || 0) + 1
-                : item.optionCounts?.[index] || 0
-            )
-          }
-        : item
-    );
-    persistGovernancePolls();
-
-    try {
-      await persistGovernanceVoteToSupabase(pollId, optionIndex);
-    } catch (error) {
-      console.error("Supabase governance vote failed:", error);
-      if (pollMessage) {
-        pollMessage.textContent = "투표는 반영됐지만 DB 저장에는 실패했습니다.";
-      }
-      renderGovernanceList();
-      return;
-    }
-
     state = buildStudentState();
     renderStatus();
     renderGovernanceList();
-    if (pollMessage) {
-      pollMessage.textContent = "투표 결과가 저장되었습니다.";
-    }
-    void syncGovernanceFromSupabase();
   });
 }
 
@@ -2103,7 +1613,6 @@ if (logoutButton) {
     if (loginForm) loginForm.reset();
     if (loginMessage) loginMessage.textContent = "";
     currentRole = "student";
-    currentUserId = "student";
     applyRoleLayout(currentRole);
     resetScenario(roleConfigs[currentRole].defaultMode);
     switchView("dashboard");
@@ -2137,19 +1646,13 @@ if (loginForm) {
       loginMessage.textContent = "";
     }
 
-    if (loginPage) loginPage.classList.add("is-hidden");
-    if (dashboardPage) dashboardPage.classList.remove("is-hidden");
-
     currentRole = nextRole;
-    currentUserId = userId;
     applyRoleLayout(currentRole);
     resetScenario(roleConfigs[currentRole].defaultMode);
     switchView("dashboard");
 
-    setTimeout(() => {
-      void syncMarketStateFromSupabase();
-      void syncGovernanceFromSupabase();
-    }, 0);
+    if (loginPage) loginPage.classList.add("is-hidden");
+    if (dashboardPage) dashboardPage.classList.remove("is-hidden");
   });
 }
 
@@ -2158,8 +1661,6 @@ paymentState = loadPaymentState();
 governancePolls = loadGovernancePolls();
 studentTokenMarketState = loadTokenMarketState();
 studentGovernanceState = loadStudentGovernanceState();
-initSupabase();
 applyRoleLayout(currentRole);
 resetScenario(roleConfigs[currentRole].defaultMode);
 switchView("dashboard");
-void syncGovernanceFromSupabase();
