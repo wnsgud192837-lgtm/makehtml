@@ -108,44 +108,9 @@ const placeholderCopy = {
   }
 };
 
-const adminState = {
-  points: 412000,
-  tokens: 87,
-  character: "운영자",
-  grade: "관리자",
-  avatar: "AD",
-  paymentStatus: "128명 완료",
-  paymentMeta: "납부 현황 페이지 열기",
-  market: "운영 중",
-  rental: "24건 예약",
-  vote: "3건 진행",
-  carry: "정상",
-  pointsMeta: "이번 학기 누적 지급 포인트",
-  tokenMeta: "운영 중인 거버넌스 토큰 수량",
-  pointHistory: [
-    {
-      title: "학생회비 납부 리워드 일괄 지급",
-      date: "2026.04.18",
-      amount: 248000,
-      type: "earn"
-    },
-    {
-      title: "행사 체크인 포인트 정산",
-      date: "2026.04.16",
-      amount: 94000,
-      type: "earn"
-    },
-    {
-      title: "운영 보정 차감",
-      date: "2026.04.15",
-      amount: -12000,
-      type: "use"
-    }
-  ]
-};
-
 let noticeItems = [];
 const NOTICE_STORAGE_KEY = "postech_notice_items";
+const PAYMENT_STORAGE_KEY = "postech_payment_state";
 
 const roleConfigs = {
   student: {
@@ -418,6 +383,10 @@ let currentCalendarMonth = highlightedMonth >= 0 ? highlightedMonth : 3;
 let activeStepIndex = 0;
 let completedSteps = new Set();
 let state = { ...baseState };
+let paymentState = {
+  studentPaid: false,
+  paidAt: ""
+};
 
 function formatDate(date) {
   const year = date.getFullYear();
@@ -455,6 +424,87 @@ function persistNoticeItems() {
   window.localStorage.setItem(NOTICE_STORAGE_KEY, JSON.stringify(noticeItems));
 }
 
+function loadPaymentState() {
+  if (typeof window === "undefined") return { studentPaid: false, paidAt: "" };
+
+  const raw = window.localStorage.getItem(PAYMENT_STORAGE_KEY);
+  if (!raw) return { studentPaid: false, paidAt: "" };
+
+  try {
+    const parsed = JSON.parse(raw);
+
+    return {
+      studentPaid: Boolean(parsed?.studentPaid),
+      paidAt: typeof parsed?.paidAt === "string" ? parsed.paidAt : ""
+    };
+  } catch {
+    return { studentPaid: false, paidAt: "" };
+  }
+}
+
+function persistPaymentState() {
+  if (typeof window === "undefined") return;
+
+  window.localStorage.setItem(PAYMENT_STORAGE_KEY, JSON.stringify(paymentState));
+}
+
+function buildAdminState() {
+  const totalPaidStudents = paymentState.studentPaid ? 1 : 0;
+  const totalGrantedPoints = paymentState.studentPaid ? 31000 : 0;
+
+  return {
+    points: totalGrantedPoints,
+    tokens: 0,
+    character: "운영자",
+    grade: "관리자",
+    avatar: "AD",
+    paymentStatus: `${totalPaidStudents}명 완료`,
+    paymentMeta:
+      totalPaidStudents === 0
+        ? "아직 납부한 학생이 없습니다."
+        : "학생회비 납부 1건이 반영되었습니다.",
+    market: "운영 대기",
+    rental: "0건 예약",
+    vote: "0건 진행",
+    carry: "대기",
+    pointsMeta: "학생회비로 누적 지급된 포인트",
+    tokenMeta: "아직 운영 중인 토큰이 없습니다.",
+    pointHistory:
+      totalPaidStudents === 0
+        ? []
+        : [
+            {
+              title: "학생회비 납부 리워드 지급",
+              date: paymentState.paidAt || formatDate(new Date()),
+              amount: 31000,
+              type: "earn"
+            }
+          ]
+  };
+}
+
+function buildStudentState() {
+  if (!paymentState.studentPaid) {
+    return { ...baseState, pointHistory: [] };
+  }
+
+  return {
+    ...baseState,
+    points: 31000,
+    paymentStatus: "납부 완료",
+    paymentMeta: "31,000포인트 지급 완료",
+    pointsMeta: "학생회비 납부로 31,000P 지급",
+    pointHistory: [
+      {
+        title: "학생회비 납부 리워드 지급",
+        date: paymentState.paidAt || formatDate(new Date()),
+        amount: 31000,
+        type: "earn"
+      }
+    ]
+  };
+}
+
 function applyRoleLayout(role) {
   const roleConfig = roleConfigs[role];
 
@@ -487,11 +537,8 @@ function resetScenario(mode) {
   completedSteps = new Set();
   state =
     currentRole === "admin"
-      ? {
-          ...adminState,
-          pointHistory: adminState.pointHistory.map((entry) => ({ ...entry }))
-        }
-      : { ...baseState, pointHistory: [] };
+      ? buildAdminState()
+      : buildStudentState();
   updateModeButtons();
   renderStatus();
   renderCalendar();
@@ -718,22 +765,17 @@ function applyCurrentStep() {
 function handleStudentPayment() {
   if (currentRole !== "student") return;
 
-  const isSettled =
-    state.paymentStatus === "납부 완료" || state.paymentStatus === "납부 전환";
+  const isSettled = paymentState.studentPaid;
 
   if (isSettled) return;
 
-  state.paymentStatus = "납부 완료";
-  state.paymentMeta = "31,000포인트 지급 완료";
-  state.points += 31000;
-  state.pointsMeta = "학생회비 납부로 31,000P 지급";
+  paymentState = {
+    studentPaid: true,
+    paidAt: formatDate(new Date())
+  };
+  persistPaymentState();
 
-  state.pointHistory.push({
-    title: "학생회비 납부 리워드 지급",
-    date: formatDate(new Date()),
-    amount: 31000,
-    type: "earn"
-  });
+  state = buildStudentState();
 
   renderStatus();
   renderPointsHistory();
@@ -887,6 +929,7 @@ if (loginForm) {
 }
 
 noticeItems = loadNoticeItems();
+paymentState = loadPaymentState();
 applyRoleLayout(currentRole);
 resetScenario(roleConfigs[currentRole].defaultMode);
 switchView("dashboard");
