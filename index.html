@@ -192,21 +192,23 @@
           <p class="detail-text" id="placeholder-text">이 메뉴는 다음 단계에서 구체적인 상호작용을 설계할 예정입니다.</p>
 
           <section class="notice-admin is-hidden" id="notice-admin-panel">
-            <form class="notice-form" id="notice-form">
-              <label class="notice-field">
-                <span>공지 제목</span>
-                <input type="text" name="title" placeholder="공지 제목을 입력하세요" maxlength="80">
-              </label>
+            <div id="notice-admin-editor">
+              <form class="notice-form" id="notice-form">
+                <label class="notice-field">
+                  <span>공지 제목</span>
+                  <input type="text" name="title" placeholder="공지 제목을 입력하세요" maxlength="80">
+                </label>
 
-              <label class="notice-field">
-                <span>공지 내용</span>
-                <textarea name="content" placeholder="학생에게 보여줄 공지 내용을 입력하세요" rows="5" maxlength="400"></textarea>
-              </label>
+                <label class="notice-field">
+                  <span>공지 내용</span>
+                  <textarea name="content" placeholder="학생에게 보여줄 공지 내용을 입력하세요" rows="5" maxlength="400"></textarea>
+                </label>
 
-              <button type="submit" class="login-button notice-submit">공지 등록</button>
-            </form>
+                <button type="submit" class="login-button notice-submit">공지 등록</button>
+              </form>
 
-            <p class="login-message" id="notice-message" aria-live="polite"></p>
+              <p class="login-message" id="notice-message" aria-live="polite"></p>
+            </div>
 
             <ul class="notice-list notice-list-admin" id="admin-notice-list"></ul>
           </section>

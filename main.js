@@ -18,6 +18,7 @@ const placeholderView = document.querySelector("#placeholder-view");
 const placeholderTitle = document.querySelector("#placeholder-title");
 const placeholderText = document.querySelector("#placeholder-text");
 const noticeAdminPanel = document.querySelector("#notice-admin-panel");
+const noticeAdminEditor = document.querySelector("#notice-admin-editor");
 const noticeForm = document.querySelector("#notice-form");
 const noticeMessage = document.querySelector("#notice-message");
 const adminNoticeList = document.querySelector("#admin-notice-list");
@@ -578,12 +579,20 @@ function switchView(view) {
     noticeAdminPanel.classList.toggle("is-hidden", !isAdminNoticeView);
   }
 
+  if (noticeAdminEditor) {
+    noticeAdminEditor.classList.toggle("is-hidden", !isAdminNoticeView);
+  }
+
   if (placeholderText) {
     placeholderText.classList.toggle("is-hidden", isAdminNoticeView);
   }
 
   if (noticeMessage && !isAdminNoticeView) {
     noticeMessage.textContent = "";
+  }
+
+  if (noticeForm && !isAdminNoticeView) {
+    noticeForm.reset();
   }
 }
 
