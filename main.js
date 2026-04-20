@@ -45,9 +45,6 @@ const calendarPrevButton = document.querySelector("#calendar-prev-button");
 const calendarNextButton = document.querySelector("#calendar-next-button");
 const pointsHistoryList = document.querySelector("#points-history-list");
 const pointsHistoryTotal = document.querySelector("#points-history-total");
-const supabaseUrl = window.APP_SUPABASE_URL || "";
-const supabasePublishableKey = window.APP_SUPABASE_PUBLISHABLE_KEY || "";
-const supabaseClientFactory = window.supabase?.createClient;
 const today = new Date();
 const highlightedMonth = today.getFullYear() === 2026 ? today.getMonth() : -1;
 const highlightedDay = today.getFullYear() === 2026 ? today.getDate() : -1;
@@ -401,7 +398,6 @@ const baseState = {
 let currentMode = "payer";
 let currentView = "dashboard";
 let currentRole = "student";
-let currentUserId = "student";
 let currentCalendarMonth = highlightedMonth >= 0 ? highlightedMonth : 3;
 let activeStepIndex = 0;
 let completedSteps = new Set();
@@ -416,9 +412,6 @@ let studentGovernanceState = {
   tokens: 1,
   votedPollIds: []
 };
-let governanceVoteSelections = {};
-let supabase = null;
-let isGovernanceSyncing = false;
 let tokenMarketMessage = "";
 
 function formatDate(date) {
@@ -457,137 +450,6 @@ function buildQuickPollUrl(title, description, options) {
   });
 
   return `https://app.polling.com/quick-poll?${query.toString()}`;
-}
-
-function initSupabase() {
-  if (!supabaseClientFactory || !supabaseUrl || !supabasePublishableKey) {
-    return null;
-  }
-
-  if (!supabase) {
-    supabase = supabaseClientFactory(supabaseUrl, supabasePublishableKey);
-  }
-
-  return supabase;
-}
-
-function getGovernanceUserKey() {
-  return `${currentRole}:${currentUserId}`;
-}
-
-function mapGovernancePollsFromSupabase(polls, votes) {
-  const voteMap = new Map();
-
-  votes.forEach((vote) => {
-    const counts = voteMap.get(vote.poll_id) || [];
-    counts[vote.option_index] = (counts[vote.option_index] || 0) + 1;
-    voteMap.set(vote.poll_id, counts);
-  });
-
-    return polls.map((poll) => {
-      const optionCounts = poll.options.map((_, index) => voteMap.get(poll.id)?.[index] || 0);
-
-      return {
-        id: poll.id,
-        title: poll.title,
-        description: poll.description,
-        options: poll.options,
-        url: "",
-        createdAt: formatDate(new Date(poll.created_at)),
-        voteCount: optionCounts.reduce((sum, count) => sum + count, 0),
-        optionCounts
-      };
-    });
-}
-
-async function syncGovernanceFromSupabase() {
-  const client = initSupabase();
-  if (!client || isGovernanceSyncing) return false;
-
-  isGovernanceSyncing = true;
-
-  try {
-    const userKey = getGovernanceUserKey();
-    const [{ data: polls, error: pollsError }, { data: votes, error: votesError }, { data: myVotes, error: myVotesError }] =
-      await Promise.all([
-        client
-          .from("governance_polls")
-          .select("id,title,description,options,created_at")
-          .order("created_at", { ascending: false }),
-        client
-          .from("governance_votes")
-          .select("poll_id,option_index"),
-        client
-          .from("governance_votes")
-          .select("poll_id,option_index")
-          .eq("user_key", userKey)
-      ]);
-
-    if (pollsError) throw pollsError;
-    if (votesError) throw votesError;
-    if (myVotesError) throw myVotesError;
-
-    governancePolls = mapGovernancePollsFromSupabase(polls || [], votes || []);
-    persistGovernancePolls();
-
-    governanceVoteSelections = Object.fromEntries(
-      (myVotes || []).map((vote) => [vote.poll_id, String(vote.option_index)])
-    );
-
-    studentGovernanceState = {
-      ...studentGovernanceState,
-      votedPollIds: (myVotes || []).map((vote) => vote.poll_id)
-    };
-    persistStudentGovernanceState();
-
-    state = currentRole === "admin" ? buildAdminState() : buildStudentState();
-    renderStatus();
-    renderGovernanceList();
-    return true;
-  } catch (error) {
-    console.error("Supabase governance sync failed:", error);
-    return false;
-  } finally {
-    isGovernanceSyncing = false;
-  }
-}
-
-async function persistGovernancePollToSupabase(poll) {
-  const client = initSupabase();
-  if (!client) return false;
-
-  const { error } = await client.from("governance_polls").insert({
-    id: poll.id,
-    title: poll.title,
-    description: poll.description,
-    options: poll.options
-  });
-
-  if (error) throw error;
-  return true;
-}
-
-async function deleteGovernancePollFromSupabase(pollId) {
-  const client = initSupabase();
-  if (!client) return false;
-
-  const { error } = await client.from("governance_polls").delete().eq("id", pollId);
-  if (error) throw error;
-  return true;
-}
-
-async function persistGovernanceVoteToSupabase(pollId, optionIndex) {
-  const client = initSupabase();
-  if (!client) return false;
-
-  const { error } = await client.from("governance_votes").insert({
-    poll_id: pollId,
-    user_key: getGovernanceUserKey(),
-    option_index: optionIndex
-  });
-
-  if (error) throw error;
-  return true;
 }
 
 function cloneInitialTokenMarketState() {
@@ -923,6 +785,7 @@ function loadGovernancePolls() {
         typeof item.description === "string" &&
         Array.isArray(item.options) &&
         item.options.every((option) => typeof option === "string") &&
+        typeof item.url === "string" &&
         typeof item.createdAt === "string"
     );
   } catch {
@@ -981,7 +844,7 @@ function persistPaymentState() {
 function buildAdminState() {
   const totalPaidStudents = paymentState.studentPaid ? 1 : 0;
   const totalGrantedPoints = paymentState.studentPaid ? 31000 : 0;
-  const totalVotes = governancePolls.reduce((sum, poll) => sum + (poll.voteCount || 0), 0);
+  const totalVotes = studentGovernanceState.votedPollIds.length;
 
   return {
     points: totalGrantedPoints,
@@ -1355,35 +1218,14 @@ function renderGovernanceList() {
       const hasVoted = studentGovernanceState.votedPollIds.includes(poll.id);
       const canVote = currentRole === "student" && !hasVoted && studentGovernanceState.tokens > 0;
       const optionHtml = poll.options
-        .map((option, optionIndex) =>
-          currentRole === "student"
-            ? `
-              <li>
-                <label class="governance-option-choice">
-                  <input
-                    type="radio"
-                    name="option-${escapeHtml(poll.id)}"
-                    value="${optionIndex}"
-                    ${governanceVoteSelections[poll.id] === String(optionIndex) ? "checked" : ""}
-                    ${hasVoted ? "disabled" : ""}
-                  >
-                  <span>${escapeHtml(option)}</span>
-                </label>
-              </li>
-            `
-            : `
-              <li>
-                <span>${escapeHtml(option)}</span>
-                <strong class="governance-result-count">${(poll.optionCounts?.[optionIndex] || 0).toLocaleString()}표</strong>
-              </li>
-            `
-        )
+        .map((option) => `<li>${escapeHtml(option)}</li>`)
         .join("");
 
       const adminActions =
         currentRole === "admin"
           ? `
             <div class="governance-actions">
+              <a href="${poll.url}" target="_blank" rel="noopener noreferrer" class="ghost-link">Polling 열기</a>
               <button type="button" class="notice-delete-button" data-poll-index="${index}">삭제</button>
             </div>
           `
@@ -1392,33 +1234,33 @@ function renderGovernanceList() {
       const studentActions =
         currentRole === "student"
           ? `
-            <form class="governance-vote-form" data-poll-id="${poll.id}">
-              <div class="governance-actions">
-                <button
-                  type="submit"
-                  class="vote-button"
-                  ${canVote ? "" : "disabled"}
-                >
-                  ${
-                    hasVoted
-                      ? "투표 완료"
-                      : studentGovernanceState.tokens > 0
-                        ? "투표 제출"
-                        : "토큰 부족"
-                  }
-                </button>
-              </div>
-            </form>
+            <div class="governance-actions">
+              <button
+                type="button"
+                class="vote-button"
+                data-poll-id="${poll.id}"
+                ${canVote ? "" : "disabled"}
+              >
+                ${
+                  hasVoted
+                    ? "투표 완료"
+                    : studentGovernanceState.tokens > 0
+                      ? "익명 투표하기"
+                      : "토큰 부족"
+                }
+              </button>
+              <a href="${poll.url}" target="_blank" rel="noopener noreferrer" class="ghost-link">미리보기</a>
+            </div>
           `
           : "";
 
       const statusText =
         currentRole === "admin"
-          ? `관리자: 총 ${(poll.voteCount || 0).toLocaleString()}표 저장`
+          ? "관리자: Polling.com 익명 투표 URL 생성 완료"
           : hasVoted
-            ? "학생: 이 안건은 이미 투표를 완료했습니다."
+            ? "학생: 이 안건은 이미 익명 투표를 완료했습니다."
             : studentGovernanceState.tokens > 0
-              ? "학생: 선택지 하나를 고르면 토큰 1개로 바로 투표됩니다."
+              ? "학생: 토큰 1개를 사용해 익명 외부 투표를 열 수 있습니다."
               : "학생: 남은 거버넌스 토큰이 없습니다.";
 
       return `
@@ -1658,7 +1500,7 @@ if (noticeForm) {
 }
 
 if (pollForm) {
-  pollForm.addEventListener("submit", async (event) => {
+  pollForm.addEventListener("submit", (event) => {
     event.preventDefault();
 
     if (currentRole !== "admin") return;
@@ -1678,41 +1520,28 @@ if (pollForm) {
       return;
     }
 
-    const nextPoll = {
-      id: createPollId(),
-      title,
-      description,
-      options,
-      url: "",
-      createdAt: formatDate(new Date()),
-      voteCount: 0,
-      optionCounts: options.map(() => 0)
-    };
+    governancePolls = [
+      {
+        id: createPollId(),
+        title,
+        description,
+        options,
+        url: buildQuickPollUrl(title, description, options),
+        createdAt: formatDate(new Date())
+      },
+      ...governancePolls
+    ];
 
-    governancePolls = [nextPoll, ...governancePolls];
     persistGovernancePolls();
-
-    try {
-      await persistGovernancePollToSupabase(nextPoll);
-    } catch (error) {
-      console.error("Supabase poll create failed:", error);
-      if (pollMessage) {
-        pollMessage.textContent = "투표 생성은 됐지만 DB 저장에는 실패했습니다.";
-      }
-      renderGovernanceList();
-      return;
-    }
-
+    renderGovernanceList();
     state = buildAdminState();
     renderStatus();
-    renderGovernanceList();
 
     if (pollMessage) {
-      pollMessage.textContent = "직접 투표 안건이 등록되었습니다.";
+      pollMessage.textContent = "익명 거버넌스 투표가 등록되었습니다.";
     }
 
     pollForm.reset();
-    void syncGovernanceFromSupabase();
   });
 }
 
@@ -1738,55 +1567,21 @@ if (adminNoticeList) {
 }
 
 if (governanceList) {
-  governanceList.addEventListener("click", async (event) => {
+  governanceList.addEventListener("click", (event) => {
     const target = event.target;
 
     if (!(target instanceof HTMLElement)) return;
 
     const pollIndex = target.dataset.pollIndex;
     if (currentRole === "admin" && typeof pollIndex !== "undefined") {
-      const poll = governancePolls[Number(pollIndex)];
-      if (!poll) return;
-
       governancePolls.splice(Number(pollIndex), 1);
       persistGovernancePolls();
-      try {
-        await deleteGovernancePollFromSupabase(poll.id);
-      } catch (error) {
-        console.error("Supabase poll delete failed:", error);
-        if (pollMessage) {
-          pollMessage.textContent = "투표 삭제는 됐지만 DB 반영에는 실패했습니다.";
-        }
-        renderGovernanceList();
-        return;
-      }
-      state = buildAdminState();
-      renderStatus();
       renderGovernanceList();
       if (pollMessage) {
         pollMessage.textContent = "투표가 삭제되었습니다.";
       }
-      void syncGovernanceFromSupabase();
       return;
     }
-  });
-
-  governanceList.addEventListener("change", (event) => {
-    const target = event.target;
-
-    if (!(target instanceof HTMLInputElement)) return;
-    if (target.type !== "radio" || !target.name.startsWith("option-")) return;
-
-    governanceVoteSelections[target.name.slice(7)] = target.value;
-  });
-
-  governanceList.addEventListener("submit", async (event) => {
-    const target = event.target;
-
-    if (!(target instanceof HTMLFormElement)) return;
-    if (!target.classList.contains("governance-vote-form")) return;
-
-    event.preventDefault();
 
     const pollId = target.dataset.pollId;
     if (currentRole !== "student" || !pollId) return;
@@ -1796,14 +1591,8 @@ if (governanceList) {
 
     if (studentGovernanceState.votedPollIds.includes(pollId)) return;
     if (studentGovernanceState.tokens < 1) return;
-    const selectedValue = governanceVoteSelections[pollId];
-    const optionIndex = Number(selectedValue);
-    if (!Number.isInteger(optionIndex) || optionIndex < 0 || optionIndex >= poll.options.length) {
-      if (pollMessage) {
-        pollMessage.textContent = "투표할 선택지를 먼저 골라야 합니다.";
-      }
-      return;
-    }
+
+    window.open(poll.url, "_blank", "noopener,noreferrer");
 
     studentGovernanceState = {
       tokens: studentGovernanceState.tokens - 1,
@@ -1811,39 +1600,9 @@ if (governanceList) {
     };
     persistStudentGovernanceState();
 
-    governancePolls = governancePolls.map((item) =>
-      item.id === pollId
-        ? {
-            ...item,
-            voteCount: (item.voteCount || 0) + 1,
-            optionCounts: item.options.map((_, index) =>
-              index === optionIndex
-                ? (item.optionCounts?.[index] || 0) + 1
-                : item.optionCounts?.[index] || 0
-            )
-          }
-        : item
-    );
-    persistGovernancePolls();
-
-    try {
-      await persistGovernanceVoteToSupabase(pollId, optionIndex);
-    } catch (error) {
-      console.error("Supabase governance vote failed:", error);
-      if (pollMessage) {
-        pollMessage.textContent = "투표는 반영됐지만 DB 저장에는 실패했습니다.";
-      }
-      renderGovernanceList();
-      return;
-    }
-
     state = buildStudentState();
     renderStatus();
     renderGovernanceList();
-    if (pollMessage) {
-      pollMessage.textContent = "투표 결과가 저장되었습니다.";
-    }
-    void syncGovernanceFromSupabase();
   });
 }
 
@@ -1854,8 +1613,6 @@ if (logoutButton) {
     if (loginForm) loginForm.reset();
     if (loginMessage) loginMessage.textContent = "";
     currentRole = "student";
-    currentUserId = "student";
-    governanceVoteSelections = {};
     applyRoleLayout(currentRole);
     resetScenario(roleConfigs[currentRole].defaultMode);
     switchView("dashboard");
@@ -1889,7 +1646,6 @@ if (loginForm) {
       loginMessage.textContent = "";
     }
 
-    currentUserId = userId;
     currentRole = nextRole;
     applyRoleLayout(currentRole);
     resetScenario(roleConfigs[currentRole].defaultMode);
@@ -1897,10 +1653,6 @@ if (loginForm) {
 
     if (loginPage) loginPage.classList.add("is-hidden");
     if (dashboardPage) dashboardPage.classList.remove("is-hidden");
-
-    setTimeout(() => {
-      void syncGovernanceFromSupabase();
-    }, 0);
   });
 }
 
@@ -1909,8 +1661,6 @@ paymentState = loadPaymentState();
 governancePolls = loadGovernancePolls();
 studentTokenMarketState = loadTokenMarketState();
 studentGovernanceState = loadStudentGovernanceState();
-initSupabase();
 applyRoleLayout(currentRole);
 resetScenario(roleConfigs[currentRole].defaultMode);
 switchView("dashboard");
-void syncGovernanceFromSupabase();
