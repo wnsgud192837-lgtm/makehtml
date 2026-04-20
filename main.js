@@ -144,23 +144,7 @@ const adminState = {
   ]
 };
 
-let noticeItems = [
-  {
-    title: "2026 봄축제 체크인 안내",
-    content: "4월 12일 13시부터 학생회관 앞 부스에서 QR 체크인이 진행됩니다.",
-    date: "2026.04.20"
-  },
-  {
-    title: "학생회비 납부 리워드 지급",
-    content: "학생회비를 납부하면 즉시 31,000포인트가 지급됩니다.",
-    date: "2026.04.20"
-  },
-  {
-    title: "대여사업 오픈 예정",
-    content: "프린터, 계산기, 우산 대여 서비스가 4월 24일에 오픈합니다.",
-    date: "2026.04.18"
-  }
-];
+let noticeItems = [];
 
 const roleConfigs = {
   student: {
@@ -632,24 +616,49 @@ function renderPointsHistory() {
 }
 
 function renderNoticeLists() {
-  const noticeMarkup = noticeItems
-    .map((notice) => `
-      <li class="notice-item">
-        <div class="notice-meta">
-          <strong>${notice.title}</strong>
-          <span>${notice.date}</span>
-        </div>
-        <p>${notice.content}</p>
-      </li>
-    `)
-    .join("");
-
   if (heroNoticeList) {
-    heroNoticeList.innerHTML = noticeMarkup;
+    heroNoticeList.innerHTML =
+      noticeItems.length === 0
+        ? `
+          <li class="notice-item notice-empty">
+            <strong>현재 등록된 공지가 없습니다.</strong>
+            <p>새 공지는 관리자 계정의 공지 관리 메뉴에서 등록됩니다.</p>
+          </li>
+        `
+        : noticeItems
+            .map((notice) => `
+              <li class="notice-item">
+                <div class="notice-meta">
+                  <strong>${notice.title}</strong>
+                  <span>${notice.date}</span>
+                </div>
+                <p>${notice.content}</p>
+              </li>
+            `)
+            .join("");
   }
 
   if (adminNoticeList) {
-    adminNoticeList.innerHTML = noticeMarkup;
+    adminNoticeList.innerHTML =
+      noticeItems.length === 0
+        ? `
+          <li class="notice-item notice-empty">
+            <strong>등록된 공지가 없습니다.</strong>
+            <p>위 폼에서 제목과 내용을 입력해 첫 공지를 등록하세요.</p>
+          </li>
+        `
+        : noticeItems
+            .map((notice, index) => `
+              <li class="notice-item notice-item-admin">
+                <div class="notice-meta">
+                  <strong>${notice.title}</strong>
+                  <span>${notice.date}</span>
+                </div>
+                <p>${notice.content}</p>
+                <button type="button" class="notice-delete-button" data-notice-index="${index}">삭제</button>
+              </li>
+            `)
+            .join("");
   }
 }
 
@@ -768,6 +777,26 @@ if (noticeForm) {
     }
 
     noticeForm.reset();
+    renderNoticeLists();
+  });
+}
+
+if (adminNoticeList) {
+  adminNoticeList.addEventListener("click", (event) => {
+    const target = event.target;
+
+    if (!(target instanceof HTMLElement)) return;
+    if (currentRole !== "admin") return;
+
+    const index = target.dataset.noticeIndex;
+    if (typeof index === "undefined") return;
+
+    noticeItems.splice(Number(index), 1);
+
+    if (noticeMessage) {
+      noticeMessage.textContent = "공지가 삭제되었습니다.";
+    }
+
     renderNoticeLists();
   });
 }
