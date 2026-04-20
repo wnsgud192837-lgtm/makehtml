@@ -28,7 +28,7 @@ const carryStatus = document.querySelector("#carry-status");
 const scenarios = {
   payer: {
     code: "12-1",
-    title: "납부자 플로우",
+    title: "납부자 경험 설계",
     steps: [
       {
         title: "01 앱 접속 및 학번 인증",
@@ -119,7 +119,7 @@ const scenarios = {
   },
   nonpayer: {
     code: "12-2",
-    title: "미납부자 플로우",
+    title: "미납부자 전환 설계",
     steps: [
       {
         title: "01 앱 접속",
@@ -165,7 +165,7 @@ const scenarios = {
       {
         title: "05 납부 전환 결정",
         description: "행사 2개 이상 + ETF + 캐릭터 + 거버넌스 원하면 납부가 합리적 선택.",
-        actionLabel: "납부 전환 시뮬레이션",
+        actionLabel: "납부 전환 설계 반영",
         apply(state) {
           state.paymentStatus = "납부 전환";
           state.paymentMeta = "합리적 선택으로 전환 완료";
