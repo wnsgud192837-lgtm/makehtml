@@ -624,9 +624,10 @@ input {
   border: 1px solid #dce3ee;
   border-radius: 20px;
   background: #fbfcfe;
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-start;
+  display: grid;
+  align-content: space-between;
+  justify-items: start;
+  gap: 12px;
 }
 
 .calendar-cell.is-empty {
@@ -641,10 +642,24 @@ input {
   box-shadow: inset 0 0 0 2px rgba(23, 63, 125, 0.08);
 }
 
+.calendar-cell.is-holiday {
+  background: linear-gradient(180deg, rgba(201, 15, 113, 0.08), #fbfcfe);
+}
+
+.calendar-cell.is-event {
+  background: linear-gradient(180deg, rgba(23, 63, 125, 0.1), #fbfcfe);
+}
+
 .calendar-date {
   color: #173f7d;
   font-size: 1rem;
   font-weight: 700;
+}
+
+.calendar-note {
+  color: #46566d;
+  font-size: 0.79rem;
+  line-height: 1.4;
 }
 
 .points-panel {

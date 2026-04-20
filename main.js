@@ -26,6 +26,31 @@ const pointsHistoryTotal = document.querySelector("#points-history-total");
 const today = new Date();
 const highlightedMonth = today.getFullYear() === 2026 ? today.getMonth() : -1;
 const highlightedDay = today.getFullYear() === 2026 ? today.getDate() : -1;
+const notableCalendarItems = [
+  { month: 0, day: 1, label: "신정", type: "holiday" },
+  { month: 1, day: 16, label: "설날 연휴", type: "holiday" },
+  { month: 1, day: 17, label: "설날", type: "holiday" },
+  { month: 1, day: 18, label: "설날 연휴", type: "holiday" },
+  { month: 2, day: 1, label: "삼일절", type: "holiday" },
+  { month: 2, day: 2, label: "삼일절 대체공휴일", type: "holiday" },
+  { month: 4, day: 5, label: "어린이날", type: "holiday" },
+  { month: 4, day: 7, label: "해맞이 한마당", type: "event" },
+  { month: 4, day: 8, label: "해맞이 한마당", type: "event" },
+  { month: 4, day: 24, label: "부처님오신날", type: "holiday" },
+  { month: 4, day: 25, label: "대체공휴일", type: "holiday" },
+  { month: 5, day: 6, label: "현충일", type: "holiday" },
+  { month: 7, day: 15, label: "광복절", type: "holiday" },
+  { month: 7, day: 17, label: "광복절 대체공휴일", type: "holiday" },
+  { month: 8, day: 18, label: "포카전", type: "event" },
+  { month: 8, day: 19, label: "포카전", type: "event" },
+  { month: 8, day: 24, label: "추석 연휴", type: "holiday" },
+  { month: 8, day: 25, label: "추석", type: "holiday" },
+  { month: 8, day: 26, label: "추석 연휴", type: "holiday" },
+  { month: 9, day: 3, label: "개천절", type: "holiday" },
+  { month: 9, day: 5, label: "개천절 대체공휴일", type: "holiday" },
+  { month: 9, day: 9, label: "한글날", type: "holiday" },
+  { month: 11, day: 25, label: "크리스마스", type: "holiday" }
+];
 
 const placeholderCopy = {
   tokens: {
@@ -327,6 +352,11 @@ function renderCalendar() {
   const firstDay = new Date(2026, currentCalendarMonth, 1).getDay();
   const lastDate = new Date(2026, currentCalendarMonth + 1, 0).getDate();
   const cells = [];
+  const itemsByDay = new Map(
+    notableCalendarItems
+      .filter((item) => item.month === currentCalendarMonth)
+      .map((item) => [item.day, item])
+  );
 
   if (calendarMonthLabel) {
     calendarMonthLabel.textContent = `2026년 ${currentCalendarMonth + 1}월`;
@@ -345,14 +375,19 @@ function renderCalendar() {
   }
 
   for (let day = 1; day <= lastDate; day += 1) {
+    const item = itemsByDay.get(day);
     const classes = ["calendar-cell"];
     if (currentCalendarMonth === highlightedMonth && day === highlightedDay) {
       classes.push("is-today");
+    }
+    if (item) {
+      classes.push(item.type === "holiday" ? "is-holiday" : "is-event");
     }
 
     cells.push(`
       <article class="${classes.join(" ")}">
         <span class="calendar-date">${day}</span>
+        ${item ? `<small class="calendar-note">${item.label}</small>` : ""}
       </article>
     `);
   }
