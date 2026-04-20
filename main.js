@@ -145,6 +145,7 @@ const adminState = {
 };
 
 let noticeItems = [];
+const NOTICE_STORAGE_KEY = "postech_notice_items";
 
 const roleConfigs = {
   student: {
@@ -424,6 +425,34 @@ function formatDate(date) {
   const day = String(date.getDate()).padStart(2, "0");
 
   return `${year}.${month}.${day}`;
+}
+
+function loadNoticeItems() {
+  if (typeof window === "undefined") return [];
+
+  const raw = window.localStorage.getItem(NOTICE_STORAGE_KEY);
+  if (!raw) return [];
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed.filter(
+      (item) =>
+        item &&
+        typeof item.title === "string" &&
+        typeof item.content === "string" &&
+        typeof item.date === "string"
+    );
+  } catch {
+    return [];
+  }
+}
+
+function persistNoticeItems() {
+  if (typeof window === "undefined") return;
+
+  window.localStorage.setItem(NOTICE_STORAGE_KEY, JSON.stringify(noticeItems));
 }
 
 function applyRoleLayout(role) {
@@ -781,6 +810,7 @@ if (noticeForm) {
     }
 
     noticeForm.reset();
+    persistNoticeItems();
     renderNoticeLists();
   });
 }
@@ -801,6 +831,7 @@ if (adminNoticeList) {
       noticeMessage.textContent = "공지가 삭제되었습니다.";
     }
 
+    persistNoticeItems();
     renderNoticeLists();
   });
 }
@@ -855,6 +886,7 @@ if (loginForm) {
   });
 }
 
+noticeItems = loadNoticeItems();
 applyRoleLayout(currentRole);
 resetScenario(roleConfigs[currentRole].defaultMode);
 switchView("dashboard");
