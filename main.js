@@ -17,6 +17,12 @@ const pointsView = document.querySelector("#points-view");
 const placeholderView = document.querySelector("#placeholder-view");
 const placeholderTitle = document.querySelector("#placeholder-title");
 const placeholderText = document.querySelector("#placeholder-text");
+const marketStudentPanel = document.querySelector("#market-student-panel");
+const marketPointsBalance = document.querySelector("#market-points-balance");
+const marketHoldingsCount = document.querySelector("#market-holdings-count");
+const marketHoldingsMeta = document.querySelector("#market-holdings-meta");
+const marketCardGrid = document.querySelector("#market-card-grid");
+const marketHistoryList = document.querySelector("#market-history-list");
 const noticeAdminPanel = document.querySelector("#notice-admin-panel");
 const noticeForm = document.querySelector("#notice-form");
 const noticeMessage = document.querySelector("#notice-message");
@@ -111,6 +117,36 @@ const placeholderCopy = {
 let noticeItems = [];
 const NOTICE_STORAGE_KEY = "postech_notice_items";
 const PAYMENT_STORAGE_KEY = "postech_payment_state";
+const MARKET_STORAGE_KEY = "postech_market_state";
+const marketCatalog = [
+  {
+    id: "festival-pass",
+    title: "봄축제 입장권",
+    description: "봄축제 메인 행사 입장과 현장 체크인을 위한 참여권입니다.",
+    payerPrice: 4000,
+    nonpayerPrice: 6200,
+    supply: 24,
+    demandLabel: "수요 높음"
+  },
+  {
+    id: "rental-priority",
+    title: "대여 우선권",
+    description: "프린터, 계산기, 우산 대여 예약 시 우선 슬롯을 확보합니다.",
+    payerPrice: 2500,
+    nonpayerPrice: 3900,
+    supply: 18,
+    demandLabel: "수요 보통"
+  },
+  {
+    id: "governance-ticket",
+    title: "거버넌스 토큰 교환권",
+    description: "다음 안건 투표에 사용할 거버넌스 토큰 1개로 교환됩니다.",
+    payerPrice: 7000,
+    nonpayerPrice: 9800,
+    supply: 10,
+    demandLabel: "수요 급증"
+  }
+];
 
 const roleConfigs = {
   student: {
@@ -387,6 +423,9 @@ let paymentState = {
   studentPaid: false,
   paidAt: ""
 };
+let marketState = {
+  purchases: []
+};
 
 function formatDate(date) {
   const year = date.getFullYear();
@@ -448,6 +487,50 @@ function persistPaymentState() {
   window.localStorage.setItem(PAYMENT_STORAGE_KEY, JSON.stringify(paymentState));
 }
 
+function loadMarketState() {
+  if (typeof window === "undefined") return { purchases: [] };
+
+  const raw = window.localStorage.getItem(MARKET_STORAGE_KEY);
+  if (!raw) return { purchases: [] };
+
+  try {
+    const parsed = JSON.parse(raw);
+
+    return {
+      purchases: Array.isArray(parsed?.purchases)
+        ? parsed.purchases.filter(
+            (item) =>
+              item &&
+              typeof item.productId === "string" &&
+              typeof item.title === "string" &&
+              typeof item.price === "number" &&
+              typeof item.date === "string"
+          )
+        : []
+    };
+  } catch {
+    return { purchases: [] };
+  }
+}
+
+function persistMarketState() {
+  if (typeof window === "undefined") return;
+
+  window.localStorage.setItem(MARKET_STORAGE_KEY, JSON.stringify(marketState));
+}
+
+function getMarketPrice(product) {
+  return paymentState.studentPaid ? product.payerPrice : product.nonpayerPrice;
+}
+
+function getRemainingSupply(productId) {
+  const product = marketCatalog.find((entry) => entry.id === productId);
+  if (!product) return 0;
+
+  const soldCount = marketState.purchases.filter((entry) => entry.productId === productId).length;
+  return Math.max(0, product.supply - soldCount);
+}
+
 function buildAdminState() {
   const totalPaidStudents = paymentState.studentPaid ? 1 : 0;
   const totalGrantedPoints = paymentState.studentPaid ? 31000 : 0;
@@ -484,23 +567,44 @@ function buildAdminState() {
 }
 
 function buildStudentState() {
+  const purchases = marketState.purchases;
+  const paidReward = paymentState.studentPaid ? 31000 : 0;
+  const spentPoints = purchases.reduce((sum, entry) => sum + entry.price, 0);
+
   if (!paymentState.studentPaid) {
-    return { ...baseState, pointHistory: [] };
+    return {
+      ...baseState,
+      points: -spentPoints,
+      pointsMeta: spentPoints > 0 ? "세컨더리 마켓 구매 반영" : baseState.pointsMeta,
+      pointHistory: purchases.map((entry) => ({
+        title: `${entry.title} 구매`,
+        date: entry.date,
+        amount: -entry.price,
+        type: "use"
+      }))
+    };
   }
 
   return {
     ...baseState,
-    points: 31000,
+    points: paidReward - spentPoints,
     paymentStatus: "납부 완료",
     paymentMeta: "31,000포인트 지급 완료",
-    pointsMeta: "학생회비 납부로 31,000P 지급",
+    pointsMeta:
+      spentPoints > 0 ? "학생회비 납부 후 세컨더리 마켓 구매 반영" : "학생회비 납부로 31,000P 지급",
     pointHistory: [
       {
         title: "학생회비 납부 리워드 지급",
         date: paymentState.paidAt || formatDate(new Date()),
         amount: 31000,
         type: "earn"
-      }
+      },
+      ...purchases.map((entry) => ({
+        title: `${entry.title} 구매`,
+        date: entry.date,
+        amount: -entry.price,
+        type: "use"
+      }))
     ]
   };
 }
@@ -543,6 +647,7 @@ function resetScenario(mode) {
   renderStatus();
   renderCalendar();
   renderPointsHistory();
+  renderMarketView();
 }
 
 function updateModeButtons() {
@@ -560,6 +665,7 @@ function switchView(view) {
 
   const isDashboard = view === "dashboard";
   const isPoints = view === "points";
+  const isStudentMarketView = currentRole === "student" && view === "market";
 
   if (statusGrid) statusGrid.classList.toggle("is-hidden", !isDashboard);
   if (dashboardView) dashboardView.classList.toggle("is-hidden", !isDashboard);
@@ -578,8 +684,12 @@ function switchView(view) {
     noticeAdminPanel.classList.toggle("is-hidden", !isAdminNoticeView);
   }
 
+  if (marketStudentPanel) {
+    marketStudentPanel.classList.toggle("is-hidden", !isStudentMarketView);
+  }
+
   if (placeholderText) {
-    placeholderText.classList.toggle("is-hidden", isAdminNoticeView);
+    placeholderText.classList.toggle("is-hidden", isAdminNoticeView || isStudentMarketView);
   }
 
   if (noticeMessage && !isAdminNoticeView) {
@@ -742,6 +852,87 @@ function renderNoticeLists() {
   }
 }
 
+function renderMarketView() {
+  if (marketPointsBalance) {
+    marketPointsBalance.textContent = `${state.points.toLocaleString()}P`;
+  }
+
+  const groupedPurchases = marketCatalog
+    .map((product) => ({
+      title: product.title,
+      count: marketState.purchases.filter((entry) => entry.productId === product.id).length
+    }))
+    .filter((entry) => entry.count > 0);
+
+  if (marketHoldingsCount) {
+    marketHoldingsCount.textContent = `${marketState.purchases.length}개`;
+  }
+
+  if (marketHoldingsMeta) {
+    marketHoldingsMeta.textContent =
+      groupedPurchases.length === 0
+        ? "아직 구매한 참여권이 없습니다."
+        : groupedPurchases.map((entry) => `${entry.title} ${entry.count}개`).join(" / ");
+  }
+
+  if (marketCardGrid) {
+    marketCardGrid.innerHTML = marketCatalog
+      .map((product) => {
+        const currentPrice = getMarketPrice(product);
+        const remaining = getRemainingSupply(product.id);
+        const canBuy = currentRole === "student" && remaining > 0 && state.points >= currentPrice;
+
+        return `
+          <article class="market-card">
+            <div class="market-card-head">
+              <div>
+                <strong>${product.title}</strong>
+                <span>${product.demandLabel}</span>
+              </div>
+              <b>${currentPrice.toLocaleString()}P</b>
+            </div>
+            <p>${product.description}</p>
+            <ul class="market-card-meta">
+              <li>납부자 가격 ${product.payerPrice.toLocaleString()}P</li>
+              <li>미납부 가격 ${product.nonpayerPrice.toLocaleString()}P</li>
+              <li>남은 수량 ${remaining}개</li>
+            </ul>
+            <button type="button" class="market-buy-button" data-market-product="${product.id}" ${canBuy ? "" : "disabled"}>
+              ${remaining === 0 ? "매진" : state.points < currentPrice ? "포인트 부족" : "구매하기"}
+            </button>
+          </article>
+        `;
+      })
+      .join("");
+  }
+
+  if (marketHistoryList) {
+    marketHistoryList.innerHTML =
+      marketState.purchases.length === 0
+        ? `
+          <li class="points-history-empty">
+            <p>아직 구매한 상품이 없습니다.</p>
+            <span>상품 카드에서 참여권을 구매하면 이력이 쌓입니다.</span>
+          </li>
+        `
+        : marketState.purchases
+            .slice()
+            .reverse()
+            .map(
+              (entry) => `
+                <li class="points-history-item">
+                  <div>
+                    <strong>${entry.title}</strong>
+                    <span>${entry.date}</span>
+                  </div>
+                  <b class="is-negative">-${entry.price.toLocaleString()}P</b>
+                </li>
+              `
+            )
+            .join("");
+  }
+}
+
 function applyCurrentStep() {
   if (currentRole !== "student") return;
 
@@ -779,6 +970,37 @@ function handleStudentPayment() {
 
   renderStatus();
   renderPointsHistory();
+  renderMarketView();
+}
+
+function handleMarketPurchase(productId) {
+  if (currentRole !== "student") return;
+
+  const product = marketCatalog.find((entry) => entry.id === productId);
+  if (!product) return;
+
+  const currentPrice = getMarketPrice(product);
+  const remaining = getRemainingSupply(product.id);
+
+  if (remaining <= 0 || state.points < currentPrice) return;
+
+  marketState = {
+    purchases: [
+      ...marketState.purchases,
+      {
+        productId: product.id,
+        title: product.title,
+        price: currentPrice,
+        date: formatDate(new Date())
+      }
+    ]
+  };
+  persistMarketState();
+
+  state = buildStudentState();
+  renderStatus();
+  renderPointsHistory();
+  renderMarketView();
 }
 
 modeButtons.forEach((button) => {
@@ -818,6 +1040,19 @@ if (calendarNextButton) {
 if (paymentButton) {
   paymentButton.addEventListener("click", () => {
     handleStudentPayment();
+  });
+}
+
+if (marketCardGrid) {
+  marketCardGrid.addEventListener("click", (event) => {
+    const target = event.target;
+
+    if (!(target instanceof HTMLElement)) return;
+
+    const productId = target.dataset.marketProduct;
+    if (!productId) return;
+
+    handleMarketPurchase(productId);
   });
 }
 
@@ -930,6 +1165,7 @@ if (loginForm) {
 
 noticeItems = loadNoticeItems();
 paymentState = loadPaymentState();
+marketState = loadMarketState();
 applyRoleLayout(currentRole);
 resetScenario(roleConfigs[currentRole].defaultMode);
 switchView("dashboard");
