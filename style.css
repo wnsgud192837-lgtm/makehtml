@@ -178,6 +178,13 @@ input {
   background: #be1069;
 }
 
+.login-help {
+  margin: 6px 0 0;
+  color: #6d7582;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
 .utility-row {
   display: block;
   margin-top: -4px;

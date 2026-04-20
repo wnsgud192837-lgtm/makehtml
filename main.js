@@ -5,12 +5,20 @@ const loginMessage = document.querySelector("#login-message");
 const logoutButton = document.querySelector("#logout-button");
 const modeButtons = Array.from(document.querySelectorAll("[data-mode]"));
 const navItems = Array.from(document.querySelectorAll(".app-nav-item"));
+const appRoleSubtitle = document.querySelector("#app-role-subtitle");
+const heroKicker = document.querySelector("#hero-kicker");
+const heroTitle = document.querySelector("#hero-title");
+const heroDescription = document.querySelector("#hero-description");
+const heroActions = document.querySelector("#hero-actions");
 const statusGrid = document.querySelector("#status-grid");
 const dashboardView = document.querySelector("#dashboard-view");
 const pointsView = document.querySelector("#points-view");
 const placeholderView = document.querySelector("#placeholder-view");
 const placeholderTitle = document.querySelector("#placeholder-title");
 const placeholderText = document.querySelector("#placeholder-text");
+const paymentLabel = document.querySelector("#payment-label");
+const pointsLabel = document.querySelector("#points-label");
+const tokenLabel = document.querySelector("#token-label");
 const pointsValue = document.querySelector("#points-value");
 const pointsMeta = document.querySelector("#points-meta");
 const tokenValue = document.querySelector("#token-value");
@@ -53,21 +61,124 @@ const notableCalendarItems = [
 ];
 
 const placeholderCopy = {
-  tokens: {
-    title: "토큰 화면 설계 예정",
-    text: "거버넌스 토큰 적립, 사용, 소각 흐름을 이 메뉴에서 분리해 설계할 예정입니다."
+  student: {
+    tokens: {
+      title: "토큰 화면 설계 예정",
+      text: "거버넌스 토큰 적립, 사용, 소각 흐름을 이 메뉴에서 분리해 설계할 예정입니다."
+    },
+    market: {
+      title: "세컨더리 마켓 설계 예정",
+      text: "거래 보드, AMM 시세, 구매 전환 흐름을 이 메뉴에서 구체화할 예정입니다."
+    },
+    governance: {
+      title: "거버넌스 설계 예정",
+      text: "예산 투표, 안건 제안, 토큰 소각 규칙을 이 메뉴에서 구체화할 예정입니다."
+    },
+    rental: {
+      title: "대여사업 설계 예정",
+      text: "대여 가능 자산, 예약 상태, 납부자 우선권 흐름을 이 메뉴에서 구체화할 예정입니다."
+    }
   },
-  market: {
-    title: "세컨더리 마켓 설계 예정",
-    text: "거래 보드, AMM 시세, 구매 전환 흐름을 이 메뉴에서 구체화할 예정입니다."
+  admin: {
+    points: {
+      title: "포인트 정책 관리",
+      text: "학생회비 납부 리워드, 행사 사용 포인트, 차감 기준을 관리자 화면에서 조정할 수 있습니다."
+    },
+    tokens: {
+      title: "행사 운영 관리",
+      text: "행사 체크인, 참여권 재고, 운영 현황을 관리자 권한으로 확인하고 조정할 수 있습니다."
+    },
+    market: {
+      title: "공지 및 배너 관리",
+      text: "납부 전환 안내, 비교 배너, 캠페인 문구를 관리자 모드에서 운영할 수 있습니다."
+    },
+    governance: {
+      title: "거버넌스 안건 관리",
+      text: "투표 일정, 안건 공개 여부, 토큰 소각 정책을 관리자 권한으로 검토할 수 있습니다."
+    },
+    rental: {
+      title: "대여사업 운영",
+      text: "대여 가능 자산 수량과 예약 상태를 관리자 기준으로 모니터링할 수 있습니다."
+    }
+  }
+};
+
+const adminState = {
+  points: 412000,
+  tokens: 87,
+  character: "운영자",
+  grade: "관리자",
+  avatar: "AD",
+  paymentStatus: "128명 완료",
+  paymentMeta: "납부 현황 페이지 열기",
+  market: "운영 중",
+  rental: "24건 예약",
+  vote: "3건 진행",
+  carry: "정상",
+  pointsMeta: "이번 학기 누적 지급 포인트",
+  tokenMeta: "운영 중인 거버넌스 토큰 수량",
+  pointHistory: [
+    {
+      title: "학생회비 납부 리워드 일괄 지급",
+      date: "2026.04.18",
+      amount: 248000,
+      type: "earn"
+    },
+    {
+      title: "행사 체크인 포인트 정산",
+      date: "2026.04.16",
+      amount: 94000,
+      type: "earn"
+    },
+    {
+      title: "운영 보정 차감",
+      date: "2026.04.15",
+      amount: -12000,
+      type: "use"
+    }
+  ]
+};
+
+const roleConfigs = {
+  student: {
+    subtitle: "학생 모드",
+    heroKicker: "학생 서비스",
+    heroTitle: "POSTECH 학생회비 앱 사용자 흐름 설계",
+    heroDescription: "학생 로그인 이후 납부 상태에 따라 혜택과 전환 유도가 어떻게 달라지는지 확인할 수 있습니다.",
+    labels: {
+      payment: "납부 여부",
+      points: "포인트",
+      token: "거버넌스 토큰"
+    },
+    nav: {
+      points: "포인트",
+      tokens: "토큰",
+      market: "세컨더리 마켓",
+      governance: "거버넌스",
+      rental: "대여사업"
+    },
+    showModeButtons: true,
+    defaultMode: "payer"
   },
-  governance: {
-    title: "거버넌스 설계 예정",
-    text: "예산 투표, 안건 제안, 토큰 소각 규칙을 이 메뉴에서 구체화할 예정입니다."
-  },
-  rental: {
-    title: "대여사업 설계 예정",
-    text: "대여 가능 자산, 예약 상태, 납부자 우선권 흐름을 이 메뉴에서 구체화할 예정입니다."
+  admin: {
+    subtitle: "관리자 모드",
+    heroKicker: "운영 대시보드",
+    heroTitle: "학생회비 및 운영 현황 관리자 화면",
+    heroDescription: "관리자는 납부 현황, 누적 포인트 지급, 행사 운영 상태를 한 화면에서 점검하고 관리 작업으로 이동할 수 있습니다.",
+    labels: {
+      payment: "납부 현황",
+      points: "총 지급 포인트",
+      token: "운영 토큰"
+    },
+    nav: {
+      points: "포인트 관리",
+      tokens: "행사 운영",
+      market: "공지 관리",
+      governance: "투표 관리",
+      rental: "대여 관리"
+    },
+    showModeButtons: false,
+    defaultMode: "payer"
   }
 };
 
@@ -294,16 +405,45 @@ const baseState = {
 
 let currentMode = "payer";
 let currentView = "dashboard";
+let currentRole = "student";
 let currentCalendarMonth = highlightedMonth >= 0 ? highlightedMonth : 3;
 let activeStepIndex = 0;
 let completedSteps = new Set();
 let state = { ...baseState };
 
+function applyRoleLayout(role) {
+  const roleConfig = roleConfigs[role];
+
+  if (!roleConfig) return;
+
+  if (appRoleSubtitle) appRoleSubtitle.textContent = roleConfig.subtitle;
+  if (heroKicker) heroKicker.textContent = roleConfig.heroKicker;
+  if (heroTitle) heroTitle.textContent = roleConfig.heroTitle;
+  if (heroDescription) heroDescription.textContent = roleConfig.heroDescription;
+  if (paymentLabel) paymentLabel.textContent = roleConfig.labels.payment;
+  if (pointsLabel) pointsLabel.textContent = roleConfig.labels.points;
+  if (tokenLabel) tokenLabel.textContent = roleConfig.labels.token;
+  if (heroActions) heroActions.classList.toggle("is-hidden", !roleConfig.showModeButtons);
+
+  navItems.forEach((item) => {
+    const view = item.dataset.view;
+    if (view && roleConfig.nav[view]) {
+      item.textContent = roleConfig.nav[view];
+    }
+  });
+}
+
 function resetScenario(mode) {
   currentMode = mode;
   activeStepIndex = 0;
   completedSteps = new Set();
-  state = { ...baseState, pointHistory: [] };
+  state =
+    currentRole === "admin"
+      ? {
+          ...adminState,
+          pointHistory: adminState.pointHistory.map((entry) => ({ ...entry }))
+        }
+      : { ...baseState, pointHistory: [] };
   updateModeButtons();
   renderStatus();
   renderCalendar();
@@ -312,6 +452,7 @@ function resetScenario(mode) {
 
 function updateModeButtons() {
   modeButtons.forEach((button) => {
+    button.classList.toggle("is-hidden", currentRole !== "student");
     button.classList.toggle("is-active", button.dataset.mode === currentMode);
   });
 }
@@ -331,7 +472,7 @@ function switchView(view) {
   if (placeholderView) placeholderView.classList.toggle("is-hidden", isDashboard || isPoints);
 
   if (!isDashboard && !isPoints) {
-    const copy = placeholderCopy[view];
+    const copy = placeholderCopy[currentRole]?.[view];
     if (placeholderTitle && copy) placeholderTitle.textContent = copy.title;
     if (placeholderText && copy) placeholderText.textContent = copy.text;
   }
@@ -350,8 +491,13 @@ function renderStatus() {
     const isSettled =
       state.paymentStatus === "납부 완료" || state.paymentStatus === "납부 전환";
 
-    paymentButton.textContent = isSettled ? state.paymentStatus : "지금 납부하기";
-    paymentButton.disabled = isSettled;
+    if (currentRole === "admin") {
+      paymentButton.textContent = "납부 명단 관리";
+      paymentButton.disabled = false;
+    } else {
+      paymentButton.textContent = isSettled ? state.paymentStatus : "지금 납부하기 / 31,000원";
+      paymentButton.disabled = isSettled;
+    }
   }
 }
 
@@ -441,6 +587,8 @@ function renderPointsHistory() {
 }
 
 function applyCurrentStep() {
+  if (currentRole !== "student") return;
+
   const scenario = scenarios[currentMode];
   const step = scenario.steps[activeStepIndex];
 
@@ -498,7 +646,10 @@ if (logoutButton) {
     if (loginPage) loginPage.classList.remove("is-hidden");
     if (loginForm) loginForm.reset();
     if (loginMessage) loginMessage.textContent = "";
-    resetScenario("payer");
+    currentRole = "student";
+    applyRoleLayout(currentRole);
+    resetScenario(roleConfigs[currentRole].defaultMode);
+    switchView("dashboard");
   });
 }
 
@@ -510,7 +661,15 @@ if (loginForm) {
     const userId = String(formData.get("userId") || "").trim();
     const password = String(formData.get("password") || "").trim();
 
-    if (userId !== "admin" || password !== "admin") {
+    let nextRole = "";
+
+    if (userId === "admin" && password === "admin") {
+      nextRole = "admin";
+    } else if (userId === "student" && password === "student") {
+      nextRole = "student";
+    }
+
+    if (!nextRole) {
       if (loginMessage) {
         loginMessage.textContent = "아이디 또는 비밀번호가 올바르지 않습니다.";
       }
@@ -521,7 +680,9 @@ if (loginForm) {
       loginMessage.textContent = "";
     }
 
-    resetScenario("payer");
+    currentRole = nextRole;
+    applyRoleLayout(currentRole);
+    resetScenario(roleConfigs[currentRole].defaultMode);
     switchView("dashboard");
 
     if (loginPage) loginPage.classList.add("is-hidden");
@@ -529,5 +690,6 @@ if (loginForm) {
   });
 }
 
-resetScenario("payer");
+applyRoleLayout(currentRole);
+resetScenario(roleConfigs[currentRole].defaultMode);
 switchView("dashboard");
