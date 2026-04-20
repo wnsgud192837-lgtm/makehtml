@@ -14,6 +14,8 @@ const heroActions = document.querySelector("#hero-actions");
 const statusGrid = document.querySelector("#status-grid");
 const dashboardView = document.querySelector("#dashboard-view");
 const pointsView = document.querySelector("#points-view");
+const tokenView = document.querySelector("#token-view");
+const tokenMarketPanel = document.querySelector("#token-market-panel");
 const placeholderView = document.querySelector("#placeholder-view");
 const placeholderTitle = document.querySelector("#placeholder-title");
 const placeholderText = document.querySelector("#placeholder-text");
@@ -120,6 +122,14 @@ const NOTICE_STORAGE_KEY = "postech_notice_items";
 const PAYMENT_STORAGE_KEY = "postech_payment_state";
 const POLL_STORAGE_KEY = "postech_governance_polls";
 const STUDENT_GOVERNANCE_STORAGE_KEY = "postech_student_governance";
+const TOKEN_MARKET_STORAGE_KEY = "postech_token_market_state";
+const INITIAL_TOKEN_MARKET_STATE = {
+  pointReserve: 24000,
+  eventTokenReserve: 12,
+  userEventTokens: 0,
+  pointDelta: 0,
+  purchaseHistory: []
+};
 
 const roleConfigs = {
   student: {
@@ -397,10 +407,12 @@ let paymentState = {
   paidAt: ""
 };
 let governancePolls = [];
+let studentTokenMarketState = cloneInitialTokenMarketState();
 let studentGovernanceState = {
   tokens: 1,
   votedPollIds: []
 };
+let tokenMarketMessage = "";
 
 function formatDate(date) {
   const year = date.getFullYear();
@@ -438,6 +450,275 @@ function buildQuickPollUrl(title, description, options) {
   });
 
   return `https://app.polling.com/quick-poll?${query.toString()}`;
+}
+
+function cloneInitialTokenMarketState() {
+  return {
+    pointReserve: INITIAL_TOKEN_MARKET_STATE.pointReserve,
+    eventTokenReserve: INITIAL_TOKEN_MARKET_STATE.eventTokenReserve,
+    userEventTokens: INITIAL_TOKEN_MARKET_STATE.userEventTokens,
+    pointDelta: INITIAL_TOKEN_MARKET_STATE.pointDelta,
+    purchaseHistory: []
+  };
+}
+
+function loadTokenMarketState() {
+  if (typeof window === "undefined") return cloneInitialTokenMarketState();
+
+  const raw = window.localStorage.getItem(TOKEN_MARKET_STORAGE_KEY);
+  if (!raw) return cloneInitialTokenMarketState();
+
+  try {
+    const parsed = JSON.parse(raw);
+    const pointReserve =
+      Number.isFinite(parsed?.pointReserve) && parsed.pointReserve > 0
+        ? Math.floor(parsed.pointReserve)
+        : INITIAL_TOKEN_MARKET_STATE.pointReserve;
+    const eventTokenReserve =
+      Number.isFinite(parsed?.eventTokenReserve) && parsed.eventTokenReserve > 0
+        ? Math.floor(parsed.eventTokenReserve)
+        : INITIAL_TOKEN_MARKET_STATE.eventTokenReserve;
+    const userEventTokens =
+      Number.isFinite(parsed?.userEventTokens) && parsed.userEventTokens >= 0
+        ? Math.floor(parsed.userEventTokens)
+        : 0;
+    const pointDelta =
+      Number.isFinite(parsed?.pointDelta)
+        ? Math.floor(parsed.pointDelta)
+        : 0;
+    const purchaseHistory = Array.isArray(parsed?.purchaseHistory)
+      ? parsed.purchaseHistory.filter(
+          (item) =>
+            item &&
+            typeof item.title === "string" &&
+            typeof item.date === "string" &&
+            Number.isFinite(item.amount) &&
+            typeof item.type === "string"
+        )
+      : [];
+
+    return {
+      pointReserve,
+      eventTokenReserve,
+      userEventTokens,
+      pointDelta,
+      purchaseHistory
+    };
+  } catch {
+    return cloneInitialTokenMarketState();
+  }
+}
+
+function persistTokenMarketState() {
+  if (typeof window === "undefined") return;
+
+  window.localStorage.setItem(
+    TOKEN_MARKET_STORAGE_KEY,
+    JSON.stringify(studentTokenMarketState)
+  );
+}
+
+function getTokenMarketSpotPrice() {
+  return studentTokenMarketState.pointReserve / studentTokenMarketState.eventTokenReserve;
+}
+
+function getTokenBuyQuote(quantity) {
+  const normalizedQuantity = Math.max(1, Math.floor(quantity));
+  const { pointReserve, eventTokenReserve } = studentTokenMarketState;
+
+  if (normalizedQuantity >= eventTokenReserve) {
+    return null;
+  }
+
+  const invariant = pointReserve * eventTokenReserve;
+  const nextEventTokenReserve = eventTokenReserve - normalizedQuantity;
+  const exactNextPointReserve = invariant / nextEventTokenReserve;
+  const cost = Math.ceil(exactNextPointReserve - pointReserve);
+
+  return {
+    quantity: normalizedQuantity,
+    cost,
+    nextPointReserve: pointReserve + cost,
+    nextEventTokenReserve,
+    nextInvariant: (pointReserve + cost) * nextEventTokenReserve
+  };
+}
+
+function getTokenSellQuote(quantity) {
+  const normalizedQuantity = Math.max(1, Math.floor(quantity));
+  const { pointReserve, eventTokenReserve } = studentTokenMarketState;
+
+  if (normalizedQuantity > studentTokenMarketState.userEventTokens) {
+    return null;
+  }
+
+  const invariant = pointReserve * eventTokenReserve;
+  const nextEventTokenReserve = eventTokenReserve + normalizedQuantity;
+  const exactNextPointReserve = invariant / nextEventTokenReserve;
+  const payout = Math.floor(pointReserve - exactNextPointReserve);
+
+  if (payout <= 0) {
+    return null;
+  }
+
+  return {
+    quantity: normalizedQuantity,
+    payout,
+    nextPointReserve: pointReserve - payout,
+    nextEventTokenReserve,
+    nextInvariant: (pointReserve - payout) * nextEventTokenReserve
+  };
+}
+
+function getMaxPurchasableTokens(balance) {
+  let quantity = 0;
+
+  while (true) {
+    const nextQuantity = quantity + 1;
+    const quote = getTokenBuyQuote(nextQuantity);
+    if (!quote || quote.cost > balance) break;
+    quantity = nextQuantity;
+  }
+
+  return quantity;
+}
+
+function renderTokenMarket() {
+  if (!tokenMarketPanel) return;
+
+  if (currentRole !== "student") {
+    tokenMarketPanel.innerHTML = "";
+    return;
+  }
+
+  const spotPrice = getTokenMarketSpotPrice();
+  const oneTokenQuote = getTokenBuyQuote(1);
+  const twoTokenQuote = getTokenBuyQuote(2);
+  const oneTokenSellQuote = getTokenSellQuote(1);
+  const maxPurchasable = getMaxPurchasableTokens(state.points);
+
+  tokenMarketPanel.innerHTML = `
+    <header class="panel-titlebar token-market-header">
+      <div>
+        <p class="panel-kicker">AMM Market</p>
+        <h3>해맞이 한마당 토큰 시장</h3>
+      </div>
+      <div class="progress-chip">x * y = ${(
+        studentTokenMarketState.pointReserve * studentTokenMarketState.eventTokenReserve
+      ).toLocaleString()}</div>
+    </header>
+
+    <div class="token-market-grid">
+      <section class="token-market-card token-market-card-primary">
+        <p class="token-market-eyebrow">Constant Product Pool</p>
+        <strong class="token-market-title">포인트로 해맞이 한마당 토큰을 바로 매수</strong>
+        <p class="detail-text token-market-copy">
+          현재 풀은 <b>x = 포인트 준비금</b>, <b>y = 행사 토큰 준비금</b> 구조로 동작합니다.
+          학생이 토큰을 매수하면 풀 안의 행사 토큰이 줄고, 그만큼 다음 가격이 즉시 상승합니다.
+        </p>
+
+        <div class="token-market-stats">
+          <article>
+            <span>내 보유 토큰</span>
+            <strong>${studentTokenMarketState.userEventTokens}개</strong>
+          </article>
+          <article>
+            <span>현재 즉시 가격</span>
+            <strong>${Math.round(spotPrice).toLocaleString()}P</strong>
+          </article>
+          <article>
+            <span>풀 포인트</span>
+            <strong>${studentTokenMarketState.pointReserve.toLocaleString()}P</strong>
+          </article>
+          <article>
+            <span>풀 행사 토큰</span>
+            <strong>${studentTokenMarketState.eventTokenReserve}개</strong>
+          </article>
+        </div>
+
+        <form class="token-buy-form" id="token-buy-form">
+          <label class="notice-field">
+            <span>구매 수량</span>
+            <input
+              type="number"
+              name="quantity"
+              min="1"
+              max="${Math.max(1, studentTokenMarketState.eventTokenReserve - 1)}"
+              value="1"
+            >
+          </label>
+
+          <button
+            type="submit"
+            class="login-button notice-submit"
+            ${maxPurchasable < 1 ? "disabled" : ""}
+          >
+            해맞이 한마당 토큰 구매
+          </button>
+        </form>
+
+        <form class="token-buy-form" id="token-sell-form">
+          <label class="notice-field">
+            <span>판매 수량</span>
+            <input
+              type="number"
+              name="quantity"
+              min="1"
+              max="${Math.max(1, studentTokenMarketState.userEventTokens)}"
+              value="1"
+            >
+          </label>
+
+          <button
+            type="submit"
+            class="ghost-link token-sell-button"
+            ${studentTokenMarketState.userEventTokens < 1 ? "disabled" : ""}
+          >
+            해맞이 한마당 토큰 판매
+          </button>
+        </form>
+
+        <p class="login-message token-market-message" id="token-market-message">${escapeHtml(tokenMarketMessage)}</p>
+      </section>
+
+      <section class="token-market-card">
+        <div class="panel-titlebar panel-titlebar-compact">
+          <div>
+            <p class="panel-kicker">실시간 시세</p>
+            <h3>구매 직후 가격 변화</h3>
+          </div>
+          <button type="button" class="ghost-link token-reset-button" data-token-market-reset="true">풀 리셋</button>
+        </div>
+
+        <ul class="market-list token-quote-list">
+          <li>
+            <span>지금 1개 매수 시 예상 비용</span>
+            <strong>${oneTokenQuote ? `${oneTokenQuote.cost.toLocaleString()}P` : "유동성 부족"}</strong>
+          </li>
+          <li>
+            <span>지금 2개 매수 시 예상 비용</span>
+            <strong>${twoTokenQuote ? `${twoTokenQuote.cost.toLocaleString()}P` : "유동성 부족"}</strong>
+          </li>
+          <li>
+            <span>지금 1개 판매 시 예상 회수</span>
+            <strong>${oneTokenSellQuote ? `${oneTokenSellQuote.payout.toLocaleString()}P` : "판매 불가"}</strong>
+          </li>
+          <li>
+            <span>현재 잔액으로 매수 가능 수량</span>
+            <strong>${maxPurchasable}개</strong>
+          </li>
+          <li>
+            <span>다음 1개 매수 후 풀 상태</span>
+            <strong>${
+              oneTokenQuote
+                ? `${oneTokenQuote.nextPointReserve.toLocaleString()}P / ${oneTokenQuote.nextEventTokenReserve}개`
+                : "구매 불가"
+            }</strong>
+          </li>
+        </ul>
+      </section>
+    </div>
+  `;
 }
 
 function loadNoticeItems() {
@@ -600,18 +881,21 @@ function buildAdminState() {
 }
 
 function buildStudentState() {
+  const marketHistory = studentTokenMarketState.purchaseHistory.slice();
+
   if (!paymentState.studentPaid) {
     return {
       ...baseState,
+      points: studentTokenMarketState.pointDelta,
       tokens: studentGovernanceState.tokens,
       tokenMeta: "안건 1건당 토큰 1개로 익명 투표",
-      pointHistory: []
+      pointHistory: marketHistory
     };
   }
 
   return {
     ...baseState,
-    points: 31000,
+    points: 31000 + studentTokenMarketState.pointDelta,
     tokens: studentGovernanceState.tokens,
     paymentStatus: "납부 완료",
     paymentMeta: "31,000포인트 지급 완료",
@@ -623,7 +907,8 @@ function buildStudentState() {
         date: paymentState.paidAt || formatDate(new Date()),
         amount: 31000,
         type: "earn"
-      }
+      },
+      ...marketHistory
     ]
   };
 }
@@ -653,6 +938,7 @@ function applyRoleLayout(role) {
 
   renderNoticeLists();
   renderGovernanceList();
+  renderTokenMarket();
 }
 
 function resetScenario(mode) {
@@ -667,6 +953,7 @@ function resetScenario(mode) {
   renderStatus();
   renderCalendar();
   renderPointsHistory();
+  renderTokenMarket();
 }
 
 function updateModeButtons() {
@@ -684,13 +971,17 @@ function switchView(view) {
 
   const isDashboard = view === "dashboard";
   const isPoints = view === "points";
+  const isStudentMarketView = currentRole === "student" && view === "market";
 
   if (statusGrid) statusGrid.classList.toggle("is-hidden", !isDashboard);
   if (dashboardView) dashboardView.classList.toggle("is-hidden", !isDashboard);
   if (pointsView) pointsView.classList.toggle("is-hidden", !isPoints);
-  if (placeholderView) placeholderView.classList.toggle("is-hidden", isDashboard || isPoints);
+  if (tokenView) tokenView.classList.toggle("is-hidden", !isStudentMarketView);
+  if (placeholderView) {
+    placeholderView.classList.toggle("is-hidden", isDashboard || isPoints || isStudentMarketView);
+  }
 
-  if (!isDashboard && !isPoints) {
+  if (!isDashboard && !isPoints && !isStudentMarketView) {
     const copy = placeholderCopy[currentRole]?.[view];
     if (placeholderTitle && copy) placeholderTitle.textContent = copy.title;
     if (placeholderText && copy) placeholderText.textContent = copy.text;
@@ -751,6 +1042,7 @@ function switchView(view) {
   }
 
   renderGovernanceList();
+  renderTokenMarket();
 }
 
 function renderStatus() {
@@ -1066,6 +1358,111 @@ if (paymentButton) {
   });
 }
 
+if (tokenMarketPanel) {
+  tokenMarketPanel.addEventListener("submit", (event) => {
+    const target = event.target;
+
+    if (!(target instanceof HTMLFormElement)) return;
+
+    event.preventDefault();
+
+    if (currentRole !== "student") return;
+
+    const formData = new FormData(target);
+    const quantity = Math.max(1, Math.floor(Number(formData.get("quantity") || 1)));
+
+    if (target.id === "token-buy-form") {
+      const quote = getTokenBuyQuote(quantity);
+
+      if (!quote) {
+        tokenMarketMessage = "풀에 남은 해맞이 한마당 토큰이 부족합니다.";
+        renderTokenMarket();
+        return;
+      }
+
+      if (state.points < quote.cost) {
+        tokenMarketMessage = "포인트가 부족해 해당 수량을 구매할 수 없습니다.";
+        renderTokenMarket();
+        return;
+      }
+
+      studentTokenMarketState = {
+        ...studentTokenMarketState,
+        pointReserve: quote.nextPointReserve,
+        eventTokenReserve: quote.nextEventTokenReserve,
+        userEventTokens: studentTokenMarketState.userEventTokens + quantity,
+        pointDelta: studentTokenMarketState.pointDelta - quote.cost,
+        purchaseHistory: [
+          {
+            title: `해맞이 한마당 토큰 ${quantity}개 구매`,
+            date: formatDate(new Date()),
+            amount: -quote.cost,
+            type: "use"
+          },
+          ...studentTokenMarketState.purchaseHistory
+        ]
+      };
+
+      persistTokenMarketState();
+      state = buildStudentState();
+      tokenMarketMessage = `${quantity}개 구매 완료. 다음 즉시 가격이 상승했습니다.`;
+      renderStatus();
+      renderPointsHistory();
+      renderTokenMarket();
+      return;
+    }
+
+    if (target.id === "token-sell-form") {
+      const quote = getTokenSellQuote(quantity);
+
+      if (!quote) {
+        tokenMarketMessage = "보유 토큰이 부족하거나 현재 풀에서 판매할 수 없습니다.";
+        renderTokenMarket();
+        return;
+      }
+
+      studentTokenMarketState = {
+        ...studentTokenMarketState,
+        pointReserve: quote.nextPointReserve,
+        eventTokenReserve: quote.nextEventTokenReserve,
+        userEventTokens: studentTokenMarketState.userEventTokens - quantity,
+        pointDelta: studentTokenMarketState.pointDelta + quote.payout,
+        purchaseHistory: [
+          {
+            title: `해맞이 한마당 토큰 ${quantity}개 판매`,
+            date: formatDate(new Date()),
+            amount: quote.payout,
+            type: "earn"
+          },
+          ...studentTokenMarketState.purchaseHistory
+        ]
+      };
+
+      persistTokenMarketState();
+      state = buildStudentState();
+      tokenMarketMessage = `${quantity}개 판매 완료. 다음 즉시 가격이 하락했습니다.`;
+      renderStatus();
+      renderPointsHistory();
+      renderTokenMarket();
+    }
+  });
+
+  tokenMarketPanel.addEventListener("click", (event) => {
+    const target = event.target;
+
+    if (!(target instanceof HTMLElement)) return;
+    if (!target.dataset.tokenMarketReset) return;
+
+    studentTokenMarketState = cloneInitialTokenMarketState();
+    persistTokenMarketState();
+    state = buildStudentState();
+    tokenMarketMessage = "해맞이 한마당 AMM 풀이 초기 상태로 리셋되었습니다.";
+    renderStatus();
+    renderPointsHistory();
+    renderTokenMarket();
+  });
+}
+
 if (noticeForm) {
   noticeForm.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -1262,6 +1659,7 @@ if (loginForm) {
 noticeItems = loadNoticeItems();
 paymentState = loadPaymentState();
 governancePolls = loadGovernancePolls();
+studentTokenMarketState = loadTokenMarketState();
 studentGovernanceState = loadStudentGovernanceState();
 applyRoleLayout(currentRole);
 resetScenario(roleConfigs[currentRole].defaultMode);
