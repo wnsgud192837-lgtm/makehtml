@@ -23,6 +23,9 @@ const calendarPrevButton = document.querySelector("#calendar-prev-button");
 const calendarNextButton = document.querySelector("#calendar-next-button");
 const pointsHistoryList = document.querySelector("#points-history-list");
 const pointsHistoryTotal = document.querySelector("#points-history-total");
+const today = new Date();
+const highlightedMonth = today.getFullYear() === 2026 ? today.getMonth() : -1;
+const highlightedDay = today.getFullYear() === 2026 ? today.getDate() : -1;
 
 const placeholderCopy = {
   tokens: {
@@ -266,7 +269,7 @@ const baseState = {
 
 let currentMode = "payer";
 let currentView = "dashboard";
-let currentCalendarMonth = 3;
+let currentCalendarMonth = highlightedMonth >= 0 ? highlightedMonth : 3;
 let activeStepIndex = 0;
 let completedSteps = new Set();
 let state = { ...baseState };
@@ -343,7 +346,7 @@ function renderCalendar() {
 
   for (let day = 1; day <= lastDate; day += 1) {
     const classes = ["calendar-cell"];
-    if (currentCalendarMonth === 3 && day === 20) {
+    if (currentCalendarMonth === highlightedMonth && day === highlightedDay) {
       classes.push("is-today");
     }
 
