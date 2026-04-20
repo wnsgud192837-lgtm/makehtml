@@ -522,6 +522,31 @@ input {
   font-size: 0.9rem;
 }
 
+#payment-btn {
+  margin-top: 10px;
+  width: fit-content;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #1d65d6, #173f7d);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+}
+
+#payment-btn:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(135deg, #1754b3, #112f5d);
+}
+
+#payment-btn:disabled {
+  opacity: 0.72;
+  cursor: default;
+  transform: none;
+}
+
 .view-section {
   min-height: 0;
 }
@@ -821,4 +846,5 @@ input {
     align-items: flex-start;
     flex-direction: column;
   }
+
 }

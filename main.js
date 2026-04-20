@@ -16,7 +16,7 @@ const pointsMeta = document.querySelector("#points-meta");
 const tokenValue = document.querySelector("#token-value");
 const tokenMeta = document.querySelector("#token-meta");
 const paymentStatus = document.querySelector("#payment-status");
-const paymentMeta = document.querySelector("#payment-meta");
+const paymentButton = document.querySelector("#payment-btn");
 const calendarMonthLabel = document.querySelector("#calendar-month-label");
 const calendarGrid = document.querySelector("#calendar-grid");
 const calendarPrevButton = document.querySelector("#calendar-prev-button");
@@ -343,7 +343,16 @@ function renderStatus() {
   if (tokenValue) tokenValue.textContent = String(state.tokens);
   if (tokenMeta) tokenMeta.textContent = state.tokenMeta;
   if (paymentStatus) paymentStatus.textContent = state.paymentStatus;
-  if (paymentMeta) paymentMeta.textContent = state.paymentMeta;
+  if (paymentButton) {
+    paymentButton.title = state.paymentMeta;
+    paymentButton.setAttribute("aria-label", state.paymentMeta);
+
+    const isSettled =
+      state.paymentStatus === "납부 완료" || state.paymentStatus === "납부 전환";
+
+    paymentButton.textContent = isSettled ? state.paymentStatus : "지금 납부하기";
+    paymentButton.disabled = isSettled;
+  }
 }
 
 function renderCalendar() {
