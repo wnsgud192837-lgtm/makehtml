@@ -22,6 +22,12 @@ const noticeAdminEditor = document.querySelector("#notice-admin-editor");
 const noticeForm = document.querySelector("#notice-form");
 const noticeMessage = document.querySelector("#notice-message");
 const adminNoticeList = document.querySelector("#admin-notice-list");
+const governancePanel = document.querySelector("#governance-panel");
+const governanceAdminPanel = document.querySelector("#governance-admin-panel");
+const governanceStudentPanel = document.querySelector("#governance-student-panel");
+const governanceList = document.querySelector("#governance-list");
+const pollForm = document.querySelector("#poll-form");
+const pollMessage = document.querySelector("#poll-message");
 const paymentLabel = document.querySelector("#payment-label");
 const pointsLabel = document.querySelector("#points-label");
 const tokenLabel = document.querySelector("#token-label");
@@ -112,6 +118,8 @@ const placeholderCopy = {
 let noticeItems = [];
 const NOTICE_STORAGE_KEY = "postech_notice_items";
 const PAYMENT_STORAGE_KEY = "postech_payment_state";
+const POLL_STORAGE_KEY = "postech_governance_polls";
+const STUDENT_GOVERNANCE_STORAGE_KEY = "postech_student_governance";
 
 const roleConfigs = {
   student: {
@@ -388,6 +396,11 @@ let paymentState = {
   studentPaid: false,
   paidAt: ""
 };
+let governancePolls = [];
+let studentGovernanceState = {
+  tokens: 1,
+  votedPollIds: []
+};
 
 function formatDate(date) {
   const year = date.getFullYear();
@@ -395,6 +408,36 @@ function formatDate(date) {
   const day = String(date.getDate()).padStart(2, "0");
 
   return `${year}.${month}.${day}`;
+}
+
+function createPollId() {
+  return `poll_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function buildQuickPollUrl(title, description, options) {
+  const query = new URLSearchParams({
+    qTitle: title,
+    type: "radio"
+  });
+
+  if (description) {
+    query.set("qDesc", description);
+  }
+
+  options.forEach((option) => {
+    query.append("a", option);
+  });
+
+  return `https://app.polling.com/quick-poll?${query.toString()}`;
 }
 
 function loadNoticeItems() {
@@ -443,6 +486,74 @@ function loadPaymentState() {
   }
 }
 
+function loadGovernancePolls() {
+  if (typeof window === "undefined") return [];
+
+  const raw = window.localStorage.getItem(POLL_STORAGE_KEY);
+  if (!raw) return [];
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed.filter(
+      (item) =>
+        item &&
+        typeof item.id === "string" &&
+        typeof item.title === "string" &&
+        typeof item.description === "string" &&
+        Array.isArray(item.options) &&
+        item.options.every((option) => typeof option === "string") &&
+        typeof item.url === "string" &&
+        typeof item.createdAt === "string"
+    );
+  } catch {
+    return [];
+  }
+}
+
+function persistGovernancePolls() {
+  if (typeof window === "undefined") return;
+
+  window.localStorage.setItem(POLL_STORAGE_KEY, JSON.stringify(governancePolls));
+}
+
+function loadStudentGovernanceState() {
+  if (typeof window === "undefined") {
+    return { tokens: 1, votedPollIds: [] };
+  }
+
+  const raw = window.localStorage.getItem(STUDENT_GOVERNANCE_STORAGE_KEY);
+  if (!raw) {
+    return { tokens: 1, votedPollIds: [] };
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+
+    return {
+      tokens:
+        Number.isFinite(parsed?.tokens) && parsed.tokens >= 0
+          ? Math.floor(parsed.tokens)
+          : 1,
+      votedPollIds: Array.isArray(parsed?.votedPollIds)
+        ? parsed.votedPollIds.filter((item) => typeof item === "string")
+        : []
+    };
+  } catch {
+    return { tokens: 1, votedPollIds: [] };
+  }
+}
+
+function persistStudentGovernanceState() {
+  if (typeof window === "undefined") return;
+
+  window.localStorage.setItem(
+    STUDENT_GOVERNANCE_STORAGE_KEY,
+    JSON.stringify(studentGovernanceState)
+  );
+}
+
 function persistPaymentState() {
   if (typeof window === "undefined") return;
 
@@ -452,10 +563,11 @@ function persistPaymentState() {
 function buildAdminState() {
   const totalPaidStudents = paymentState.studentPaid ? 1 : 0;
   const totalGrantedPoints = paymentState.studentPaid ? 31000 : 0;
+  const totalVotes = studentGovernanceState.votedPollIds.length;
 
   return {
     points: totalGrantedPoints,
-    tokens: 0,
+    tokens: totalVotes,
     character: "운영자",
     grade: "관리자",
     avatar: "AD",
@@ -469,7 +581,10 @@ function buildAdminState() {
     vote: "0건 진행",
     carry: "대기",
     pointsMeta: "학생회비로 누적 지급된 포인트",
-    tokenMeta: "아직 운영 중인 토큰이 없습니다.",
+    tokenMeta:
+      totalVotes === 0
+        ? "아직 사용된 거버넌스 토큰이 없습니다."
+        : `학생 투표로 ${totalVotes}개의 토큰이 사용되었습니다.`,
     pointHistory:
       totalPaidStudents === 0
         ? []
@@ -486,15 +601,22 @@ function buildAdminState() {
 
 function buildStudentState() {
   if (!paymentState.studentPaid) {
-    return { ...baseState, pointHistory: [] };
+    return {
+      ...baseState,
+      tokens: studentGovernanceState.tokens,
+      tokenMeta: "안건 1건당 토큰 1개로 익명 투표",
+      pointHistory: []
+    };
   }
 
   return {
     ...baseState,
     points: 31000,
+    tokens: studentGovernanceState.tokens,
     paymentStatus: "납부 완료",
     paymentMeta: "31,000포인트 지급 완료",
     pointsMeta: "학생회비 납부로 31,000P 지급",
+    tokenMeta: "안건 1건당 토큰 1개로 익명 투표",
     pointHistory: [
       {
         title: "학생회비 납부 리워드 지급",
@@ -530,6 +652,7 @@ function applyRoleLayout(role) {
   });
 
   renderNoticeLists();
+  renderGovernanceList();
 }
 
 function resetScenario(mode) {
@@ -574,6 +697,9 @@ function switchView(view) {
   }
 
   const isAdminNoticeView = currentRole === "admin" && view === "market";
+  const isGovernanceView = view === "governance";
+  const isAdminGovernanceView = currentRole === "admin" && isGovernanceView;
+  const isStudentGovernanceView = currentRole === "student" && isGovernanceView;
 
   if (noticeAdminPanel) {
     noticeAdminPanel.classList.toggle("is-hidden", !isAdminNoticeView);
@@ -583,8 +709,20 @@ function switchView(view) {
     noticeAdminEditor.classList.toggle("is-hidden", !isAdminNoticeView);
   }
 
+  if (governancePanel) {
+    governancePanel.classList.toggle("is-hidden", !isGovernanceView);
+  }
+
+  if (governanceAdminPanel) {
+    governanceAdminPanel.classList.toggle("is-hidden", !isAdminGovernanceView);
+  }
+
+  if (governanceStudentPanel) {
+    governanceStudentPanel.classList.toggle("is-hidden", !isStudentGovernanceView);
+  }
+
   if (placeholderText) {
-    placeholderText.classList.toggle("is-hidden", isAdminNoticeView);
+    placeholderText.classList.toggle("is-hidden", isAdminNoticeView || isGovernanceView);
   }
 
   if (noticeMessage && !isAdminNoticeView) {
@@ -594,6 +732,16 @@ function switchView(view) {
   if (noticeForm && !isAdminNoticeView) {
     noticeForm.reset();
   }
+
+  if (pollMessage && !isAdminGovernanceView) {
+    pollMessage.textContent = "";
+  }
+
+  if (pollForm && !isAdminGovernanceView) {
+    pollForm.reset();
+  }
+
+  renderGovernanceList();
 }
 
 function renderStatus() {
@@ -751,6 +899,85 @@ function renderNoticeLists() {
   }
 }
 
+function renderGovernanceList() {
+  if (!governanceList) return;
+
+  if (governancePolls.length === 0) {
+    governanceList.innerHTML = `
+      <li class="notice-item notice-empty">
+        <strong>등록된 투표가 없습니다.</strong>
+        <p>관리자 계정의 투표 관리 메뉴에서 첫 안건을 등록하세요.</p>
+      </li>
+    `;
+    return;
+  }
+
+  governanceList.innerHTML = governancePolls
+    .map((poll, index) => {
+      const hasVoted = studentGovernanceState.votedPollIds.includes(poll.id);
+      const canVote = currentRole === "student" && !hasVoted && studentGovernanceState.tokens > 0;
+      const optionHtml = poll.options
+        .map((option) => `<li>${escapeHtml(option)}</li>`)
+        .join("");
+
+      const adminActions =
+        currentRole === "admin"
+          ? `
+            <div class="governance-actions">
+              <a href="${poll.url}" target="_blank" rel="noopener noreferrer" class="ghost-link">Polling 열기</a>
+              <button type="button" class="notice-delete-button" data-poll-index="${index}">삭제</button>
+            </div>
+          `
+          : "";
+
+      const studentActions =
+        currentRole === "student"
+          ? `
+            <div class="governance-actions">
+              <button
+                type="button"
+                class="vote-button"
+                data-poll-id="${poll.id}"
+                ${canVote ? "" : "disabled"}
+              >
+                ${
+                  hasVoted
+                    ? "투표 완료"
+                    : studentGovernanceState.tokens > 0
+                      ? "익명 투표하기"
+                      : "토큰 부족"
+                }
+              </button>
+              <a href="${poll.url}" target="_blank" rel="noopener noreferrer" class="ghost-link">미리보기</a>
+            </div>
+          `
+          : "";
+
+      const statusText =
+        currentRole === "admin"
+          ? "관리자: Polling.com 익명 투표 URL 생성 완료"
+          : hasVoted
+            ? "학생: 이 안건은 이미 익명 투표를 완료했습니다."
+            : studentGovernanceState.tokens > 0
+              ? "학생: 토큰 1개를 사용해 익명 외부 투표를 열 수 있습니다."
+              : "학생: 남은 거버넌스 토큰이 없습니다.";
+
+      return `
+        <li class="notice-item governance-item">
+          <div class="notice-meta">
+            <strong>${escapeHtml(poll.title)}</strong>
+            <span>${escapeHtml(poll.createdAt)}</span>
+          </div>
+          <p>${escapeHtml(poll.description)}</p>
+          <div class="governance-status">${escapeHtml(statusText)}</div>
+          <ul class="governance-options">${optionHtml}</ul>
+          ${adminActions || studentActions}
+        </li>
+      `;
+    })
+    .join("");
+}
+
 function applyCurrentStep() {
   if (currentRole !== "student") return;
 
@@ -866,6 +1093,52 @@ if (noticeForm) {
   });
 }
 
+if (pollForm) {
+  pollForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+
+    if (currentRole !== "admin") return;
+
+    const formData = new FormData(pollForm);
+    const title = String(formData.get("title") || "").trim();
+    const description = String(formData.get("description") || "").trim();
+    const options = String(formData.get("options") || "")
+      .split("\n")
+      .map((option) => option.trim())
+      .filter(Boolean);
+
+    if (!title || options.length < 2) {
+      if (pollMessage) {
+        pollMessage.textContent = "안건 제목과 2개 이상의 선택지를 입력해야 합니다.";
+      }
+      return;
+    }
+
+    governancePolls = [
+      {
+        id: createPollId(),
+        title,
+        description,
+        options,
+        url: buildQuickPollUrl(title, description, options),
+        createdAt: formatDate(new Date())
+      },
+      ...governancePolls
+    ];
+
+    persistGovernancePolls();
+    renderGovernanceList();
+    state = buildAdminState();
+    renderStatus();
+
+    if (pollMessage) {
+      pollMessage.textContent = "익명 거버넌스 투표가 등록되었습니다.";
+    }
+
+    pollForm.reset();
+  });
+}
+
 if (adminNoticeList) {
   adminNoticeList.addEventListener("click", (event) => {
     const target = event.target;
@@ -884,6 +1157,46 @@ if (adminNoticeList) {
 
     persistNoticeItems();
     renderNoticeLists();
+  });
+}
+
+if (governanceList) {
+  governanceList.addEventListener("click", (event) => {
+    const target = event.target;
+
+    if (!(target instanceof HTMLElement)) return;
+
+    const pollIndex = target.dataset.pollIndex;
+    if (currentRole === "admin" && typeof pollIndex !== "undefined") {
+      governancePolls.splice(Number(pollIndex), 1);
+      persistGovernancePolls();
+      renderGovernanceList();
+      if (pollMessage) {
+        pollMessage.textContent = "투표가 삭제되었습니다.";
+      }
+      return;
+    }
+
+    const pollId = target.dataset.pollId;
+    if (currentRole !== "student" || !pollId) return;
+
+    const poll = governancePolls.find((item) => item.id === pollId);
+    if (!poll) return;
+
+    if (studentGovernanceState.votedPollIds.includes(pollId)) return;
+    if (studentGovernanceState.tokens < 1) return;
+
+    window.open(poll.url, "_blank", "noopener,noreferrer");
+
+    studentGovernanceState = {
+      tokens: studentGovernanceState.tokens - 1,
+      votedPollIds: [...studentGovernanceState.votedPollIds, pollId]
+    };
+    persistStudentGovernanceState();
+
+    state = buildStudentState();
+    renderStatus();
+    renderGovernanceList();
   });
 }
 
@@ -939,6 +1252,8 @@ if (loginForm) {
 
 noticeItems = loadNoticeItems();
 paymentState = loadPaymentState();
+governancePolls = loadGovernancePolls();
+studentGovernanceState = loadStudentGovernanceState();
 applyRoleLayout(currentRole);
 resetScenario(roleConfigs[currentRole].defaultMode);
 switchView("dashboard");

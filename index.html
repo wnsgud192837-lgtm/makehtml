@@ -212,6 +212,40 @@
 
             <ul class="notice-list notice-list-admin" id="admin-notice-list"></ul>
           </section>
+
+          <section class="governance-panel is-hidden" id="governance-panel">
+            <div class="governance-admin is-hidden" id="governance-admin-panel">
+              <form class="notice-form" id="poll-form">
+                <label class="notice-field">
+                  <span>안건 제목</span>
+                  <input type="text" name="title" placeholder="예: 2026 가을축제 예산 배분안" maxlength="120">
+                </label>
+
+                <label class="notice-field">
+                  <span>안건 설명</span>
+                  <textarea name="description" placeholder="학생에게 보여줄 안건 설명을 입력하세요" rows="4" maxlength="300"></textarea>
+                </label>
+
+                <label class="notice-field">
+                  <span>선택지</span>
+                  <textarea name="options" placeholder="한 줄에 하나씩 입력하세요&#10;예산안 A&#10;예산안 B&#10;예산안 C" rows="5" maxlength="300"></textarea>
+                </label>
+
+                <button type="submit" class="login-button notice-submit">투표 등록</button>
+              </form>
+
+              <p class="login-message" id="poll-message" aria-live="polite"></p>
+            </div>
+
+            <div class="governance-student is-hidden" id="governance-student-panel">
+              <div class="governance-student-info">
+                <strong>익명 투표 안내</strong>
+                <p>학생 계정은 안건당 1회만 참여할 수 있으며, 투표를 열면 거버넌스 토큰 1개가 즉시 사용됩니다. Polling.com Quick Poll은 공개 익명 링크 방식으로 연결됩니다.</p>
+              </div>
+            </div>
+
+            <ul class="notice-list governance-list" id="governance-list"></ul>
+          </section>
         </article>
       </section>
     </div>
