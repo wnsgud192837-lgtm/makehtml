@@ -2137,16 +2137,19 @@ if (loginForm) {
       loginMessage.textContent = "";
     }
 
+    if (loginPage) loginPage.classList.add("is-hidden");
+    if (dashboardPage) dashboardPage.classList.remove("is-hidden");
+
     currentRole = nextRole;
     currentUserId = userId;
     applyRoleLayout(currentRole);
     resetScenario(roleConfigs[currentRole].defaultMode);
     switchView("dashboard");
-    void syncMarketStateFromSupabase();
-    void syncGovernanceFromSupabase();
 
-    if (loginPage) loginPage.classList.add("is-hidden");
-    if (dashboardPage) dashboardPage.classList.remove("is-hidden");
+    setTimeout(() => {
+      void syncMarketStateFromSupabase();
+      void syncGovernanceFromSupabase();
+    }, 0);
   });
 }
 
