@@ -1132,6 +1132,10 @@ input {
   place-items: center;
 }
 
+.confirm-modal.is-hidden {
+  display: none;
+}
+
 .confirm-modal-backdrop {
   position: absolute;
   inset: 0;
