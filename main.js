@@ -34,9 +34,9 @@ const statusGrid = document.querySelector("#status-grid");
 const dashboardView = document.querySelector("#dashboard-view");
 const pointsView = document.querySelector("#points-view");
 const tokenView = document.querySelector("#token-view");
+const studentManagementView = document.querySelector("#student-management-view");
 const tokenMarketPanel = document.querySelector("#token-market-panel");
 const placeholderView = document.querySelector("#placeholder-view");
-const placeholderHeader = document.querySelector("#placeholder-header");
 const placeholderTitle = document.querySelector("#placeholder-title");
 const placeholderText = document.querySelector("#placeholder-text");
 const noticeAdminPanel = document.querySelector("#notice-admin-panel");
@@ -1364,10 +1364,13 @@ function switchView(view) {
   if (dashboardView) dashboardView.classList.toggle("is-hidden", !isDashboard);
   if (pointsView) pointsView.classList.toggle("is-hidden", !isPoints);
   if (tokenView) tokenView.classList.toggle("is-hidden", !isTokenView);
+  if (studentManagementView) {
+    studentManagementView.classList.toggle("is-hidden", !isStudentManagementView);
+  }
   if (placeholderView) {
     placeholderView.classList.toggle(
       "is-hidden",
-      isDashboard || isPoints || isTokenView ? true : false
+      isDashboard || isPoints || isTokenView || isStudentManagementView ? true : false
     );
   }
 
@@ -1422,13 +1425,6 @@ function switchView(view) {
 
   if (studentManagementPanel) {
     studentManagementPanel.classList.toggle("is-hidden", !isStudentManagementView);
-  }
-
-  if (placeholderHeader) {
-    placeholderHeader.classList.toggle(
-      "is-hidden",
-      isAdminNoticeView || isGovernanceView || isStudentManagementView
-    );
   }
 
   if (placeholderText) {
