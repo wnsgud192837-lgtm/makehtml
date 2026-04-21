@@ -453,6 +453,10 @@ function updateDocumentTitle(isAuthenticated) {
   document.title = isAuthenticated ? "POSTECH" : "POSTECH - 통합로그인";
 }
 
+function resetTransientUiState() {
+  tokenMarketMessage = "";
+}
+
 function setAdminDeletePanelOpen(isOpen) {
   isAdminDeletePanelOpen = isOpen;
 
@@ -2064,6 +2068,7 @@ if (logoutButton) {
     currentRole = "student";
     currentUserId = "";
     availableEvents = [];
+    resetTransientUiState();
     adminStudentStats = {
       totalStudents: 0,
       totalPaidStudents: 0,
@@ -2144,6 +2149,7 @@ if (loginForm) {
 
       currentUserId = data.user.userId;
       currentRole = data.user.role;
+      resetTransientUiState();
       hydrateStudentLocalState();
       applyRoleLayout(currentRole);
       resetScenario(roleConfigs[currentRole].defaultMode);
@@ -2235,6 +2241,7 @@ async function initializeApp() {
   governancePolls = loadGovernancePolls();
   studentTokenMarketState = loadTokenMarketState();
   studentGovernanceState = loadStudentGovernanceState();
+  resetTransientUiState();
 
   const rememberedUserId = loadRememberedUserId();
   if (loginUserIdInput) {
@@ -2260,6 +2267,7 @@ async function initializeApp() {
 
     currentUserId = data.user.userId;
     currentRole = data.user.role;
+    resetTransientUiState();
     hydrateStudentLocalState();
     applyRoleLayout(currentRole);
     resetScenario(roleConfigs[currentRole].defaultMode);
