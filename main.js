@@ -136,10 +136,7 @@ const placeholderCopy = {
 
 let noticeItems = [];
 const NOTICE_STORAGE_KEY = "postech_notice_items";
-const PAYMENT_STORAGE_KEY = "postech_payment_state";
 const POLL_STORAGE_KEY = "postech_governance_polls";
-const STUDENT_GOVERNANCE_STORAGE_KEY = "postech_student_governance";
-const TOKEN_MARKET_STORAGE_KEY = "postech_token_market_state";
 const REMEMBER_ID_STORAGE_KEY = "postech_remembered_user_id";
 const INITIAL_TOKEN_MARKET_STATE = {
   pointReserve: 24000,
@@ -425,6 +422,11 @@ let paymentState = {
   studentPaid: false,
   paidAt: ""
 };
+let adminStudentStats = {
+  totalStudents: 0,
+  totalPaidStudents: 0,
+  totalGrantedPoints: 0
+};
 let governancePolls = [];
 let studentTokenMarketState = cloneInitialTokenMarketState();
 let studentGovernanceState = {
@@ -476,16 +478,6 @@ function getGovernanceUserKey() {
   return `${currentRole}:${currentUserId}`;
 }
 
-function getScopedStorageKey(baseKey) {
-  const userKey = getGovernanceUserKey();
-
-  if (!userKey || userKey === "student:" || userKey === "student") {
-    return null;
-  }
-
-  return `${baseKey}:${userKey}`;
-}
-
 async function governanceApiRequest(path, options = {}) {
   if (!governanceApiUrl) return null;
 
@@ -522,6 +514,109 @@ async function authApiRequest(path, options = {}) {
   return data;
 }
 
+async function studentApiRequest(path, options = {}) {
+  const response = await fetch(path, {
+    ...options,
+    headers: {
+      "content-type": "application/json",
+      ...(options.headers || {})
+    }
+  });
+
+  const data = await response.json();
+  if (!response.ok || data.error) {
+    throw new Error(data.error || `student_api_${response.status}`);
+  }
+
+  return data;
+}
+
+function applyStudentStateResponse(data) {
+  const appState = data?.state || {};
+  const tokenMarket = appState.tokenMarket || {};
+
+  paymentState = {
+    studentPaid: Boolean(appState.studentPaid),
+    paidAt: typeof appState.paidAt === "string" ? appState.paidAt : ""
+  };
+  studentTokenMarketState = {
+    pointReserve:
+      Number.isFinite(tokenMarket.pointReserve) && tokenMarket.pointReserve > 0
+        ? Math.floor(tokenMarket.pointReserve)
+        : INITIAL_TOKEN_MARKET_STATE.pointReserve,
+    eventTokenReserve:
+      Number.isFinite(tokenMarket.eventTokenReserve) && tokenMarket.eventTokenReserve > 0
+        ? Math.floor(tokenMarket.eventTokenReserve)
+        : INITIAL_TOKEN_MARKET_STATE.eventTokenReserve,
+    userEventTokens:
+      Number.isFinite(tokenMarket.userEventTokens) && tokenMarket.userEventTokens >= 0
+        ? Math.floor(tokenMarket.userEventTokens)
+        : INITIAL_TOKEN_MARKET_STATE.userEventTokens,
+    pointDelta:
+      Number.isFinite(tokenMarket.pointDelta)
+        ? Math.floor(tokenMarket.pointDelta)
+        : INITIAL_TOKEN_MARKET_STATE.pointDelta,
+    purchaseHistory: Array.isArray(tokenMarket.purchaseHistory)
+      ? tokenMarket.purchaseHistory.filter(
+          (item) =>
+            item &&
+            typeof item.title === "string" &&
+            typeof item.date === "string" &&
+            Number.isFinite(item.amount) &&
+            typeof item.type === "string"
+        )
+      : []
+  };
+  studentGovernanceState = {
+    tokens:
+      Number.isFinite(appState.governanceTokens) && appState.governanceTokens >= 0
+        ? Math.floor(appState.governanceTokens)
+        : 1,
+    votedPollIds: studentGovernanceState.votedPollIds || []
+  };
+}
+
+async function syncStudentStateFromApi() {
+  if (currentRole !== "student") return false;
+
+  try {
+    const data = await studentApiRequest("/api/student/state", {
+      method: "GET"
+    });
+    applyStudentStateResponse(data);
+    state = buildStudentState();
+    renderStatus();
+    renderPointsHistory();
+    renderTokenMarket();
+    renderGovernanceList();
+    return true;
+  } catch (error) {
+    console.error("Student state sync failed:", error);
+    return false;
+  }
+}
+
+async function syncAdminStudentStatsFromApi() {
+  if (currentRole !== "admin") return false;
+
+  try {
+    const data = await studentApiRequest("/api/student/stats", {
+      method: "GET"
+    });
+    adminStudentStats = {
+      totalStudents: Number(data?.stats?.totalStudents || 0),
+      totalPaidStudents: Number(data?.stats?.totalPaidStudents || 0),
+      totalGrantedPoints: Number(data?.stats?.totalGrantedPoints || 0)
+    };
+    state = buildAdminState();
+    renderStatus();
+    return true;
+  } catch (error) {
+    console.error("Admin student stats sync failed:", error);
+    return false;
+  }
+}
+
 async function syncGovernanceFromApi() {
   if (!governanceApiUrl) return false;
 
@@ -554,7 +649,6 @@ async function syncGovernanceFromApi() {
       ...studentGovernanceState,
       votedPollIds
     };
-    persistStudentGovernanceState();
 
     state = currentRole === "admin" ? buildAdminState() : buildStudentState();
     renderStatus();
@@ -577,61 +671,11 @@ function cloneInitialTokenMarketState() {
 }
 
 function loadTokenMarketState() {
-  if (typeof window === "undefined") return cloneInitialTokenMarketState();
-
-  const storageKey = getScopedStorageKey(TOKEN_MARKET_STORAGE_KEY);
-  if (!storageKey) return cloneInitialTokenMarketState();
-
-  const raw = window.localStorage.getItem(storageKey);
-  if (!raw) return cloneInitialTokenMarketState();
-
-  try {
-    const parsed = JSON.parse(raw);
-    const pointReserve =
-      Number.isFinite(parsed?.pointReserve) && parsed.pointReserve > 0
-        ? Math.floor(parsed.pointReserve)
-        : INITIAL_TOKEN_MARKET_STATE.pointReserve;
-    const eventTokenReserve =
-      Number.isFinite(parsed?.eventTokenReserve) && parsed.eventTokenReserve > 0
-        ? Math.floor(parsed.eventTokenReserve)
-        : INITIAL_TOKEN_MARKET_STATE.eventTokenReserve;
-    const userEventTokens =
-      Number.isFinite(parsed?.userEventTokens) && parsed.userEventTokens >= 0
-        ? Math.floor(parsed.userEventTokens)
-        : 0;
-    const pointDelta =
-      Number.isFinite(parsed?.pointDelta)
-        ? Math.floor(parsed.pointDelta)
-        : 0;
-    const purchaseHistory = Array.isArray(parsed?.purchaseHistory)
-      ? parsed.purchaseHistory.filter(
-          (item) =>
-            item &&
-            typeof item.title === "string" &&
-            typeof item.date === "string" &&
-            Number.isFinite(item.amount) &&
-            typeof item.type === "string"
-        )
-      : [];
-
-    return {
-      pointReserve,
-      eventTokenReserve,
-      userEventTokens,
-      pointDelta,
-      purchaseHistory
-    };
-  } catch {
-    return cloneInitialTokenMarketState();
-  }
+  return cloneInitialTokenMarketState();
 }
 
 function persistTokenMarketState() {
-  if (typeof window === "undefined") return;
-  const storageKey = getScopedStorageKey(TOKEN_MARKET_STORAGE_KEY);
-  if (!storageKey) return;
-
-  window.localStorage.setItem(storageKey, JSON.stringify(studentTokenMarketState));
+  return undefined;
 }
 
 function getTokenMarketSpotPrice() {
@@ -866,21 +910,7 @@ function persistNoticeItems() {
 }
 
 function loadPaymentState() {
-  if (typeof window === "undefined") return { studentPaid: false, paidAt: "" };
-
-  const raw = window.localStorage.getItem(PAYMENT_STORAGE_KEY);
-  if (!raw) return { studentPaid: false, paidAt: "" };
-
-  try {
-    const parsed = JSON.parse(raw);
-
-    return {
-      studentPaid: Boolean(parsed?.studentPaid),
-      paidAt: typeof parsed?.paidAt === "string" ? parsed.paidAt : ""
-    };
-  } catch {
-    return { studentPaid: false, paidAt: "" };
-  }
+  return { studentPaid: false, paidAt: "" };
 }
 
 function loadGovernancePolls() {
@@ -915,43 +945,11 @@ function persistGovernancePolls() {
 }
 
 function loadStudentGovernanceState() {
-  if (typeof window === "undefined") {
-    return { tokens: 1, votedPollIds: [] };
-  }
-
-  const storageKey = getScopedStorageKey(STUDENT_GOVERNANCE_STORAGE_KEY);
-  if (!storageKey) {
-    return { tokens: 1, votedPollIds: [] };
-  }
-
-  const raw = window.localStorage.getItem(storageKey);
-  if (!raw) {
-    return { tokens: 1, votedPollIds: [] };
-  }
-
-  try {
-    const parsed = JSON.parse(raw);
-
-    return {
-      tokens:
-        Number.isFinite(parsed?.tokens) && parsed.tokens >= 0
-          ? Math.floor(parsed.tokens)
-          : 1,
-      votedPollIds: Array.isArray(parsed?.votedPollIds)
-        ? parsed.votedPollIds.filter((item) => typeof item === "string")
-        : []
-    };
-  } catch {
-    return { tokens: 1, votedPollIds: [] };
-  }
+  return { tokens: 1, votedPollIds: [] };
 }
 
 function persistStudentGovernanceState() {
-  if (typeof window === "undefined") return;
-  const storageKey = getScopedStorageKey(STUDENT_GOVERNANCE_STORAGE_KEY);
-  if (!storageKey) return;
-
-  window.localStorage.setItem(storageKey, JSON.stringify(studentGovernanceState));
+  return undefined;
 }
 
 function hydrateStudentLocalState() {
@@ -1005,14 +1003,12 @@ function getRegisterErrorMessage(errorCode) {
 }
 
 function persistPaymentState() {
-  if (typeof window === "undefined") return;
-
-  window.localStorage.setItem(PAYMENT_STORAGE_KEY, JSON.stringify(paymentState));
+  return undefined;
 }
 
 function buildAdminState() {
-  const totalPaidStudents = paymentState.studentPaid ? 1 : 0;
-  const totalGrantedPoints = paymentState.studentPaid ? 31000 : 0;
+  const totalPaidStudents = adminStudentStats.totalPaidStudents;
+  const totalGrantedPoints = adminStudentStats.totalGrantedPoints;
   const totalVotes = governancePolls.reduce((sum, poll) => sum + (poll.voteCount || 0), 0);
 
   return {
@@ -1025,7 +1021,7 @@ function buildAdminState() {
     paymentMeta:
       totalPaidStudents === 0
         ? "아직 납부한 학생이 없습니다."
-        : "학생회비 납부 1건이 반영되었습니다.",
+        : `학생회비 납부 ${totalPaidStudents}건이 반영되었습니다.`,
     market: "운영 대기",
     rental: "0건 예약",
     vote: "0건 진행",
@@ -1041,8 +1037,8 @@ function buildAdminState() {
         : [
             {
               title: "학생회비 납부 리워드 지급",
-              date: paymentState.paidAt || formatDate(new Date()),
-              amount: 31000,
+              date: formatDate(new Date()),
+              amount: totalGrantedPoints,
               type: "earn"
             }
           ]
@@ -1489,23 +1485,25 @@ function applyCurrentStep() {
   renderPointsHistory();
 }
 
-function handleStudentPayment() {
+async function handleStudentPayment() {
   if (currentRole !== "student") return;
 
   const isSettled = paymentState.studentPaid;
 
   if (isSettled) return;
 
-  paymentState = {
-    studentPaid: true,
-    paidAt: formatDate(new Date())
-  };
-  persistPaymentState();
-
-  state = buildStudentState();
-
-  renderStatus();
-  renderPointsHistory();
+  try {
+    const data = await studentApiRequest("/api/student/pay", {
+      method: "POST"
+    });
+    applyStudentStateResponse(data);
+    state = buildStudentState();
+    renderStatus();
+    renderPointsHistory();
+    renderTokenMarket();
+  } catch (error) {
+    console.error("Student payment update failed:", error);
+  }
 }
 
 modeButtons.forEach((button) => {
@@ -1543,13 +1541,13 @@ if (calendarNextButton) {
 }
 
 if (paymentButton) {
-  paymentButton.addEventListener("click", () => {
-    handleStudentPayment();
+  paymentButton.addEventListener("click", async () => {
+    await handleStudentPayment();
   });
 }
 
 if (tokenMarketPanel) {
-  tokenMarketPanel.addEventListener("submit", (event) => {
+  tokenMarketPanel.addEventListener("submit", async (event) => {
     const target = event.target;
 
     if (!(target instanceof HTMLFormElement)) return;
@@ -1576,29 +1574,27 @@ if (tokenMarketPanel) {
         return;
       }
 
-      studentTokenMarketState = {
-        ...studentTokenMarketState,
-        pointReserve: quote.nextPointReserve,
-        eventTokenReserve: quote.nextEventTokenReserve,
-        userEventTokens: studentTokenMarketState.userEventTokens + quantity,
-        pointDelta: studentTokenMarketState.pointDelta - quote.cost,
-        purchaseHistory: [
-          {
-            title: `해맞이 한마당 토큰 ${quantity}개 구매`,
-            date: formatDate(new Date()),
-            amount: -quote.cost,
-            type: "use"
-          },
-          ...studentTokenMarketState.purchaseHistory
-        ]
-      };
-
-      persistTokenMarketState();
-      state = buildStudentState();
-      tokenMarketMessage = `${quantity}개 구매 완료. 다음 즉시 가격이 상승했습니다.`;
-      renderStatus();
-      renderPointsHistory();
-      renderTokenMarket();
+      try {
+        const data = await studentApiRequest("/api/student/market", {
+          method: "POST",
+          body: JSON.stringify({
+            action: "buy",
+            quantity
+          })
+        });
+        applyStudentStateResponse(data);
+        state = buildStudentState();
+        tokenMarketMessage = `${quantity}개 구매 완료. 다음 즉시 가격이 상승했습니다.`;
+        renderStatus();
+        renderPointsHistory();
+        renderTokenMarket();
+      } catch (error) {
+        tokenMarketMessage =
+          error.message === "not_enough_points"
+            ? "포인트가 부족해 해당 수량을 구매할 수 없습니다."
+            : "행사 토큰 구매 처리 중 오류가 발생했습니다.";
+        renderTokenMarket();
+      }
       return;
     }
 
@@ -1611,45 +1607,50 @@ if (tokenMarketPanel) {
         return;
       }
 
-      studentTokenMarketState = {
-        ...studentTokenMarketState,
-        pointReserve: quote.nextPointReserve,
-        eventTokenReserve: quote.nextEventTokenReserve,
-        userEventTokens: studentTokenMarketState.userEventTokens - quantity,
-        pointDelta: studentTokenMarketState.pointDelta + quote.payout,
-        purchaseHistory: [
-          {
-            title: `해맞이 한마당 토큰 ${quantity}개 판매`,
-            date: formatDate(new Date()),
-            amount: quote.payout,
-            type: "earn"
-          },
-          ...studentTokenMarketState.purchaseHistory
-        ]
-      };
-
-      persistTokenMarketState();
-      state = buildStudentState();
-      tokenMarketMessage = `${quantity}개 판매 완료. 다음 즉시 가격이 하락했습니다.`;
-      renderStatus();
-      renderPointsHistory();
-      renderTokenMarket();
+      try {
+        const data = await studentApiRequest("/api/student/market", {
+          method: "POST",
+          body: JSON.stringify({
+            action: "sell",
+            quantity
+          })
+        });
+        applyStudentStateResponse(data);
+        state = buildStudentState();
+        tokenMarketMessage = `${quantity}개 판매 완료. 다음 즉시 가격이 하락했습니다.`;
+        renderStatus();
+        renderPointsHistory();
+        renderTokenMarket();
+      } catch (error) {
+        tokenMarketMessage = "행사 토큰 판매 처리 중 오류가 발생했습니다.";
+        renderTokenMarket();
+      }
     }
   });
 
-  tokenMarketPanel.addEventListener("click", (event) => {
+  tokenMarketPanel.addEventListener("click", async (event) => {
     const target = event.target;
 
     if (!(target instanceof HTMLElement)) return;
     if (!target.dataset.tokenMarketReset) return;
 
-    studentTokenMarketState = cloneInitialTokenMarketState();
-    persistTokenMarketState();
-    state = buildStudentState();
-    tokenMarketMessage = "해맞이 한마당 AMM 풀이 초기 상태로 리셋되었습니다.";
-    renderStatus();
-    renderPointsHistory();
-    renderTokenMarket();
+    try {
+      const data = await studentApiRequest("/api/student/market", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "reset"
+        })
+      });
+      applyStudentStateResponse(data);
+      state = buildStudentState();
+      tokenMarketMessage = "해맞이 한마당 AMM 풀이 초기 상태로 리셋되었습니다.";
+      renderStatus();
+      renderPointsHistory();
+      renderTokenMarket();
+    } catch (error) {
+      tokenMarketMessage = "시장 초기화 처리 중 오류가 발생했습니다.";
+      renderTokenMarket();
+    }
   });
 }
 
@@ -1846,41 +1847,24 @@ if (governanceList) {
       return;
     }
 
-    studentGovernanceState = {
-      tokens: studentGovernanceState.tokens - 1,
-      votedPollIds: [...studentGovernanceState.votedPollIds, pollId]
-    };
-    persistStudentGovernanceState();
-
-    governancePolls = governancePolls.map((item) =>
-      item.id === pollId
-        ? {
-            ...item,
-            voteCount: (item.voteCount || 0) + 1,
-            optionCounts: item.options.map((_, index) =>
-              index === optionIndex
-                ? (item.optionCounts?.[index] || 0) + 1
-                : item.optionCounts?.[index] || 0
-            )
-          }
-        : item
-    );
-
     if (governanceApiUrl) {
       try {
         await governanceApiRequest("/api/governance/vote", {
           method: "POST",
           body: JSON.stringify({
             pollId,
-            optionIndex,
-            currentTokens: studentGovernanceState.tokens + 1
+            optionIndex
           })
         });
-        void syncGovernanceFromApi();
+        await syncStudentStateFromApi();
+        await syncGovernanceFromApi();
       } catch (error) {
         console.error("Governance API vote failed:", error);
         if (pollMessage) {
-          pollMessage.textContent = "투표는 반영됐지만 Redis 저장에는 실패했습니다.";
+          pollMessage.textContent =
+            error.message === "not_enough_tokens"
+              ? "거버넌스 코인이 부족합니다."
+              : "투표 저장 중 오류가 발생했습니다.";
         }
         renderGovernanceList();
         return;
@@ -1897,20 +1881,23 @@ if (governanceList) {
 }
 
 if (governanceEarnButton) {
-  governanceEarnButton.addEventListener("click", () => {
+  governanceEarnButton.addEventListener("click", async () => {
     if (currentRole !== "student") return;
 
-    studentGovernanceState = {
-      ...studentGovernanceState,
-      tokens: studentGovernanceState.tokens + 1
-    };
-    persistStudentGovernanceState();
-    state = buildStudentState();
-    renderStatus();
-    renderGovernanceList();
+    try {
+      const data = await studentApiRequest("/api/student/governance/earn", {
+        method: "POST"
+      });
+      applyStudentStateResponse(data);
+      state = buildStudentState();
+      renderStatus();
+      renderGovernanceList();
 
-    if (pollMessage) {
-      pollMessage.textContent = "거버넌스 코인 1개를 지급했습니다.";
+      if (pollMessage) {
+        pollMessage.textContent = "거버넌스 코인 1개를 지급했습니다.";
+      }
+    } catch (error) {
+      console.error("Governance token earn failed:", error);
     }
   });
 }
@@ -1930,6 +1917,14 @@ if (logoutButton) {
     if (loginMessage) loginMessage.textContent = "";
     currentRole = "student";
     currentUserId = "";
+    adminStudentStats = {
+      totalStudents: 0,
+      totalPaidStudents: 0,
+      totalGrantedPoints: 0
+    };
+    paymentState = loadPaymentState();
+    studentTokenMarketState = loadTokenMarketState();
+    studentGovernanceState = loadStudentGovernanceState();
     governanceVoteSelections = {};
     applyRoleLayout(currentRole);
     resetScenario(roleConfigs[currentRole].defaultMode);
@@ -2012,6 +2007,11 @@ if (loginForm) {
         loginPasswordInput.value = "";
       }
 
+      if (currentRole === "student") {
+        await syncStudentStateFromApi();
+      } else {
+        await syncAdminStudentStatsFromApi();
+      }
       void syncGovernanceFromApi();
     } catch (error) {
       if (loginMessage) {
@@ -2117,6 +2117,11 @@ async function initializeApp() {
     if (loginPage) loginPage.classList.add("is-hidden");
     if (dashboardPage) dashboardPage.classList.remove("is-hidden");
 
+    if (currentRole === "student") {
+      await syncStudentStateFromApi();
+    } else {
+      await syncAdminStudentStatsFromApi();
+    }
     void syncGovernanceFromApi();
   } catch (error) {
     console.error("Session restore failed:", error);

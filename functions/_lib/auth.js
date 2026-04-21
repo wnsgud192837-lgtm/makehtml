@@ -3,6 +3,13 @@ const SESSION_COOKIE_NAME = "postech_session";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7;
 const ADMIN_USER_ID = "admin";
 const ADMIN_PASSWORD = "admin";
+const INITIAL_TOKEN_MARKET_STATE = {
+  pointReserve: 24000,
+  eventTokenReserve: 12,
+  userEventTokens: 0,
+  pointDelta: 0,
+  purchaseHistory: []
+};
 
 function toBase64Url(bytes) {
   let binary = "";
@@ -126,6 +133,70 @@ function normalizeUserId(userId) {
   return String(userId || "").trim().toLowerCase();
 }
 
+function createDefaultStudentAppState() {
+  return {
+    studentPaid: false,
+    paidAt: "",
+    governanceTokens: 1,
+    tokenMarket: {
+      pointReserve: INITIAL_TOKEN_MARKET_STATE.pointReserve,
+      eventTokenReserve: INITIAL_TOKEN_MARKET_STATE.eventTokenReserve,
+      userEventTokens: INITIAL_TOKEN_MARKET_STATE.userEventTokens,
+      pointDelta: INITIAL_TOKEN_MARKET_STATE.pointDelta,
+      purchaseHistory: []
+    }
+  };
+}
+
+function normalizePurchaseHistory(entries) {
+  if (!Array.isArray(entries)) return [];
+
+  return entries.filter(
+    (item) =>
+      item &&
+      typeof item.title === "string" &&
+      typeof item.date === "string" &&
+      Number.isFinite(item.amount) &&
+      typeof item.type === "string"
+  );
+}
+
+function normalizeStudentAppState(state) {
+  const parsed = state && typeof state === "object" ? state : {};
+  const tokenMarket =
+    parsed.tokenMarket && typeof parsed.tokenMarket === "object"
+      ? parsed.tokenMarket
+      : {};
+
+  return {
+    studentPaid: Boolean(parsed.studentPaid),
+    paidAt: typeof parsed.paidAt === "string" ? parsed.paidAt : "",
+    governanceTokens:
+      Number.isFinite(parsed.governanceTokens) && parsed.governanceTokens >= 0
+        ? Math.floor(parsed.governanceTokens)
+        : 1,
+    tokenMarket: {
+      pointReserve:
+        Number.isFinite(tokenMarket.pointReserve) && tokenMarket.pointReserve > 0
+          ? Math.floor(tokenMarket.pointReserve)
+          : INITIAL_TOKEN_MARKET_STATE.pointReserve,
+      eventTokenReserve:
+        Number.isFinite(tokenMarket.eventTokenReserve) && tokenMarket.eventTokenReserve > 0
+          ? Math.floor(tokenMarket.eventTokenReserve)
+          : INITIAL_TOKEN_MARKET_STATE.eventTokenReserve,
+      userEventTokens:
+        Number.isFinite(tokenMarket.userEventTokens) && tokenMarket.userEventTokens >= 0
+          ? Math.floor(tokenMarket.userEventTokens)
+          : INITIAL_TOKEN_MARKET_STATE.userEventTokens,
+      pointDelta:
+        Number.isFinite(tokenMarket.pointDelta)
+          ? Math.floor(tokenMarket.pointDelta)
+          : INITIAL_TOKEN_MARKET_STATE.pointDelta,
+      purchaseHistory: normalizePurchaseHistory(tokenMarket.purchaseHistory)
+    }
+  };
+}
+
 async function hashPassword(password, salt) {
   const digest = await crypto.subtle.digest(
     "SHA-256",
@@ -166,6 +237,45 @@ async function getStudentUser(env, userId) {
   return raw ? JSON.parse(raw) : null;
 }
 
+export async function getStudentAppState(env, userId) {
+  const normalizedUserId = normalizeUserId(userId);
+  const raw = await upstash(env, `/get/auth:state:${normalizedUserId}`);
+
+  if (!raw) {
+    return createDefaultStudentAppState();
+  }
+
+  try {
+    return normalizeStudentAppState(JSON.parse(raw));
+  } catch {
+    return createDefaultStudentAppState();
+  }
+}
+
+export async function setStudentAppState(env, userId, state) {
+  const normalizedUserId = normalizeUserId(userId);
+  const nextState = normalizeStudentAppState(state);
+
+  await upstash(env, `/set/auth:state:${normalizedUserId}`, nextState);
+
+  return nextState;
+}
+
+export async function updateStudentAppState(env, userId, updater) {
+  const currentState = await getStudentAppState(env, userId);
+  const updatedState = await updater(currentState);
+
+  return setStudentAppState(env, userId, updatedState);
+}
+
+export async function listStudentUserIds(env) {
+  const userIds = (await upstash(env, "/smembers/auth:students")) || [];
+
+  return userIds
+    .filter((item) => typeof item === "string" && item.length > 0)
+    .map((item) => normalizeUserId(item));
+}
+
 export async function createStudentUser(env, userId, password) {
   const validation = validateStudentCredentials(userId, password);
   if (!validation.ok) {
@@ -188,6 +298,8 @@ export async function createStudentUser(env, userId, password) {
   };
 
   await upstash(env, `/set/auth:user:${validation.userId}`, user);
+  await upstash(env, `/set/auth:state:${validation.userId}`, createDefaultStudentAppState());
+  await upstash(env, `/sadd/auth:students/${validation.userId}`);
 
   return {
     userId: user.userId,

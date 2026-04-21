@@ -1,4 +1,4 @@
-import { json, requireSession } from "../../_lib/auth.js";
+import { json, requireSession, updateStudentAppState } from "../../_lib/auth.js";
 
 async function upstash(env, command, body) {
   if (!env.UPSTASH_REDIS_REST_URL || !env.UPSTASH_REDIS_REST_TOKEN) {
@@ -113,8 +113,9 @@ async function removePoll(request, env, pollId) {
 
 async function vote(request, env, session) {
   const body = await request.json();
-  const { pollId, optionIndex, currentTokens } = body;
+  const { pollId, optionIndex } = body;
   const userKey = `${session.role}:${session.userId}`;
+  let tokenSpent = false;
 
   if (!pollId || !Number.isInteger(optionIndex)) {
     return json(request, env, { error: "invalid_vote_payload" }, 400);
@@ -125,35 +126,60 @@ async function vote(request, env, session) {
   if (optionIndex < 0 || optionIndex >= poll.options.length) {
     return json(request, env, { error: "invalid_option" }, 400);
   }
-  if (!Number.isInteger(currentTokens) || currentTokens < 1) {
-    return json(request, env, { error: "not_enough_tokens" }, 400);
-  }
-
   const userVotes = await getUserVotes(env, userKey);
   if (Object.hasOwn(userVotes, pollId)) {
     return json(request, env, { error: "already_voted" }, 409);
   }
 
-  const results = await getResults(env, pollId);
-  results[optionIndex] = (results[optionIndex] || 0) + 1;
-  userVotes[pollId] = optionIndex;
+  if (session.role === "student") {
+    try {
+      await updateStudentAppState(env, session.userId, async (currentState) => {
+        if (currentState.governanceTokens < 1) {
+          throw new Error("not_enough_tokens");
+        }
 
-  await setJson(env, `governance:results:${pollId}`, results);
-  await setJson(env, `governance:user:${userKey}:votes`, userVotes);
-  await upstash(env, `/sadd/governance:poll:${pollId}:voters/${userKey}`);
+        return {
+          ...currentState,
+          governanceTokens: currentState.governanceTokens - 1
+        };
+      });
+      tokenSpent = true;
+    } catch (error) {
+      return json(request, env, { error: error.message || "vote_state_update_failed" }, 400);
+    }
+  }
 
-  return json(
-    request,
-    env,
-    {
-      ok: true,
-      pollId,
-      optionIndex,
-      optionCounts: results,
-      voteCount: results.reduce((sum, count) => sum + count, 0)
-    },
-    200
-  );
+  try {
+    const results = await getResults(env, pollId);
+    results[optionIndex] = (results[optionIndex] || 0) + 1;
+    userVotes[pollId] = optionIndex;
+
+    await setJson(env, `governance:results:${pollId}`, results);
+    await setJson(env, `governance:user:${userKey}:votes`, userVotes);
+    await upstash(env, `/sadd/governance:poll:${pollId}:voters/${userKey}`);
+
+    return json(
+      request,
+      env,
+      {
+        ok: true,
+        pollId,
+        optionIndex,
+        optionCounts: results,
+        voteCount: results.reduce((sum, count) => sum + count, 0)
+      },
+      200
+    );
+  } catch (error) {
+    if (tokenSpent && session.role === "student") {
+      await updateStudentAppState(env, session.userId, async (currentState) => ({
+        ...currentState,
+        governanceTokens: currentState.governanceTokens + 1
+      }));
+    }
+
+    return json(request, env, { error: error.message || "vote_persist_failed" }, 500);
+  }
 }
 
 export async function onRequest(context) {
