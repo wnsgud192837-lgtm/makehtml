@@ -173,6 +173,15 @@ async function getAdminLogsResponse(request, env, session) {
   return json(request, env, { logs }, 200);
 }
 
+async function getAdminUsersResponse(request, env, session) {
+  if (session.role !== "admin") {
+    return json(request, env, { error: "forbidden" }, 403);
+  }
+
+  const users = await listStudentUserIds(env);
+  return json(request, env, { users }, 200);
+}
+
 async function markPaid(request, env, session) {
   if (session.role !== "student") {
     return json(request, env, { error: "forbidden" }, 403);
@@ -384,6 +393,10 @@ export async function onRequest(context) {
 
   if (request.method === "GET" && route.length === 1 && route[0] === "logs") {
     return getAdminLogsResponse(request, env, session);
+  }
+
+  if (request.method === "GET" && route.length === 1 && route[0] === "users") {
+    return getAdminUsersResponse(request, env, session);
   }
 
   if (request.method === "POST" && route.length === 1 && route[0] === "pay") {

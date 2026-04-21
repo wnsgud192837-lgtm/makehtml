@@ -23,6 +23,7 @@ const studentDeleteForm = document.querySelector("#student-delete-form");
 const studentManagementPanel = document.querySelector("#student-management-panel");
 const studentManagementMessage = document.querySelector("#student-management-message");
 const studentManagementLogList = document.querySelector("#student-management-log-list");
+const studentManagementUserList = document.querySelector("#student-management-user-list");
 const appRoleSubtitle = document.querySelector("#app-role-subtitle");
 const heroKicker = document.querySelector("#hero-kicker");
 const heroTitle = document.querySelector("#hero-title");
@@ -35,6 +36,7 @@ const pointsView = document.querySelector("#points-view");
 const tokenView = document.querySelector("#token-view");
 const tokenMarketPanel = document.querySelector("#token-market-panel");
 const placeholderView = document.querySelector("#placeholder-view");
+const placeholderHeader = document.querySelector("#placeholder-header");
 const placeholderTitle = document.querySelector("#placeholder-title");
 const placeholderText = document.querySelector("#placeholder-text");
 const noticeAdminPanel = document.querySelector("#notice-admin-panel");
@@ -441,6 +443,7 @@ let adminStudentStats = {
 let governancePolls = [];
 let availableEvents = [];
 let studentManagementLogs = [];
+let studentManagementUsers = [];
 let studentTokenMarketState = cloneInitialTokenMarketState();
 let studentGovernanceState = {
   tokens: 1,
@@ -462,6 +465,8 @@ function resetTransientUiState() {
   adminTokenMarketMessage = "";
   studentTokenMarketMessage = "";
   studentManagementStatusMessage = "";
+  studentManagementLogs = [];
+  studentManagementUsers = [];
 }
 
 function getTokenMarketMessage() {
@@ -504,6 +509,7 @@ async function handleStudentDeleteSubmit(form) {
     form.reset();
     await syncAdminStudentStatsFromApi();
     await syncEventsFromApi();
+    await syncStudentManagementUsersFromApi();
     await syncStudentManagementLogsFromApi();
     await syncGovernanceFromApi();
     renderStudentManagementPanel();
@@ -750,6 +756,24 @@ async function syncStudentManagementLogsFromApi() {
     return true;
   } catch (error) {
     console.error("Student management log sync failed:", error);
+    return false;
+  }
+}
+
+async function syncStudentManagementUsersFromApi() {
+  if (currentRole !== "admin") return false;
+
+  try {
+    const data = await studentApiRequest("/api/student/users", {
+      method: "GET"
+    });
+    studentManagementUsers = Array.isArray(data.users)
+      ? data.users.slice().sort((left, right) => left.localeCompare(right))
+      : [];
+    renderStudentManagementPanel();
+    return true;
+  } catch (error) {
+    console.error("Student management user sync failed:", error);
     return false;
   }
 }
@@ -1016,6 +1040,30 @@ function renderStudentManagementPanel() {
 
   if (studentManagementMessage) {
     studentManagementMessage.textContent = studentManagementStatusMessage;
+  }
+
+  if (studentManagementUserList) {
+    if (studentManagementUsers.length === 0) {
+      studentManagementUserList.innerHTML = `
+        <li class="notice-item notice-empty">
+          <strong>등록된 학생이 없습니다.</strong>
+          <p>학생 회원가입이 발생하면 여기 표시됩니다.</p>
+        </li>
+      `;
+    } else {
+      studentManagementUserList.innerHTML = studentManagementUsers
+        .map(
+          (userId) => `
+            <li class="notice-item">
+              <div class="notice-meta">
+                <strong>${escapeHtml(userId)}</strong>
+                <span>등록됨</span>
+              </div>
+            </li>
+          `
+        )
+        .join("");
+    }
   }
 
   if (!studentManagementLogList) return;
@@ -1328,6 +1376,7 @@ function switchView(view) {
   }
 
   if (isStudentManagementView && currentUserId) {
+    void syncStudentManagementUsersFromApi();
     void syncStudentManagementLogsFromApi();
   }
 
@@ -1373,6 +1422,13 @@ function switchView(view) {
 
   if (studentManagementPanel) {
     studentManagementPanel.classList.toggle("is-hidden", !isStudentManagementView);
+  }
+
+  if (placeholderHeader) {
+    placeholderHeader.classList.toggle(
+      "is-hidden",
+      isAdminNoticeView || isGovernanceView || isStudentManagementView
+    );
   }
 
   if (placeholderText) {
@@ -2227,6 +2283,7 @@ if (loginForm) {
         await syncStudentStateFromApi();
       } else {
         await syncAdminStudentStatsFromApi();
+        await syncStudentManagementUsersFromApi();
         await syncStudentManagementLogsFromApi();
       }
       await syncEventsFromApi();
@@ -2343,6 +2400,7 @@ async function initializeApp() {
       await syncStudentStateFromApi();
     } else {
       await syncAdminStudentStatsFromApi();
+      await syncStudentManagementUsersFromApi();
       await syncStudentManagementLogsFromApi();
     }
     await syncEventsFromApi();

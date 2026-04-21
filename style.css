@@ -436,8 +436,9 @@ input {
 
 .student-management-grid {
   display: grid;
-  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+  grid-template-columns: minmax(220px, 0.9fr) minmax(320px, 1.4fr) minmax(240px, 0.95fr);
   gap: 18px;
+  align-items: start;
 }
 
 .student-management-card {
@@ -445,6 +446,10 @@ input {
   border: 1px solid #dde5f0;
   border-radius: 18px;
   background: #fff;
+}
+
+.student-management-card-wide {
+  min-width: 0;
 }
 
 .student-management-log-list {
