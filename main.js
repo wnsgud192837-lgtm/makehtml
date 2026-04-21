@@ -476,6 +476,16 @@ function getGovernanceUserKey() {
   return `${currentRole}:${currentUserId}`;
 }
 
+function getScopedStorageKey(baseKey) {
+  const userKey = getGovernanceUserKey();
+
+  if (!userKey || userKey === "student:" || userKey === "student") {
+    return null;
+  }
+
+  return `${baseKey}:${userKey}`;
+}
+
 async function governanceApiRequest(path, options = {}) {
   if (!governanceApiUrl) return null;
 
@@ -569,7 +579,10 @@ function cloneInitialTokenMarketState() {
 function loadTokenMarketState() {
   if (typeof window === "undefined") return cloneInitialTokenMarketState();
 
-  const raw = window.localStorage.getItem(TOKEN_MARKET_STORAGE_KEY);
+  const storageKey = getScopedStorageKey(TOKEN_MARKET_STORAGE_KEY);
+  if (!storageKey) return cloneInitialTokenMarketState();
+
+  const raw = window.localStorage.getItem(storageKey);
   if (!raw) return cloneInitialTokenMarketState();
 
   try {
@@ -615,11 +628,10 @@ function loadTokenMarketState() {
 
 function persistTokenMarketState() {
   if (typeof window === "undefined") return;
+  const storageKey = getScopedStorageKey(TOKEN_MARKET_STORAGE_KEY);
+  if (!storageKey) return;
 
-  window.localStorage.setItem(
-    TOKEN_MARKET_STORAGE_KEY,
-    JSON.stringify(studentTokenMarketState)
-  );
+  window.localStorage.setItem(storageKey, JSON.stringify(studentTokenMarketState));
 }
 
 function getTokenMarketSpotPrice() {
@@ -907,7 +919,12 @@ function loadStudentGovernanceState() {
     return { tokens: 1, votedPollIds: [] };
   }
 
-  const raw = window.localStorage.getItem(STUDENT_GOVERNANCE_STORAGE_KEY);
+  const storageKey = getScopedStorageKey(STUDENT_GOVERNANCE_STORAGE_KEY);
+  if (!storageKey) {
+    return { tokens: 1, votedPollIds: [] };
+  }
+
+  const raw = window.localStorage.getItem(storageKey);
   if (!raw) {
     return { tokens: 1, votedPollIds: [] };
   }
@@ -931,11 +948,15 @@ function loadStudentGovernanceState() {
 
 function persistStudentGovernanceState() {
   if (typeof window === "undefined") return;
+  const storageKey = getScopedStorageKey(STUDENT_GOVERNANCE_STORAGE_KEY);
+  if (!storageKey) return;
 
-  window.localStorage.setItem(
-    STUDENT_GOVERNANCE_STORAGE_KEY,
-    JSON.stringify(studentGovernanceState)
-  );
+  window.localStorage.setItem(storageKey, JSON.stringify(studentGovernanceState));
+}
+
+function hydrateStudentLocalState() {
+  studentTokenMarketState = loadTokenMarketState();
+  studentGovernanceState = loadStudentGovernanceState();
 }
 
 function loadRememberedUserId() {
@@ -1980,6 +2001,7 @@ if (loginForm) {
 
       currentUserId = data.user.userId;
       currentRole = data.user.role;
+      hydrateStudentLocalState();
       applyRoleLayout(currentRole);
       resetScenario(roleConfigs[currentRole].defaultMode);
       switchView("dashboard");
@@ -2087,6 +2109,7 @@ async function initializeApp() {
 
     currentUserId = data.user.userId;
     currentRole = data.user.role;
+    hydrateStudentLocalState();
     applyRoleLayout(currentRole);
     resetScenario(roleConfigs[currentRole].defaultMode);
     switchView("dashboard");
