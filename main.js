@@ -28,6 +28,7 @@ const governancePanel = document.querySelector("#governance-panel");
 const governanceAdminPanel = document.querySelector("#governance-admin-panel");
 const governanceStudentPanel = document.querySelector("#governance-student-panel");
 const governanceList = document.querySelector("#governance-list");
+const governanceEarnButton = document.querySelector("#governance-earn-button");
 const pollForm = document.querySelector("#poll-form");
 const pollMessage = document.querySelector("#poll-message");
 const paymentLabel = document.querySelector("#payment-label");
@@ -1797,6 +1798,25 @@ if (governanceList) {
     renderGovernanceList();
     if (pollMessage) {
       pollMessage.textContent = "투표 결과가 저장되었습니다.";
+    }
+  });
+}
+
+if (governanceEarnButton) {
+  governanceEarnButton.addEventListener("click", () => {
+    if (currentRole !== "student") return;
+
+    studentGovernanceState = {
+      ...studentGovernanceState,
+      tokens: studentGovernanceState.tokens + 1
+    };
+    persistStudentGovernanceState();
+    state = buildStudentState();
+    renderStatus();
+    renderGovernanceList();
+
+    if (pollMessage) {
+      pollMessage.textContent = "거버넌스 코인 1개를 지급했습니다.";
     }
   });
 }

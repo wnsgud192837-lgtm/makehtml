@@ -871,6 +871,13 @@ input {
   gap: 18px;
 }
 
+.governance-student-banner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: stretch;
+}
+
 .governance-student-info,
 .governance-status {
   padding: 14px 16px;
@@ -891,6 +898,38 @@ input {
   color: #5f6e82;
   font-size: 0.88rem;
   line-height: 1.65;
+}
+
+.governance-earn-button {
+  min-width: 176px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #f0b429, #f27a1a);
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  box-shadow: 0 14px 28px rgba(242, 122, 26, 0.22);
+}
+
+.governance-earn-button:hover {
+  filter: brightness(1.03);
+}
+
+.governance-earn-button:active {
+  transform: translateY(1px);
+}
+
+@media (max-width: 720px) {
+  .governance-student-banner {
+    grid-template-columns: 1fr;
+  }
+
+  .governance-earn-button {
+    min-height: 48px;
+  }
 }
 
 .governance-list {
