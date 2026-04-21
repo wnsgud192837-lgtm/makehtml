@@ -1159,6 +1159,13 @@ input {
   gap: 12px;
 }
 
+.confirm-modal-actions .ghost-link,
+.confirm-modal-actions .login-button {
+  min-width: 104px;
+  height: 46px;
+  margin-top: 0;
+}
+
 @media (max-width: 1100px) {
   .token-market-grid {
     grid-template-columns: 1fr;
