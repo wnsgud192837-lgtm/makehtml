@@ -145,7 +145,15 @@
         <button type="button" class="app-nav-item" data-view="market">세컨더리 마켓</button>
         <button type="button" class="app-nav-item" data-view="governance">거버넌스</button>
         <button type="button" class="app-nav-item" data-view="rental">대여사업</button>
+        <button type="button" class="app-nav-admin-button is-hidden" id="admin-delete-toggle">학생 삭제</button>
       </nav>
+
+      <section class="admin-delete-panel is-hidden" id="admin-delete-panel">
+        <form class="admin-delete-form" id="student-delete-form">
+          <input type="text" name="userId" placeholder="삭제할 학생 아이디 입력" maxlength="24">
+          <button type="submit" class="ghost-link">계정 삭제</button>
+        </form>
+      </section>
 
       <section class="hero-panel">
         <div class="hero-copy">

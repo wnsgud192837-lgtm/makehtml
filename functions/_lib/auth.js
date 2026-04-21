@@ -411,6 +411,13 @@ export async function getSession(request, env) {
       return null;
     }
 
+    if (parsed.role === "student") {
+      const user = await getStudentUser(env, parsed.userId);
+      if (!user) {
+        return null;
+      }
+    }
+
     return {
       userId: parsed.userId,
       role: parsed.role

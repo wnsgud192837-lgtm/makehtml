@@ -23,6 +23,32 @@ function formatDate(date) {
   return `${year}.${month}.${day}`;
 }
 
+function normalizeUserId(userId) {
+  return String(userId || "").trim().toLowerCase();
+}
+
+async function upstash(env, command, body) {
+  if (!env.UPSTASH_REDIS_REST_URL || !env.UPSTASH_REDIS_REST_TOKEN) {
+    throw new Error("missing_upstash_env");
+  }
+
+  const response = await fetch(`${env.UPSTASH_REDIS_REST_URL}${command}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.UPSTASH_REDIS_REST_TOKEN}`,
+      "content-type": "application/json"
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+
+  const data = await response.json();
+  if (!response.ok || data.error) {
+    throw new Error(data.error || `upstash_${response.status}`);
+  }
+
+  return data.result;
+}
+
 function getStudentPoints(state) {
   return (state.studentPaid ? BASE_POINTS : 0) + state.tokenMarket.pointDelta;
 }
@@ -34,6 +60,24 @@ function createStudentResponse(state) {
       points: getStudentPoints(state)
     }
   };
+}
+
+async function getStudentUserRecord(env, userId) {
+  const raw = await upstash(env, `/get/auth:user:${normalizeUserId(userId)}`);
+  return raw ? JSON.parse(raw) : null;
+}
+
+async function getJson(env, key, fallback) {
+  const raw = await upstash(env, `/get/${key}`);
+  return raw ? JSON.parse(raw) : fallback;
+}
+
+async function setJson(env, key, value) {
+  return upstash(env, `/set/${key}`, value);
+}
+
+async function deleteKey(env, key) {
+  return upstash(env, `/del/${key}`);
 }
 
 function getTokenBuyQuote(tokenMarket, quantity) {
@@ -235,6 +279,67 @@ async function updateMarketState(request, env, session) {
   }
 }
 
+async function deleteStudentAccount(request, env, session) {
+  if (session.role !== "admin") {
+    return json(request, env, { error: "forbidden" }, 403);
+  }
+
+  const body = await request.json();
+  const userId = normalizeUserId(body?.userId);
+
+  if (!userId || userId === "admin") {
+    return json(request, env, { error: "invalid_user_id" }, 400);
+  }
+
+  const userRecord = await getStudentUserRecord(env, userId);
+  if (!userRecord) {
+    return json(request, env, { error: "user_not_found" }, 404);
+  }
+
+  const state = await getStudentAppState(env, userId);
+  const eventPurchases = Array.isArray(state.tokenMarket?.eventPurchases)
+    ? state.tokenMarket.eventPurchases
+    : [];
+
+  const aggregatedPurchases = new Map();
+  eventPurchases.forEach((purchase) => {
+    const current = aggregatedPurchases.get(purchase.eventId) || 0;
+    aggregatedPurchases.set(purchase.eventId, current + purchase.quantity);
+  });
+
+  for (const [eventId, quantity] of aggregatedPurchases.entries()) {
+    const rawEvent = await upstash(env, `/get/events:item:${eventId}`);
+    if (!rawEvent) continue;
+
+    const event = JSON.parse(rawEvent);
+    const nextEvent = {
+      ...event,
+      remainingQuantity: Math.min(
+        Number(event.totalQuantity) || 0,
+        (Number(event.remainingQuantity) || 0) + quantity
+      )
+    };
+    await upstash(env, `/set/events:item:${eventId}`, nextEvent);
+  }
+
+  const userVotes = await getJson(env, `governance:user:student:${userId}:votes`, {});
+  for (const [pollId, optionIndex] of Object.entries(userVotes)) {
+    const results = await getJson(env, `governance:results:${pollId}`, []);
+    if (Array.isArray(results) && Number.isInteger(optionIndex) && optionIndex >= 0 && optionIndex < results.length) {
+      results[optionIndex] = Math.max(0, (results[optionIndex] || 0) - 1);
+      await setJson(env, `governance:results:${pollId}`, results);
+    }
+    await upstash(env, `/srem/governance:poll:${pollId}:voters/student:${userId}`);
+  }
+
+  await deleteKey(env, `governance:user:student:${userId}:votes`);
+  await deleteKey(env, `auth:user:${userId}`);
+  await deleteKey(env, `auth:state:${userId}`);
+  await upstash(env, `/srem/auth:students/${userId}`);
+
+  return json(request, env, { ok: true, userId }, 200);
+}
+
 export async function onRequest(context) {
   const { request, env, params } = context;
   const route = Array.isArray(params.route)
@@ -270,6 +375,10 @@ export async function onRequest(context) {
 
   if (request.method === "POST" && route.length === 1 && route[0] === "market") {
     return updateMarketState(request, env, session);
+  }
+
+  if (request.method === "DELETE" && route.length === 1 && route[0] === "account") {
+    return deleteStudentAccount(request, env, session);
   }
 
   return json(request, env, { error: "not_found" }, 404);

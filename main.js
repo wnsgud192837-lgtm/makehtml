@@ -18,6 +18,9 @@ const registerSubmitButton = registerForm?.querySelector('button[type="submit"]'
 const logoutButton = document.querySelector("#logout-button");
 const modeButtons = Array.from(document.querySelectorAll("[data-mode]"));
 const navItems = Array.from(document.querySelectorAll(".app-nav-item"));
+const adminDeleteToggleButton = document.querySelector("#admin-delete-toggle");
+const adminDeletePanel = document.querySelector("#admin-delete-panel");
+const studentDeleteForm = document.querySelector("#student-delete-form");
 const appRoleSubtitle = document.querySelector("#app-role-subtitle");
 const heroKicker = document.querySelector("#hero-kicker");
 const heroTitle = document.querySelector("#hero-title");
@@ -442,11 +445,81 @@ let studentGovernanceState = {
 let governanceVoteSelections = {};
 let tokenMarketMessage = "";
 let pendingConfirmResolver = null;
+let isAdminDeletePanelOpen = false;
 
 function updateDocumentTitle(isAuthenticated) {
   if (typeof document === "undefined") return;
 
   document.title = isAuthenticated ? "POSTECH" : "POSTECH - 통합로그인";
+}
+
+function setAdminDeletePanelOpen(isOpen) {
+  isAdminDeletePanelOpen = isOpen;
+
+  if (adminDeletePanel) {
+    adminDeletePanel.classList.toggle("is-hidden", !isOpen || currentRole !== "admin");
+  }
+
+  if (adminDeleteToggleButton) {
+    adminDeleteToggleButton.classList.toggle("is-hidden", currentRole !== "admin");
+    adminDeleteToggleButton.classList.toggle("is-active", isOpen && currentRole === "admin");
+  }
+}
+
+if (adminDeleteToggleButton) {
+  adminDeleteToggleButton.addEventListener("click", () => {
+    setAdminDeletePanelOpen(!isAdminDeletePanelOpen);
+  });
+}
+
+if (studentDeleteForm) {
+  studentDeleteForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await handleStudentDeleteSubmit(studentDeleteForm);
+  });
+}
+
+async function handleStudentDeleteSubmit(form) {
+  if (currentRole !== "admin") return;
+
+  const formData = new FormData(form);
+  const userId = String(formData.get("userId") || "").trim().toLowerCase();
+  if (!userId) {
+    tokenMarketMessage = "삭제할 학생 아이디를 입력해야 합니다.";
+    renderTokenMarket();
+    return;
+  }
+
+  const confirmed = await showPurchaseConfirm(
+    `${userId} 계정을 삭제하시겠습니까? 취소가 불가능합니다.`
+  );
+  if (!confirmed) {
+    tokenMarketMessage = "학생 계정 삭제가 취소되었습니다.";
+    renderTokenMarket();
+    return;
+  }
+
+  try {
+    await studentApiRequest("/api/student/account", {
+      method: "DELETE",
+      body: JSON.stringify({ userId })
+    });
+    tokenMarketMessage = `${userId} 계정이 삭제되었습니다.`;
+    form.reset();
+    setAdminDeletePanelOpen(false);
+    await syncAdminStudentStatsFromApi();
+    await syncEventsFromApi();
+    await syncGovernanceFromApi();
+    renderTokenMarket();
+  } catch (error) {
+    tokenMarketMessage =
+      error.message === "user_not_found"
+        ? "해당 학생 계정을 찾을 수 없습니다."
+        : error.message === "invalid_user_id"
+          ? "삭제할 수 없는 아이디입니다."
+          : "학생 계정 삭제 중 오류가 발생했습니다.";
+    renderTokenMarket();
+  }
 }
 
 function hidePurchaseConfirm(result) {
@@ -793,7 +866,7 @@ function renderTokenMarket() {
           <form class="notice-form" id="event-admin-form">
             <label class="notice-field">
               <span>행사명</span>
-              <input type="text" name="title" placeholder="예: 해맞이 한마당" maxlength="80">
+              <input type="text" name="title" placeholder="예: 해맞이 한마당 - 2026/05/03 (행사 날짜)" maxlength="80">
             </label>
 
             <label class="notice-field">
@@ -1128,6 +1201,12 @@ function applyRoleLayout(role) {
 
   if (!roleConfig) return;
 
+  if (role !== "admin") {
+    setAdminDeletePanelOpen(false);
+  } else {
+    setAdminDeletePanelOpen(isAdminDeletePanelOpen);
+  }
+
   if (appRoleSubtitle) appRoleSubtitle.textContent = roleConfig.subtitle;
   if (heroKicker) heroKicker.textContent = roleConfig.heroKicker;
   if (heroTitle) heroTitle.textContent = roleConfig.heroTitle;
@@ -1374,7 +1453,7 @@ function renderNoticeLists() {
         ? `
           <li class="notice-item notice-empty">
             <strong>현재 등록된 공지가 없습니다.</strong>
-            <p>새 공지는 관리자 계정의 공지 관리 메뉴에서 등록됩니다.</p>
+            <p>현재 등록된 공지가 없습니다.</p>
           </li>
         `
         : noticeItems
