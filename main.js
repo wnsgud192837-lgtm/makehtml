@@ -443,7 +443,8 @@ let studentGovernanceState = {
   votedPollIds: []
 };
 let governanceVoteSelections = {};
-let tokenMarketMessage = "";
+let adminTokenMarketMessage = "";
+let studentTokenMarketMessage = "";
 let pendingConfirmResolver = null;
 let isAdminDeletePanelOpen = false;
 
@@ -454,7 +455,12 @@ function updateDocumentTitle(isAuthenticated) {
 }
 
 function resetTransientUiState() {
-  tokenMarketMessage = "";
+  adminTokenMarketMessage = "";
+  studentTokenMarketMessage = "";
+}
+
+function getTokenMarketMessage() {
+  return currentRole === "admin" ? adminTokenMarketMessage : studentTokenMarketMessage;
 }
 
 function setAdminDeletePanelOpen(isOpen) {
@@ -489,7 +495,7 @@ async function handleStudentDeleteSubmit(form) {
   const formData = new FormData(form);
   const userId = String(formData.get("userId") || "").trim().toLowerCase();
   if (!userId) {
-    tokenMarketMessage = "삭제할 학생 아이디를 입력해야 합니다.";
+    adminTokenMarketMessage = "삭제할 학생 아이디를 입력해야 합니다.";
     renderTokenMarket();
     return;
   }
@@ -498,7 +504,7 @@ async function handleStudentDeleteSubmit(form) {
     `${userId} 계정을 삭제하시겠습니까? 취소가 불가능합니다.`
   );
   if (!confirmed) {
-    tokenMarketMessage = "학생 계정 삭제가 취소되었습니다.";
+    adminTokenMarketMessage = "학생 계정 삭제가 취소되었습니다.";
     renderTokenMarket();
     return;
   }
@@ -508,7 +514,7 @@ async function handleStudentDeleteSubmit(form) {
       method: "DELETE",
       body: JSON.stringify({ userId })
     });
-    tokenMarketMessage = `${userId} 계정이 삭제되었습니다.`;
+    adminTokenMarketMessage = `${userId} 계정이 삭제되었습니다.`;
     form.reset();
     setAdminDeletePanelOpen(false);
     await syncAdminStudentStatsFromApi();
@@ -516,7 +522,7 @@ async function handleStudentDeleteSubmit(form) {
     await syncGovernanceFromApi();
     renderTokenMarket();
   } catch (error) {
-    tokenMarketMessage =
+    adminTokenMarketMessage =
       error.message === "user_not_found"
         ? "해당 학생 계정을 찾을 수 없습니다."
         : error.message === "invalid_user_id"
@@ -890,7 +896,7 @@ function renderTokenMarket() {
 
             <button type="submit" class="login-button notice-submit">행사 등록</button>
           </form>
-          <p class="login-message token-market-message">${escapeHtml(tokenMarketMessage)}</p>
+          <p class="login-message token-market-message">${escapeHtml(getTokenMarketMessage())}</p>
         </section>
 
         <section class="token-market-card">
@@ -972,7 +978,7 @@ function renderTokenMarket() {
                   .join("")
           }
         </div>
-        <p class="login-message token-market-message">${escapeHtml(tokenMarketMessage)}</p>
+        <p class="login-message token-market-message">${escapeHtml(getTokenMarketMessage())}</p>
       </section>
 
       <section class="token-market-card">
@@ -1702,12 +1708,12 @@ if (tokenMarketPanel) {
             unitPrice
           })
         });
-        tokenMarketMessage = "행사가 등록되었습니다.";
+        adminTokenMarketMessage = "행사가 등록되었습니다.";
         target.reset();
         await syncEventsFromApi();
         renderTokenMarket();
       } catch (error) {
-        tokenMarketMessage =
+        adminTokenMarketMessage =
           error.message === "invalid_event_payload"
             ? "행사명, 수량, 가격을 올바르게 입력해야 합니다."
             : "행사 등록 중 오류가 발생했습니다.";
@@ -1730,7 +1736,7 @@ if (tokenMarketPanel) {
     );
 
     if (!confirmed) {
-      tokenMarketMessage = "구매가 취소되었습니다.";
+      studentTokenMarketMessage = "구매가 취소되었습니다.";
       renderTokenMarket();
       return;
     }
@@ -1745,13 +1751,13 @@ if (tokenMarketPanel) {
       });
       applyStudentStateResponse({ state: data.state });
       state = buildStudentState();
-      tokenMarketMessage = `${selectedEvent.title} ${quantity}개 구매가 완료되었습니다.`;
+      studentTokenMarketMessage = `${selectedEvent.title} ${quantity}개 구매가 완료되었습니다.`;
       renderStatus();
       renderPointsHistory();
       await syncEventsFromApi();
       renderTokenMarket();
     } catch (error) {
-      tokenMarketMessage =
+      studentTokenMarketMessage =
         error.message === "not_enough_points"
           ? "포인트가 부족합니다."
           : error.message === "insufficient_event_inventory"
@@ -1772,11 +1778,11 @@ if (tokenMarketPanel) {
       await eventsApiRequest(`/${encodeURIComponent(eventId)}`, {
         method: "DELETE"
       });
-      tokenMarketMessage = "행사가 삭제되었습니다.";
+      adminTokenMarketMessage = "행사가 삭제되었습니다.";
       await syncEventsFromApi();
       renderTokenMarket();
     } catch (error) {
-      tokenMarketMessage = "행사 삭제 중 오류가 발생했습니다.";
+      adminTokenMarketMessage = "행사 삭제 중 오류가 발생했습니다.";
       renderTokenMarket();
     }
   });
