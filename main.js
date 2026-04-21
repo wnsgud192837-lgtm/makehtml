@@ -436,6 +436,12 @@ let studentGovernanceState = {
 let governanceVoteSelections = {};
 let tokenMarketMessage = "";
 
+function updateDocumentTitle(isAuthenticated) {
+  if (typeof document === "undefined") return;
+
+  document.title = isAuthenticated ? "POSTECH" : "POSTECH - 통합로그인";
+}
+
 function formatDate(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -1940,6 +1946,7 @@ if (logoutButton) {
     if (loginPasswordInput) {
       loginPasswordInput.value = "";
     }
+    updateDocumentTitle(false);
   });
 }
 
@@ -2006,6 +2013,7 @@ if (loginForm) {
       if (loginPasswordInput) {
         loginPasswordInput.value = "";
       }
+      updateDocumentTitle(true);
 
       if (currentRole === "student") {
         await syncStudentStateFromApi();
@@ -2093,6 +2101,7 @@ async function initializeApp() {
   if (rememberIdCheckbox) {
     rememberIdCheckbox.checked = Boolean(rememberedUserId);
   }
+  updateDocumentTitle(false);
 
   applyRoleLayout(currentRole);
   resetScenario(roleConfigs[currentRole].defaultMode);
@@ -2116,6 +2125,7 @@ async function initializeApp() {
 
     if (loginPage) loginPage.classList.add("is-hidden");
     if (dashboardPage) dashboardPage.classList.remove("is-hidden");
+    updateDocumentTitle(true);
 
     if (currentRole === "student") {
       await syncStudentStateFromApi();
