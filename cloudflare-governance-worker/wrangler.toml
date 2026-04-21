@@ -1,0 +1,6 @@
+name = "postech-governance-api"
+main = "src/worker.js"
+compatibility_date = "2026-04-20"
+
+[vars]
+ALLOWED_ORIGIN = "https://makehtml-ezt.pages.dev"
