@@ -143,7 +143,8 @@ function createDefaultStudentAppState() {
       eventTokenReserve: INITIAL_TOKEN_MARKET_STATE.eventTokenReserve,
       userEventTokens: INITIAL_TOKEN_MARKET_STATE.userEventTokens,
       pointDelta: INITIAL_TOKEN_MARKET_STATE.pointDelta,
-      purchaseHistory: []
+      purchaseHistory: [],
+      eventPurchases: []
     }
   };
 }
@@ -158,6 +159,21 @@ function normalizePurchaseHistory(entries) {
       typeof item.date === "string" &&
       Number.isFinite(item.amount) &&
       typeof item.type === "string"
+  );
+}
+
+function normalizeEventPurchases(entries) {
+  if (!Array.isArray(entries)) return [];
+
+  return entries.filter(
+    (item) =>
+      item &&
+      typeof item.eventId === "string" &&
+      typeof item.title === "string" &&
+      Number.isFinite(item.quantity) &&
+      Number.isFinite(item.unitPrice) &&
+      Number.isFinite(item.totalPrice) &&
+      typeof item.purchasedAt === "string"
   );
 }
 
@@ -192,7 +208,8 @@ function normalizeStudentAppState(state) {
         Number.isFinite(tokenMarket.pointDelta)
           ? Math.floor(tokenMarket.pointDelta)
           : INITIAL_TOKEN_MARKET_STATE.pointDelta,
-      purchaseHistory: normalizePurchaseHistory(tokenMarket.purchaseHistory)
+      purchaseHistory: normalizePurchaseHistory(tokenMarket.purchaseHistory),
+      eventPurchases: normalizeEventPurchases(tokenMarket.eventPurchases)
     }
   };
 }

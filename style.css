@@ -1124,6 +1124,37 @@ input {
   margin-top: 0;
 }
 
+.confirm-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+}
+
+.confirm-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 18, 30, 0.46);
+}
+
+.confirm-modal-dialog {
+  position: relative;
+  width: min(460px, calc(100vw - 28px));
+  padding: 22px 20px;
+  border-radius: 20px;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.18);
+}
+
+.confirm-modal-actions {
+  margin-top: 18px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
 @media (max-width: 1100px) {
   .token-market-grid {
     grid-template-columns: 1fr;

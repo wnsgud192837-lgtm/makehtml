@@ -59,6 +59,10 @@ const calendarPrevButton = document.querySelector("#calendar-prev-button");
 const calendarNextButton = document.querySelector("#calendar-next-button");
 const pointsHistoryList = document.querySelector("#points-history-list");
 const pointsHistoryTotal = document.querySelector("#points-history-total");
+const confirmModal = document.querySelector("#confirm-modal");
+const confirmModalMessage = document.querySelector("#confirm-modal-message");
+const confirmModalConfirmButton = document.querySelector("#confirm-modal-confirm");
+const confirmModalCancelButton = document.querySelector("#confirm-modal-cancel");
 const governanceApiUrl =
   window.APP_GOVERNANCE_API_URL ||
   (window.location.hostname.endsWith(".pages.dev") ? window.location.origin : "");
@@ -143,7 +147,8 @@ const INITIAL_TOKEN_MARKET_STATE = {
   eventTokenReserve: 12,
   userEventTokens: 0,
   pointDelta: 0,
-  purchaseHistory: []
+  purchaseHistory: [],
+  eventPurchases: []
 };
 
 const roleConfigs = {
@@ -428,6 +433,7 @@ let adminStudentStats = {
   totalGrantedPoints: 0
 };
 let governancePolls = [];
+let availableEvents = [];
 let studentTokenMarketState = cloneInitialTokenMarketState();
 let studentGovernanceState = {
   tokens: 1,
@@ -435,11 +441,39 @@ let studentGovernanceState = {
 };
 let governanceVoteSelections = {};
 let tokenMarketMessage = "";
+let pendingConfirmResolver = null;
 
 function updateDocumentTitle(isAuthenticated) {
   if (typeof document === "undefined") return;
 
   document.title = isAuthenticated ? "POSTECH" : "POSTECH - 통합로그인";
+}
+
+function hidePurchaseConfirm(result) {
+  if (!confirmModal) return;
+
+  confirmModal.classList.add("is-hidden");
+  confirmModal.setAttribute("aria-hidden", "true");
+
+  if (pendingConfirmResolver) {
+    const resolver = pendingConfirmResolver;
+    pendingConfirmResolver = null;
+    resolver(result);
+  }
+}
+
+function showPurchaseConfirm(message) {
+  if (!confirmModal || !confirmModalMessage) {
+    return Promise.resolve(window.confirm(message));
+  }
+
+  confirmModalMessage.textContent = message;
+  confirmModal.classList.remove("is-hidden");
+  confirmModal.setAttribute("aria-hidden", "false");
+
+  return new Promise((resolve) => {
+    pendingConfirmResolver = resolve;
+  });
 }
 
 function formatDate(date) {
@@ -571,6 +605,18 @@ function applyStudentStateResponse(data) {
             Number.isFinite(item.amount) &&
             typeof item.type === "string"
         )
+      : [],
+    eventPurchases: Array.isArray(tokenMarket.eventPurchases)
+      ? tokenMarket.eventPurchases.filter(
+          (item) =>
+            item &&
+            typeof item.eventId === "string" &&
+            typeof item.title === "string" &&
+            Number.isFinite(item.quantity) &&
+            Number.isFinite(item.unitPrice) &&
+            Number.isFinite(item.totalPrice) &&
+            typeof item.purchasedAt === "string"
+        )
       : []
   };
   studentGovernanceState = {
@@ -619,6 +665,35 @@ async function syncAdminStudentStatsFromApi() {
     return true;
   } catch (error) {
     console.error("Admin student stats sync failed:", error);
+    return false;
+  }
+}
+
+async function eventsApiRequest(path = "", options = {}) {
+  const response = await fetch(`/api/events${path}`, {
+    ...options,
+    headers: {
+      "content-type": "application/json",
+      ...(options.headers || {})
+    }
+  });
+
+  const data = await response.json();
+  if (!response.ok || data.error) {
+    throw new Error(data.error || `events_api_${response.status}`);
+  }
+
+  return data;
+}
+
+async function syncEventsFromApi() {
+  try {
+    const data = await eventsApiRequest("", { method: "GET" });
+    availableEvents = Array.isArray(data.events) ? data.events : [];
+    renderTokenMarket();
+    return true;
+  } catch (error) {
+    console.error("Event sync failed:", error);
     return false;
   }
 }
@@ -672,7 +747,8 @@ function cloneInitialTokenMarketState() {
     eventTokenReserve: INITIAL_TOKEN_MARKET_STATE.eventTokenReserve,
     userEventTokens: INITIAL_TOKEN_MARKET_STATE.userEventTokens,
     pointDelta: INITIAL_TOKEN_MARKET_STATE.pointDelta,
-    purchaseHistory: []
+    purchaseHistory: [],
+    eventPurchases: []
   };
 }
 
@@ -684,203 +760,166 @@ function persistTokenMarketState() {
   return undefined;
 }
 
-function getTokenMarketSpotPrice() {
-  return studentTokenMarketState.pointReserve / studentTokenMarketState.eventTokenReserve;
-}
-
-function getTokenBuyQuote(quantity) {
-  const normalizedQuantity = Math.max(1, Math.floor(quantity));
-  const { pointReserve, eventTokenReserve } = studentTokenMarketState;
-
-  if (normalizedQuantity >= eventTokenReserve) {
-    return null;
-  }
-
-  const invariant = pointReserve * eventTokenReserve;
-  const nextEventTokenReserve = eventTokenReserve - normalizedQuantity;
-  const exactNextPointReserve = invariant / nextEventTokenReserve;
-  const cost = Math.ceil(exactNextPointReserve - pointReserve);
-
-  return {
-    quantity: normalizedQuantity,
-    cost,
-    nextPointReserve: pointReserve + cost,
-    nextEventTokenReserve,
-    nextInvariant: (pointReserve + cost) * nextEventTokenReserve
-  };
-}
-
-function getTokenSellQuote(quantity) {
-  const normalizedQuantity = Math.max(1, Math.floor(quantity));
-  const { pointReserve, eventTokenReserve } = studentTokenMarketState;
-
-  if (normalizedQuantity > studentTokenMarketState.userEventTokens) {
-    return null;
-  }
-
-  const invariant = pointReserve * eventTokenReserve;
-  const nextEventTokenReserve = eventTokenReserve + normalizedQuantity;
-  const exactNextPointReserve = invariant / nextEventTokenReserve;
-  const payout = Math.floor(pointReserve - exactNextPointReserve);
-
-  if (payout <= 0) {
-    return null;
-  }
-
-  return {
-    quantity: normalizedQuantity,
-    payout,
-    nextPointReserve: pointReserve - payout,
-    nextEventTokenReserve,
-    nextInvariant: (pointReserve - payout) * nextEventTokenReserve
-  };
-}
-
-function getMaxPurchasableTokens(balance) {
-  let quantity = 0;
-
-  while (true) {
-    const nextQuantity = quantity + 1;
-    const quote = getTokenBuyQuote(nextQuantity);
-    if (!quote || quote.cost > balance) break;
-    quantity = nextQuantity;
-  }
-
-  return quantity;
-}
-
 function renderTokenMarket() {
   if (!tokenMarketPanel) return;
+  const purchases = Array.isArray(studentTokenMarketState.eventPurchases)
+    ? studentTokenMarketState.eventPurchases
+    : [];
+  const purchaseSummary = new Map();
 
-  if (currentRole !== "student") {
-    tokenMarketPanel.innerHTML = "";
+  purchases.forEach((purchase) => {
+    const current = purchaseSummary.get(purchase.eventId) || {
+      title: purchase.title,
+      quantity: 0,
+      totalPrice: 0
+    };
+    current.quantity += purchase.quantity;
+    current.totalPrice += purchase.totalPrice;
+    purchaseSummary.set(purchase.eventId, current);
+  });
+
+  if (currentRole === "admin") {
+    tokenMarketPanel.innerHTML = `
+      <header class="panel-titlebar token-market-header">
+        <div>
+          <p class="panel-kicker">행사 운영</p>
+          <h3>행사 판매 등록</h3>
+        </div>
+        <div class="progress-chip">${availableEvents.length}개 행사</div>
+      </header>
+
+      <div class="token-market-grid">
+        <section class="token-market-card token-market-card-primary">
+          <form class="notice-form" id="event-admin-form">
+            <label class="notice-field">
+              <span>행사명</span>
+              <input type="text" name="title" placeholder="예: 해맞이 한마당" maxlength="80">
+            </label>
+
+            <label class="notice-field">
+              <span>행사 설명</span>
+              <textarea name="description" placeholder="학생에게 보여줄 행사 설명을 입력하세요" rows="4" maxlength="240"></textarea>
+            </label>
+
+            <label class="notice-field">
+              <span>판매 개수</span>
+              <input type="number" name="totalQuantity" min="1" value="10">
+            </label>
+
+            <label class="notice-field">
+              <span>1개당 포인트</span>
+              <input type="number" name="unitPrice" min="1" value="1000">
+            </label>
+
+            <button type="submit" class="login-button notice-submit">행사 등록</button>
+          </form>
+          <p class="login-message token-market-message">${escapeHtml(tokenMarketMessage)}</p>
+        </section>
+
+        <section class="token-market-card">
+          <div class="panel-titlebar panel-titlebar-compact">
+            <div>
+              <p class="panel-kicker">등록 행사</p>
+              <h3>학생 구매 가능 목록</h3>
+            </div>
+          </div>
+          <ul class="market-list token-quote-list">
+            ${
+              availableEvents.length === 0
+                ? "<li><span>아직 등록된 행사가 없습니다.</span><strong>대기</strong></li>"
+                : availableEvents
+                    .map(
+                      (event) => `
+                        <li>
+                          <span>${escapeHtml(event.title)} · ${event.unitPrice.toLocaleString()}P · 잔여 ${event.remainingQuantity}/${event.totalQuantity}</span>
+                          <button type="button" class="ghost-link" data-delete-event-id="${escapeHtml(event.id)}">삭제</button>
+                        </li>
+                      `
+                    )
+                    .join("")
+            }
+          </ul>
+        </section>
+      </div>
+    `;
     return;
   }
-
-  const spotPrice = getTokenMarketSpotPrice();
-  const oneTokenQuote = getTokenBuyQuote(1);
-  const twoTokenQuote = getTokenBuyQuote(2);
-  const oneTokenSellQuote = getTokenSellQuote(1);
-  const maxPurchasable = getMaxPurchasableTokens(state.points);
 
   tokenMarketPanel.innerHTML = `
     <header class="panel-titlebar token-market-header">
       <div>
-        <p class="panel-kicker">AMM Market</p>
-        <h3>해맞이 한마당 토큰 시장</h3>
+        <p class="panel-kicker">행사 참여 토큰</p>
+        <h3>포인트로 행사 참여권 구매</h3>
       </div>
-      <div class="progress-chip">x * y = ${(
-        studentTokenMarketState.pointReserve * studentTokenMarketState.eventTokenReserve
-      ).toLocaleString()}</div>
+      <div class="progress-chip">보유 포인트 ${state.points.toLocaleString()}P</div>
     </header>
 
     <div class="token-market-grid">
       <section class="token-market-card token-market-card-primary">
-        <p class="token-market-eyebrow">Constant Product Pool</p>
-        <strong class="token-market-title">포인트로 해맞이 한마당 토큰을 바로 매수</strong>
+        <p class="token-market-eyebrow">구매 가능 행사</p>
+        <strong class="token-market-title">관리자가 등록한 행사만 구매할 수 있습니다</strong>
         <p class="detail-text token-market-copy">
-          현재 풀은 <b>x = 포인트 준비금</b>, <b>y = 행사 토큰 준비금</b> 구조로 동작합니다.
-          학생이 토큰을 매수하면 풀 안의 행사 토큰이 줄고, 그만큼 다음 가격이 즉시 상승합니다.
+          각 행사별로 관리자 설정 수량과 가격이 적용됩니다. 구매 후에는 취소할 수 없습니다.
         </p>
 
         <div class="token-market-stats">
           <article>
-            <span>내 보유 토큰</span>
-            <strong>${studentTokenMarketState.userEventTokens}개</strong>
+            <span>구매 가능 행사</span>
+            <strong>${availableEvents.length}개</strong>
           </article>
           <article>
-            <span>현재 즉시 가격</span>
-            <strong>${Math.round(spotPrice).toLocaleString()}P</strong>
-          </article>
-          <article>
-            <span>풀 포인트</span>
-            <strong>${studentTokenMarketState.pointReserve.toLocaleString()}P</strong>
-          </article>
-          <article>
-            <span>풀 행사 토큰</span>
-            <strong>${studentTokenMarketState.eventTokenReserve}개</strong>
+            <span>누적 구매 건수</span>
+            <strong>${purchases.reduce((sum, item) => sum + item.quantity, 0)}개</strong>
           </article>
         </div>
 
-        <form class="token-buy-form" id="token-buy-form">
-          <label class="notice-field">
-            <span>구매 수량</span>
-            <input
-              type="number"
-              name="quantity"
-              min="1"
-              max="${Math.max(1, studentTokenMarketState.eventTokenReserve - 1)}"
-              value="1"
-            >
-          </label>
-
-          <button
-            type="submit"
-            class="login-button notice-submit"
-            ${maxPurchasable < 1 ? "disabled" : ""}
-          >
-            해맞이 한마당 토큰 구매
-          </button>
-        </form>
-
-        <form class="token-buy-form" id="token-sell-form">
-          <label class="notice-field">
-            <span>판매 수량</span>
-            <input
-              type="number"
-              name="quantity"
-              min="1"
-              max="${Math.max(1, studentTokenMarketState.userEventTokens)}"
-              value="1"
-            >
-          </label>
-
-          <button
-            type="submit"
-            class="ghost-link token-sell-button"
-            ${studentTokenMarketState.userEventTokens < 1 ? "disabled" : ""}
-          >
-            해맞이 한마당 토큰 판매
-          </button>
-        </form>
-
-        <p class="login-message token-market-message" id="token-market-message">${escapeHtml(tokenMarketMessage)}</p>
+        <div class="market-list token-quote-list">
+          ${
+            availableEvents.length === 0
+              ? '<li><span>현재 판매 중인 행사가 없습니다.</span><strong>대기</strong></li>'
+              : availableEvents
+                  .map(
+                    (event) => `
+                      <form class="token-buy-form" data-event-purchase-form="true" data-event-id="${escapeHtml(event.id)}">
+                        <label class="notice-field">
+                          <span>${escapeHtml(event.title)}${event.description ? ` · ${escapeHtml(event.description)}` : ""}</span>
+                          <input type="number" name="quantity" min="1" max="${Math.max(1, event.remainingQuantity)}" value="1" ${event.remainingQuantity < 1 ? "disabled" : ""}>
+                        </label>
+                        <button type="submit" class="login-button notice-submit" ${event.remainingQuantity < 1 ? "disabled" : ""}>
+                          ${event.unitPrice.toLocaleString()}P에 구매
+                        </button>
+                        <small>잔여 ${event.remainingQuantity}/${event.totalQuantity}</small>
+                      </form>
+                    `
+                  )
+                  .join("")
+          }
+        </div>
+        <p class="login-message token-market-message">${escapeHtml(tokenMarketMessage)}</p>
       </section>
 
       <section class="token-market-card">
         <div class="panel-titlebar panel-titlebar-compact">
           <div>
-            <p class="panel-kicker">실시간 시세</p>
-            <h3>구매 직후 가격 변화</h3>
+            <p class="panel-kicker">내 구매 내역</p>
+            <h3>행사 참여권 보유 현황</h3>
           </div>
-          <button type="button" class="ghost-link token-reset-button" data-token-market-reset="true">풀 리셋</button>
         </div>
-
         <ul class="market-list token-quote-list">
-          <li>
-            <span>지금 1개 매수 시 예상 비용</span>
-            <strong>${oneTokenQuote ? `${oneTokenQuote.cost.toLocaleString()}P` : "유동성 부족"}</strong>
-          </li>
-          <li>
-            <span>지금 2개 매수 시 예상 비용</span>
-            <strong>${twoTokenQuote ? `${twoTokenQuote.cost.toLocaleString()}P` : "유동성 부족"}</strong>
-          </li>
-          <li>
-            <span>지금 1개 판매 시 예상 회수</span>
-            <strong>${oneTokenSellQuote ? `${oneTokenSellQuote.payout.toLocaleString()}P` : "판매 불가"}</strong>
-          </li>
-          <li>
-            <span>현재 잔액으로 매수 가능 수량</span>
-            <strong>${maxPurchasable}개</strong>
-          </li>
-          <li>
-            <span>다음 1개 매수 후 풀 상태</span>
-            <strong>${
-              oneTokenQuote
-                ? `${oneTokenQuote.nextPointReserve.toLocaleString()}P / ${oneTokenQuote.nextEventTokenReserve}개`
-                : "구매 불가"
-            }</strong>
-          </li>
+          ${
+            purchaseSummary.size === 0
+              ? "<li><span>아직 구매한 행사 참여권이 없습니다.</span><strong>0건</strong></li>"
+              : Array.from(purchaseSummary.values())
+                  .map(
+                    (item) => `
+                      <li>
+                        <span>${escapeHtml(item.title)}</span>
+                        <strong>${item.quantity}개 / ${item.totalPrice.toLocaleString()}P</strong>
+                      </li>
+                    `
+                  )
+                  .join("")
+          }
         </ul>
       </section>
     </div>
@@ -1142,17 +1181,21 @@ function switchView(view) {
 
   const isDashboard = view === "dashboard";
   const isPoints = view === "points";
-  const isStudentMarketView = currentRole === "student" && view === "market";
+  const isTokenView = view === "tokens";
 
   if (statusGrid) statusGrid.classList.toggle("is-hidden", !isDashboard);
   if (dashboardView) dashboardView.classList.toggle("is-hidden", !isDashboard);
   if (pointsView) pointsView.classList.toggle("is-hidden", !isPoints);
-  if (tokenView) tokenView.classList.toggle("is-hidden", !isStudentMarketView);
+  if (tokenView) tokenView.classList.toggle("is-hidden", !isTokenView);
   if (placeholderView) {
-    placeholderView.classList.toggle("is-hidden", isDashboard || isPoints || isStudentMarketView);
+    placeholderView.classList.toggle("is-hidden", isDashboard || isPoints || isTokenView);
   }
 
-  if (!isDashboard && !isPoints && !isStudentMarketView) {
+  if (isTokenView && currentUserId) {
+    void syncEventsFromApi();
+  }
+
+  if (!isDashboard && !isPoints && !isTokenView) {
     const copy = placeholderCopy[currentRole]?.[view];
     if (placeholderTitle && copy) placeholderTitle.textContent = copy.title;
     if (placeholderText && copy) placeholderText.textContent = copy.text;
@@ -1559,78 +1602,79 @@ if (tokenMarketPanel) {
     if (!(target instanceof HTMLFormElement)) return;
 
     event.preventDefault();
-
-    if (currentRole !== "student") return;
-
     const formData = new FormData(target);
-    const quantity = Math.max(1, Math.floor(Number(formData.get("quantity") || 1)));
-
-    if (target.id === "token-buy-form") {
-      const quote = getTokenBuyQuote(quantity);
-
-      if (!quote) {
-        tokenMarketMessage = "풀에 남은 해맞이 한마당 토큰이 부족합니다.";
-        renderTokenMarket();
-        return;
-      }
-
-      if (state.points < quote.cost) {
-        tokenMarketMessage = "포인트가 부족해 해당 수량을 구매할 수 없습니다.";
-        renderTokenMarket();
-        return;
-      }
+    if (currentRole === "admin" && target.id === "event-admin-form") {
+      const title = String(formData.get("title") || "").trim();
+      const description = String(formData.get("description") || "").trim();
+      const totalQuantity = Math.max(1, Math.floor(Number(formData.get("totalQuantity") || 1)));
+      const unitPrice = Math.max(1, Math.floor(Number(formData.get("unitPrice") || 1)));
 
       try {
-        const data = await studentApiRequest("/api/student/market", {
+        await eventsApiRequest("", {
           method: "POST",
           body: JSON.stringify({
-            action: "buy",
-            quantity
+            title,
+            description,
+            totalQuantity,
+            unitPrice
           })
         });
-        applyStudentStateResponse(data);
-        state = buildStudentState();
-        tokenMarketMessage = `${quantity}개 구매 완료. 다음 즉시 가격이 상승했습니다.`;
-        renderStatus();
-        renderPointsHistory();
+        tokenMarketMessage = "행사가 등록되었습니다.";
+        target.reset();
+        await syncEventsFromApi();
         renderTokenMarket();
       } catch (error) {
         tokenMarketMessage =
-          error.message === "not_enough_points"
-            ? "포인트가 부족해 해당 수량을 구매할 수 없습니다."
-            : "행사 토큰 구매 처리 중 오류가 발생했습니다.";
+          error.message === "invalid_event_payload"
+            ? "행사명, 수량, 가격을 올바르게 입력해야 합니다."
+            : "행사 등록 중 오류가 발생했습니다.";
         renderTokenMarket();
       }
       return;
     }
 
-    if (target.id === "token-sell-form") {
-      const quote = getTokenSellQuote(quantity);
+    if (currentRole !== "student") return;
+    if (target.dataset.eventPurchaseForm !== "true") return;
 
-      if (!quote) {
-        tokenMarketMessage = "보유 토큰이 부족하거나 현재 풀에서 판매할 수 없습니다.";
-        renderTokenMarket();
-        return;
-      }
+    const eventId = String(target.dataset.eventId || "");
+    const quantity = Math.max(1, Math.floor(Number(formData.get("quantity") || 1)));
+    const selectedEvent = availableEvents.find((item) => item.id === eventId);
+    if (!selectedEvent) return;
 
-      try {
-        const data = await studentApiRequest("/api/student/market", {
-          method: "POST",
-          body: JSON.stringify({
-            action: "sell",
-            quantity
-          })
-        });
-        applyStudentStateResponse(data);
-        state = buildStudentState();
-        tokenMarketMessage = `${quantity}개 판매 완료. 다음 즉시 가격이 하락했습니다.`;
-        renderStatus();
-        renderPointsHistory();
-        renderTokenMarket();
-      } catch (error) {
-        tokenMarketMessage = "행사 토큰 판매 처리 중 오류가 발생했습니다.";
-        renderTokenMarket();
-      }
+    const totalPrice = selectedEvent.unitPrice * quantity;
+    const confirmed = await showPurchaseConfirm(
+      `${selectedEvent.title} ${quantity}개를 ${totalPrice.toLocaleString()}P에 구매를 하시겠습니까? 취소가 불가능합니다.`
+    );
+
+    if (!confirmed) {
+      tokenMarketMessage = "구매가 취소되었습니다.";
+      renderTokenMarket();
+      return;
+    }
+
+    try {
+      const data = await eventsApiRequest("/purchase", {
+        method: "POST",
+        body: JSON.stringify({
+          eventId,
+          quantity
+        })
+      });
+      applyStudentStateResponse({ state: data.state });
+      state = buildStudentState();
+      tokenMarketMessage = `${selectedEvent.title} ${quantity}개 구매가 완료되었습니다.`;
+      renderStatus();
+      renderPointsHistory();
+      await syncEventsFromApi();
+      renderTokenMarket();
+    } catch (error) {
+      tokenMarketMessage =
+        error.message === "not_enough_points"
+          ? "포인트가 부족합니다."
+          : error.message === "insufficient_event_inventory"
+            ? "남은 수량이 부족합니다."
+            : "행사 구매 처리 중 오류가 발생했습니다.";
+      renderTokenMarket();
     }
   });
 
@@ -1638,23 +1682,18 @@ if (tokenMarketPanel) {
     const target = event.target;
 
     if (!(target instanceof HTMLElement)) return;
-    if (!target.dataset.tokenMarketReset) return;
+    const eventId = target.dataset.deleteEventId;
+    if (!eventId || currentRole !== "admin") return;
 
     try {
-      const data = await studentApiRequest("/api/student/market", {
-        method: "POST",
-        body: JSON.stringify({
-          action: "reset"
-        })
+      await eventsApiRequest(`/${encodeURIComponent(eventId)}`, {
+        method: "DELETE"
       });
-      applyStudentStateResponse(data);
-      state = buildStudentState();
-      tokenMarketMessage = "해맞이 한마당 AMM 풀이 초기 상태로 리셋되었습니다.";
-      renderStatus();
-      renderPointsHistory();
+      tokenMarketMessage = "행사가 삭제되었습니다.";
+      await syncEventsFromApi();
       renderTokenMarket();
     } catch (error) {
-      tokenMarketMessage = "시장 초기화 처리 중 오류가 발생했습니다.";
+      tokenMarketMessage = "행사 삭제 중 오류가 발생했습니다.";
       renderTokenMarket();
     }
   });
@@ -1908,6 +1947,28 @@ if (governanceEarnButton) {
   });
 }
 
+if (confirmModal) {
+  confirmModal.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (target.dataset.confirmClose === "true") {
+      hidePurchaseConfirm(false);
+    }
+  });
+}
+
+if (confirmModalCancelButton) {
+  confirmModalCancelButton.addEventListener("click", () => {
+    hidePurchaseConfirm(false);
+  });
+}
+
+if (confirmModalConfirmButton) {
+  confirmModalConfirmButton.addEventListener("click", () => {
+    hidePurchaseConfirm(true);
+  });
+}
+
 if (logoutButton) {
   logoutButton.addEventListener("click", async () => {
     try {
@@ -1923,6 +1984,7 @@ if (logoutButton) {
     if (loginMessage) loginMessage.textContent = "";
     currentRole = "student";
     currentUserId = "";
+    availableEvents = [];
     adminStudentStats = {
       totalStudents: 0,
       totalPaidStudents: 0,
@@ -2020,6 +2082,7 @@ if (loginForm) {
       } else {
         await syncAdminStudentStatsFromApi();
       }
+      await syncEventsFromApi();
       void syncGovernanceFromApi();
     } catch (error) {
       if (loginMessage) {
@@ -2132,6 +2195,7 @@ async function initializeApp() {
     } else {
       await syncAdminStudentStatsFromApi();
     }
+    await syncEventsFromApi();
     void syncGovernanceFromApi();
   } catch (error) {
     console.error("Session restore failed:", error);

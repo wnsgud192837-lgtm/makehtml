@@ -290,6 +290,19 @@
     </div>
   </main>
 
+  <div class="confirm-modal is-hidden" id="confirm-modal" aria-hidden="true">
+    <div class="confirm-modal-backdrop" data-confirm-close="true"></div>
+    <div class="confirm-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
+      <p class="panel-kicker">구매 확인</p>
+      <h3 id="confirm-modal-title">구매를 진행할까요?</h3>
+      <p class="detail-text" id="confirm-modal-message">구매를 하시겠습니까? 취소가 불가능합니다.</p>
+      <div class="confirm-modal-actions">
+        <button type="button" class="ghost-link" id="confirm-modal-cancel">아니오</button>
+        <button type="button" class="login-button" id="confirm-modal-confirm">예</button>
+      </div>
+    </div>
+  </div>
+
   <script src="./main.js" defer></script>
 </body>
 </html>
