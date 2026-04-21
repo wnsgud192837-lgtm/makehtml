@@ -149,6 +149,20 @@ function createDefaultStudentAppState() {
   };
 }
 
+function normalizeStudentAuditLogs(entries) {
+  if (!Array.isArray(entries)) return [];
+
+  return entries.filter(
+    (item) =>
+      item &&
+      typeof item.action === "string" &&
+      typeof item.userId === "string" &&
+      typeof item.actorUserId === "string" &&
+      typeof item.actorRole === "string" &&
+      typeof item.createdAt === "string"
+  );
+}
+
 function normalizePurchaseHistory(entries) {
   if (!Array.isArray(entries)) return [];
 
@@ -293,6 +307,36 @@ export async function listStudentUserIds(env) {
     .map((item) => normalizeUserId(item));
 }
 
+export async function listStudentAuditLogs(env) {
+  const raw = await upstash(env, "/get/auth:student:logs");
+
+  if (!raw) return [];
+
+  try {
+    return normalizeStudentAuditLogs(JSON.parse(raw));
+  } catch {
+    return [];
+  }
+}
+
+export async function addStudentAuditLog(env, entry) {
+  const logs = await listStudentAuditLogs(env);
+  const nextLogs = [
+    {
+      action: String(entry?.action || "").trim(),
+      userId: normalizeUserId(entry?.userId),
+      actorUserId: normalizeUserId(entry?.actorUserId),
+      actorRole: String(entry?.actorRole || "").trim(),
+      createdAt: new Date().toISOString()
+    },
+    ...logs
+  ].slice(0, 100);
+
+  await upstash(env, "/set/auth:student:logs", nextLogs);
+
+  return nextLogs;
+}
+
 export async function createStudentUser(env, userId, password) {
   const validation = validateStudentCredentials(userId, password);
   if (!validation.ok) {
@@ -317,6 +361,12 @@ export async function createStudentUser(env, userId, password) {
   await upstash(env, `/set/auth:user:${validation.userId}`, user);
   await upstash(env, `/set/auth:state:${validation.userId}`, createDefaultStudentAppState());
   await upstash(env, `/sadd/auth:students/${validation.userId}`);
+  await addStudentAuditLog(env, {
+    action: "register",
+    userId: validation.userId,
+    actorUserId: validation.userId,
+    actorRole: "student"
+  });
 
   return {
     userId: user.userId,

@@ -1,5 +1,7 @@
 import {
+  addStudentAuditLog,
   json,
+  listStudentAuditLogs,
   listStudentUserIds,
   getStudentAppState,
   requireSession,
@@ -160,6 +162,15 @@ async function getAdminStatsResponse(request, env, session) {
     },
     200
   );
+}
+
+async function getAdminLogsResponse(request, env, session) {
+  if (session.role !== "admin") {
+    return json(request, env, { error: "forbidden" }, 403);
+  }
+
+  const logs = await listStudentAuditLogs(env);
+  return json(request, env, { logs }, 200);
 }
 
 async function markPaid(request, env, session) {
@@ -336,6 +347,12 @@ async function deleteStudentAccount(request, env, session) {
   await deleteKey(env, `auth:user:${userId}`);
   await deleteKey(env, `auth:state:${userId}`);
   await upstash(env, `/srem/auth:students/${userId}`);
+  await addStudentAuditLog(env, {
+    action: "delete",
+    userId,
+    actorUserId: session.userId,
+    actorRole: session.role
+  });
 
   return json(request, env, { ok: true, userId }, 200);
 }
@@ -363,6 +380,10 @@ export async function onRequest(context) {
 
   if (request.method === "GET" && route.length === 1 && route[0] === "stats") {
     return getAdminStatsResponse(request, env, session);
+  }
+
+  if (request.method === "GET" && route.length === 1 && route[0] === "logs") {
+    return getAdminLogsResponse(request, env, session);
   }
 
   if (request.method === "POST" && route.length === 1 && route[0] === "pay") {

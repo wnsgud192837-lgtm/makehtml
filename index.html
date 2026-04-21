@@ -145,15 +145,8 @@
         <button type="button" class="app-nav-item" data-view="market">세컨더리 마켓</button>
         <button type="button" class="app-nav-item" data-view="governance">거버넌스</button>
         <button type="button" class="app-nav-item" data-view="rental">대여사업</button>
-        <button type="button" class="app-nav-admin-button is-hidden" id="admin-delete-toggle">학생 삭제</button>
+        <button type="button" class="app-nav-item is-hidden" data-view="students" id="student-management-nav">학생 관리</button>
       </nav>
-
-      <section class="admin-delete-panel is-hidden" id="admin-delete-panel">
-        <form class="admin-delete-form" id="student-delete-form">
-          <input type="text" name="userId" placeholder="삭제할 학생 아이디 입력" maxlength="24">
-          <button type="submit" class="ghost-link">계정 삭제</button>
-        </form>
-      </section>
 
       <section class="hero-panel">
         <div class="hero-copy">
@@ -292,6 +285,37 @@
             </div>
 
             <ul class="notice-list governance-list" id="governance-list"></ul>
+          </section>
+
+          <section class="student-management-panel is-hidden" id="student-management-panel">
+            <div class="student-management-grid">
+              <section class="student-management-card">
+                <div class="panel-titlebar panel-titlebar-compact">
+                  <div>
+                    <p class="panel-kicker">학생 계정</p>
+                    <h3>학생 삭제</h3>
+                  </div>
+                </div>
+                <form class="notice-form" id="student-delete-form">
+                  <label class="notice-field">
+                    <span>학생 아이디</span>
+                    <input type="text" name="userId" placeholder="삭제할 학생 아이디 입력" maxlength="24">
+                  </label>
+                  <button type="submit" class="ghost-link">계정 삭제</button>
+                </form>
+                <p class="login-message" id="student-management-message" aria-live="polite"></p>
+              </section>
+
+              <section class="student-management-card">
+                <div class="panel-titlebar panel-titlebar-compact">
+                  <div>
+                    <p class="panel-kicker">로그</p>
+                    <h3>학생 등록 / 삭제 기록</h3>
+                  </div>
+                </div>
+                <ul class="notice-list student-management-log-list" id="student-management-log-list"></ul>
+              </section>
+            </div>
           </section>
         </article>
       </section>

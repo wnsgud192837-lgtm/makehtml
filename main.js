@@ -18,9 +18,11 @@ const registerSubmitButton = registerForm?.querySelector('button[type="submit"]'
 const logoutButton = document.querySelector("#logout-button");
 const modeButtons = Array.from(document.querySelectorAll("[data-mode]"));
 const navItems = Array.from(document.querySelectorAll(".app-nav-item"));
-const adminDeleteToggleButton = document.querySelector("#admin-delete-toggle");
-const adminDeletePanel = document.querySelector("#admin-delete-panel");
+const studentManagementNavItem = document.querySelector("#student-management-nav");
 const studentDeleteForm = document.querySelector("#student-delete-form");
+const studentManagementPanel = document.querySelector("#student-management-panel");
+const studentManagementMessage = document.querySelector("#student-management-message");
+const studentManagementLogList = document.querySelector("#student-management-log-list");
 const appRoleSubtitle = document.querySelector("#app-role-subtitle");
 const heroKicker = document.querySelector("#hero-kicker");
 const heroTitle = document.querySelector("#hero-title");
@@ -190,7 +192,8 @@ const roleConfigs = {
       tokens: "행사 운영",
       market: "공지 관리",
       governance: "투표 관리",
-      rental: "대여 관리"
+      rental: "대여 관리",
+      students: "학생 관리"
     },
     showModeButtons: false,
     defaultMode: "payer"
@@ -437,6 +440,7 @@ let adminStudentStats = {
 };
 let governancePolls = [];
 let availableEvents = [];
+let studentManagementLogs = [];
 let studentTokenMarketState = cloneInitialTokenMarketState();
 let studentGovernanceState = {
   tokens: 1,
@@ -445,8 +449,8 @@ let studentGovernanceState = {
 let governanceVoteSelections = {};
 let adminTokenMarketMessage = "";
 let studentTokenMarketMessage = "";
+let studentManagementStatusMessage = "";
 let pendingConfirmResolver = null;
-let isAdminDeletePanelOpen = false;
 
 function updateDocumentTitle(isAuthenticated) {
   if (typeof document === "undefined") return;
@@ -457,29 +461,11 @@ function updateDocumentTitle(isAuthenticated) {
 function resetTransientUiState() {
   adminTokenMarketMessage = "";
   studentTokenMarketMessage = "";
+  studentManagementStatusMessage = "";
 }
 
 function getTokenMarketMessage() {
   return currentRole === "admin" ? adminTokenMarketMessage : studentTokenMarketMessage;
-}
-
-function setAdminDeletePanelOpen(isOpen) {
-  isAdminDeletePanelOpen = isOpen;
-
-  if (adminDeletePanel) {
-    adminDeletePanel.classList.toggle("is-hidden", !isOpen || currentRole !== "admin");
-  }
-
-  if (adminDeleteToggleButton) {
-    adminDeleteToggleButton.classList.toggle("is-hidden", currentRole !== "admin");
-    adminDeleteToggleButton.classList.toggle("is-active", isOpen && currentRole === "admin");
-  }
-}
-
-if (adminDeleteToggleButton) {
-  adminDeleteToggleButton.addEventListener("click", () => {
-    setAdminDeletePanelOpen(!isAdminDeletePanelOpen);
-  });
 }
 
 if (studentDeleteForm) {
@@ -495,8 +481,8 @@ async function handleStudentDeleteSubmit(form) {
   const formData = new FormData(form);
   const userId = String(formData.get("userId") || "").trim().toLowerCase();
   if (!userId) {
-    adminTokenMarketMessage = "삭제할 학생 아이디를 입력해야 합니다.";
-    renderTokenMarket();
+    studentManagementStatusMessage = "삭제할 학생 아이디를 입력해야 합니다.";
+    renderStudentManagementPanel();
     return;
   }
 
@@ -504,8 +490,8 @@ async function handleStudentDeleteSubmit(form) {
     `${userId} 계정을 삭제하시겠습니까? 취소가 불가능합니다.`
   );
   if (!confirmed) {
-    adminTokenMarketMessage = "학생 계정 삭제가 취소되었습니다.";
-    renderTokenMarket();
+    studentManagementStatusMessage = "학생 계정 삭제가 취소되었습니다.";
+    renderStudentManagementPanel();
     return;
   }
 
@@ -514,21 +500,21 @@ async function handleStudentDeleteSubmit(form) {
       method: "DELETE",
       body: JSON.stringify({ userId })
     });
-    adminTokenMarketMessage = `${userId} 계정이 삭제되었습니다.`;
+    studentManagementStatusMessage = `${userId} 계정이 삭제되었습니다.`;
     form.reset();
-    setAdminDeletePanelOpen(false);
     await syncAdminStudentStatsFromApi();
     await syncEventsFromApi();
+    await syncStudentManagementLogsFromApi();
     await syncGovernanceFromApi();
-    renderTokenMarket();
+    renderStudentManagementPanel();
   } catch (error) {
-    adminTokenMarketMessage =
+    studentManagementStatusMessage =
       error.message === "user_not_found"
         ? "해당 학생 계정을 찾을 수 없습니다."
         : error.message === "invalid_user_id"
           ? "삭제할 수 없는 아이디입니다."
           : "학생 계정 삭제 중 오류가 발생했습니다.";
-    renderTokenMarket();
+    renderStudentManagementPanel();
   }
 }
 
@@ -748,6 +734,22 @@ async function syncAdminStudentStatsFromApi() {
     return true;
   } catch (error) {
     console.error("Admin student stats sync failed:", error);
+    return false;
+  }
+}
+
+async function syncStudentManagementLogsFromApi() {
+  if (currentRole !== "admin") return false;
+
+  try {
+    const data = await studentApiRequest("/api/student/logs", {
+      method: "GET"
+    });
+    studentManagementLogs = Array.isArray(data.logs) ? data.logs : [];
+    renderStudentManagementPanel();
+    return true;
+  } catch (error) {
+    console.error("Student management log sync failed:", error);
     return false;
   }
 }
@@ -1009,6 +1011,40 @@ function renderTokenMarket() {
   `;
 }
 
+function renderStudentManagementPanel() {
+  if (!studentManagementPanel) return;
+
+  if (studentManagementMessage) {
+    studentManagementMessage.textContent = studentManagementStatusMessage;
+  }
+
+  if (!studentManagementLogList) return;
+
+  if (studentManagementLogs.length === 0) {
+    studentManagementLogList.innerHTML = `
+      <li class="notice-item notice-empty">
+        <strong>기록이 없습니다.</strong>
+        <p>학생 등록 또는 삭제가 발생하면 여기 표시됩니다.</p>
+      </li>
+    `;
+    return;
+  }
+
+  studentManagementLogList.innerHTML = studentManagementLogs
+    .map(
+      (log) => `
+        <li class="notice-item">
+          <div class="notice-meta">
+            <strong>${log.action === "register" ? "학생 등록" : "학생 삭제"} · ${escapeHtml(log.userId)}</strong>
+            <span>${escapeHtml(formatDate(new Date(log.createdAt)))}</span>
+          </div>
+          <p>${escapeHtml(log.actorUserId)} (${escapeHtml(log.actorRole)})</p>
+        </li>
+      `
+    )
+    .join("");
+}
+
 function loadNoticeItems() {
   if (typeof window === "undefined") return [];
 
@@ -1211,12 +1247,6 @@ function applyRoleLayout(role) {
 
   if (!roleConfig) return;
 
-  if (role !== "admin") {
-    setAdminDeletePanelOpen(false);
-  } else {
-    setAdminDeletePanelOpen(isAdminDeletePanelOpen);
-  }
-
   if (appRoleSubtitle) appRoleSubtitle.textContent = roleConfig.subtitle;
   if (heroKicker) heroKicker.textContent = roleConfig.heroKicker;
   if (heroTitle) heroTitle.textContent = roleConfig.heroTitle;
@@ -1235,9 +1265,18 @@ function applyRoleLayout(role) {
     }
   });
 
+  if (studentManagementNavItem) {
+    studentManagementNavItem.classList.toggle("is-hidden", role !== "admin");
+  }
+
+  if (studentManagementPanel) {
+    studentManagementPanel.classList.toggle("is-hidden", true);
+  }
+
   renderNoticeLists();
   renderGovernanceList();
   renderTokenMarket();
+  renderStudentManagementPanel();
 }
 
 function resetScenario(mode) {
@@ -1271,17 +1310,25 @@ function switchView(view) {
   const isDashboard = view === "dashboard";
   const isPoints = view === "points";
   const isTokenView = view === "tokens";
+  const isStudentManagementView = currentRole === "admin" && view === "students";
 
   if (statusGrid) statusGrid.classList.toggle("is-hidden", !isDashboard);
   if (dashboardView) dashboardView.classList.toggle("is-hidden", !isDashboard);
   if (pointsView) pointsView.classList.toggle("is-hidden", !isPoints);
   if (tokenView) tokenView.classList.toggle("is-hidden", !isTokenView);
   if (placeholderView) {
-    placeholderView.classList.toggle("is-hidden", isDashboard || isPoints || isTokenView);
+    placeholderView.classList.toggle(
+      "is-hidden",
+      isDashboard || isPoints || isTokenView ? true : false
+    );
   }
 
   if (isTokenView && currentUserId) {
     void syncEventsFromApi();
+  }
+
+  if (isStudentManagementView && currentUserId) {
+    void syncStudentManagementLogsFromApi();
   }
 
   if (!isDashboard && !isPoints && !isTokenView) {
@@ -1324,8 +1371,15 @@ function switchView(view) {
     governanceStudentPanel.classList.toggle("is-hidden", !isStudentGovernanceView);
   }
 
+  if (studentManagementPanel) {
+    studentManagementPanel.classList.toggle("is-hidden", !isStudentManagementView);
+  }
+
   if (placeholderText) {
-    placeholderText.classList.toggle("is-hidden", isAdminNoticeView || isGovernanceView);
+    placeholderText.classList.toggle(
+      "is-hidden",
+      isAdminNoticeView || isGovernanceView || isStudentManagementView
+    );
   }
 
   if (noticeMessage && !isAdminNoticeView) {
@@ -1346,6 +1400,7 @@ function switchView(view) {
 
   renderGovernanceList();
   renderTokenMarket();
+  renderStudentManagementPanel();
 }
 
 function renderStatus() {
@@ -2172,6 +2227,7 @@ if (loginForm) {
         await syncStudentStateFromApi();
       } else {
         await syncAdminStudentStatsFromApi();
+        await syncStudentManagementLogsFromApi();
       }
       await syncEventsFromApi();
       void syncGovernanceFromApi();
@@ -2287,6 +2343,7 @@ async function initializeApp() {
       await syncStudentStateFromApi();
     } else {
       await syncAdminStudentStatsFromApi();
+      await syncStudentManagementLogsFromApi();
     }
     await syncEventsFromApi();
     void syncGovernanceFromApi();
