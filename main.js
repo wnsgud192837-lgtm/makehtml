@@ -2,10 +2,19 @@ const loginForm = document.querySelector("#login-form");
 const loginPage = document.querySelector("#login-page");
 const dashboardPage = document.querySelector("#dashboard-page");
 const loginMessage = document.querySelector("#login-message");
+const registerForm = document.querySelector("#register-form");
+const registerMessage = document.querySelector("#register-message");
+const openRegisterButton = document.querySelector("#open-register-button");
+const registerLink = document.querySelector("#register-link");
 const loginUserIdInput = loginForm?.querySelector('input[name="userId"]') || null;
 const loginPasswordInput = loginForm?.querySelector('input[name="password"]') || null;
 const rememberIdCheckbox = loginForm?.querySelector('input[name="rememberId"]') || null;
 const loginSubmitButton = loginForm?.querySelector('button[type="submit"]') || null;
+const registerUserIdInput = registerForm?.querySelector('input[name="userId"]') || null;
+const registerPasswordInput = registerForm?.querySelector('input[name="password"]') || null;
+const registerConfirmPasswordInput =
+  registerForm?.querySelector('input[name="confirmPassword"]') || null;
+const registerSubmitButton = registerForm?.querySelector('button[type="submit"]') || null;
 const logoutButton = document.querySelector("#logout-button");
 const modeButtons = Array.from(document.querySelectorAll("[data-mode]"));
 const navItems = Array.from(document.querySelectorAll(".app-nav-item"));
@@ -944,6 +953,34 @@ function persistRememberedUserId(userId) {
   }
 
   window.localStorage.removeItem(REMEMBER_ID_STORAGE_KEY);
+}
+
+function setRegisterFormOpen(isOpen) {
+  if (!registerForm) return;
+
+  registerForm.classList.toggle("is-hidden", !isOpen);
+  if (!isOpen && registerMessage) {
+    registerMessage.textContent = "";
+  }
+}
+
+function getRegisterErrorMessage(errorCode) {
+  switch (errorCode) {
+    case "password_mismatch":
+      return "비밀번호 확인이 일치하지 않습니다.";
+    case "invalid_user_id":
+      return "아이디는 영문 소문자, 숫자, 점, 밑줄, 하이픈만 사용해 4~24자로 입력해야 합니다.";
+    case "reserved_user_id":
+      return "해당 아이디는 사용할 수 없습니다.";
+    case "invalid_password":
+      return "비밀번호는 6자 이상 72자 이하로 입력해야 합니다.";
+    case "user_exists":
+      return "이미 사용 중인 아이디입니다.";
+    case "missing_upstash_env":
+      return "회원가입 저장소 설정이 아직 배포 환경에 없습니다.";
+    default:
+      return "회원가입 처리 중 오류가 발생했습니다.";
+  }
 }
 
 function persistPaymentState() {
@@ -1890,6 +1927,22 @@ if (logoutButton) {
   });
 }
 
+function openRegisterPanel(event) {
+  event.preventDefault();
+  setRegisterFormOpen(registerForm?.classList.contains("is-hidden"));
+  if (!registerForm?.classList.contains("is-hidden")) {
+    registerUserIdInput?.focus();
+  }
+}
+
+if (openRegisterButton) {
+  openRegisterButton.addEventListener("click", openRegisterPanel);
+}
+
+if (registerLink) {
+  registerLink.addEventListener("click", openRegisterPanel);
+}
+
 if (loginForm) {
   loginForm.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -1948,6 +2001,57 @@ if (loginForm) {
     } finally {
       if (loginSubmitButton) {
         loginSubmitButton.disabled = false;
+      }
+    }
+  });
+}
+
+if (registerForm) {
+  registerForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const formData = new FormData(registerForm);
+    const userId = String(formData.get("userId") || "").trim();
+    const password = String(formData.get("password") || "").trim();
+    const confirmPassword = String(formData.get("confirmPassword") || "").trim();
+
+    if (registerSubmitButton) {
+      registerSubmitButton.disabled = true;
+    }
+
+    try {
+      const data = await authApiRequest("/api/auth/register", {
+        method: "POST",
+        body: JSON.stringify({
+          userId,
+          password,
+          confirmPassword
+        })
+      });
+
+      if (registerMessage) {
+        registerMessage.textContent = `학생 계정 ${data.user.userId} 생성이 완료되었습니다. 이제 로그인할 수 있습니다.`;
+      }
+
+      if (loginUserIdInput) {
+        loginUserIdInput.value = data.user.userId;
+      }
+      if (rememberIdCheckbox) {
+        rememberIdCheckbox.checked = true;
+      }
+      persistRememberedUserId(data.user.userId);
+      registerForm.reset();
+      if (loginPasswordInput) {
+        loginPasswordInput.value = "";
+      }
+      loginPasswordInput?.focus();
+    } catch (error) {
+      if (registerMessage) {
+        registerMessage.textContent = getRegisterErrorMessage(error.message);
+      }
+    } finally {
+      if (registerSubmitButton) {
+        registerSubmitButton.disabled = false;
       }
     }
   });

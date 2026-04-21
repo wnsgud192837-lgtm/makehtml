@@ -186,7 +186,10 @@ input {
 }
 
 .utility-row {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   margin-top: -4px;
   color: var(--muted);
   font-size: 0.79rem;
@@ -202,6 +205,26 @@ input {
   width: 18px;
   height: 18px;
   margin: 0;
+}
+
+.text-link-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--magenta);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.register-form {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #e6e6e6;
+}
+
+.register-submit {
+  margin-top: 8px;
 }
 
 .bottom-links {

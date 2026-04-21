@@ -1,6 +1,8 @@
 const encoder = new TextEncoder();
 const SESSION_COOKIE_NAME = "postech_session";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7;
+const ADMIN_USER_ID = "admin";
+const ADMIN_PASSWORD = "admin";
 
 function toBase64Url(bytes) {
   let binary = "";
@@ -98,27 +100,123 @@ export function json(request, env, data, status = 200, init = {}) {
   });
 }
 
-function getConfiguredUsers(env) {
-  return [
-    {
-      role: "admin",
-      userId: env.ADMIN_USER_ID || "admin",
-      password: env.ADMIN_USER_PASSWORD || "admin"
+async function upstash(env, command, body) {
+  if (!env.UPSTASH_REDIS_REST_URL || !env.UPSTASH_REDIS_REST_TOKEN) {
+    throw new Error("missing_upstash_env");
+  }
+
+  const response = await fetch(`${env.UPSTASH_REDIS_REST_URL}${command}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.UPSTASH_REDIS_REST_TOKEN}`,
+      "content-type": "application/json"
     },
-    {
-      role: "student",
-      userId: env.STUDENT_USER_ID || "student",
-      password: env.STUDENT_USER_PASSWORD || "student"
-    }
-  ];
+    body: body ? JSON.stringify(body) : undefined
+  });
+
+  const data = await response.json();
+  if (!response.ok || data.error) {
+    throw new Error(data.error || `upstash_${response.status}`);
+  }
+
+  return data.result;
 }
 
-export function authenticateUser(env, userId, password) {
-  return (
-    getConfiguredUsers(env).find(
-      (candidate) => candidate.userId === userId && candidate.password === password
-    ) || null
+function normalizeUserId(userId) {
+  return String(userId || "").trim().toLowerCase();
+}
+
+async function hashPassword(password, salt) {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    encoder.encode(`${salt}:${password}`)
   );
+
+  return toBase64Url(new Uint8Array(digest));
+}
+
+function createSalt() {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+
+  return toBase64Url(bytes);
+}
+
+export function validateStudentCredentials(userId, password) {
+  const normalizedUserId = normalizeUserId(userId);
+
+  if (!/^[a-z0-9._-]{4,24}$/.test(normalizedUserId)) {
+    return { ok: false, error: "invalid_user_id" };
+  }
+
+  if (normalizedUserId === ADMIN_USER_ID) {
+    return { ok: false, error: "reserved_user_id" };
+  }
+
+  if (typeof password !== "string" || password.length < 6 || password.length > 72) {
+    return { ok: false, error: "invalid_password" };
+  }
+
+  return { ok: true, userId: normalizedUserId };
+}
+
+async function getStudentUser(env, userId) {
+  const normalizedUserId = normalizeUserId(userId);
+  const raw = await upstash(env, `/get/auth:user:${normalizedUserId}`);
+
+  return raw ? JSON.parse(raw) : null;
+}
+
+export async function createStudentUser(env, userId, password) {
+  const validation = validateStudentCredentials(userId, password);
+  if (!validation.ok) {
+    throw new Error(validation.error);
+  }
+
+  const existingUser = await getStudentUser(env, validation.userId);
+  if (existingUser) {
+    throw new Error("user_exists");
+  }
+
+  const salt = createSalt();
+  const passwordHash = await hashPassword(password, salt);
+  const user = {
+    userId: validation.userId,
+    role: "student",
+    salt,
+    passwordHash,
+    createdAt: new Date().toISOString()
+  };
+
+  await upstash(env, `/set/auth:user:${validation.userId}`, user);
+
+  return {
+    userId: user.userId,
+    role: user.role
+  };
+}
+
+export async function authenticateUser(env, userId, password) {
+  const normalizedUserId = normalizeUserId(userId);
+
+  if (normalizedUserId === ADMIN_USER_ID && password === ADMIN_PASSWORD) {
+    return {
+      userId: ADMIN_USER_ID,
+      role: "admin"
+    };
+  }
+
+  const user = await getStudentUser(env, normalizedUserId);
+  if (!user) return null;
+
+  const passwordHash = await hashPassword(password, user.salt);
+  if (passwordHash !== user.passwordHash) {
+    return null;
+  }
+
+  return {
+    userId: user.userId,
+    role: "student"
+  };
 }
 
 export async function createSessionCookie(request, env, session) {

@@ -1,5 +1,6 @@
 import {
   authenticateUser,
+  createStudentUser,
   clearSessionCookie,
   createSessionCookie,
   getSession,
@@ -32,7 +33,7 @@ export async function onRequest(context) {
     const userId = String(body?.userId || "").trim();
     const password = String(body?.password || "").trim();
 
-    const user = authenticateUser(env, userId, password);
+    const user = await authenticateUser(env, userId, password);
     if (!user) {
       return json(request, env, { error: "invalid_credentials" }, 401);
     }
@@ -56,6 +57,28 @@ export async function onRequest(context) {
         }
       }
     );
+  }
+
+  if (request.method === "POST" && route.length === 1 && route[0] === "register") {
+    const body = await request.json();
+    const userId = String(body?.userId || "").trim();
+    const password = String(body?.password || "").trim();
+    const confirmPassword = String(body?.confirmPassword || "").trim();
+
+    if (password !== confirmPassword) {
+      return json(request, env, { error: "password_mismatch" }, 400);
+    }
+
+    try {
+      const user = await createStudentUser(env, userId, password);
+
+      return json(request, env, {
+        ok: true,
+        user
+      });
+    } catch (error) {
+      return json(request, env, { error: error.message || "register_failed" }, 400);
+    }
   }
 
   if (request.method === "POST" && route.length === 1 && route[0] === "logout") {
