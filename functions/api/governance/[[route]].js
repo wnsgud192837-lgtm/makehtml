@@ -1,13 +1,4 @@
-const json = (data, status = 200, origin = "*") =>
-  new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-      "access-control-allow-origin": origin,
-      "access-control-allow-methods": "GET,POST,DELETE,OPTIONS",
-      "access-control-allow-headers": "content-type"
-    }
-  });
+import { json, requireSession } from "../../_lib/auth.js";
 
 async function upstash(env, command, body) {
   if (!env.UPSTASH_REDIS_REST_URL || !env.UPSTASH_REDIS_REST_TOKEN) {
@@ -79,12 +70,12 @@ async function listPolls(env, userKey) {
   return polls.filter(Boolean).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
 }
 
-async function createPoll(request, env, origin) {
+async function createPoll(request, env) {
   const body = await request.json();
   const { id, title, description, options } = body;
 
   if (!id || !title || !Array.isArray(options) || options.length < 2) {
-    return json({ error: "invalid_poll_payload" }, 400, origin);
+    return json(request, env, { error: "invalid_poll_payload" }, 400);
   }
 
   const poll = {
@@ -99,10 +90,10 @@ async function createPoll(request, env, origin) {
   await setJson(env, `governance:results:${id}`, options.map(() => 0));
   await upstash(env, `/sadd/governance:polls/${id}`);
 
-  return json({ ok: true, poll }, 201, origin);
+  return json(request, env, { ok: true, poll }, 201);
 }
 
-async function removePoll(pollId, env, origin) {
+async function removePoll(request, env, pollId) {
   await deleteKey(env, `governance:poll:${pollId}`);
   await deleteKey(env, `governance:results:${pollId}`);
   await upstash(env, `/srem/governance:polls/${pollId}`);
@@ -117,29 +108,30 @@ async function removePoll(pollId, env, origin) {
   );
   await deleteKey(env, `governance:poll:${pollId}:voters`);
 
-  return json({ ok: true }, 200, origin);
+  return json(request, env, { ok: true }, 200);
 }
 
-async function vote(request, env, origin) {
+async function vote(request, env, session) {
   const body = await request.json();
-  const { pollId, userKey, optionIndex, currentTokens } = body;
+  const { pollId, optionIndex, currentTokens } = body;
+  const userKey = `${session.role}:${session.userId}`;
 
-  if (!pollId || !userKey || !Number.isInteger(optionIndex)) {
-    return json({ error: "invalid_vote_payload" }, 400, origin);
+  if (!pollId || !Number.isInteger(optionIndex)) {
+    return json(request, env, { error: "invalid_vote_payload" }, 400);
   }
 
   const poll = await getPoll(env, pollId);
-  if (!poll) return json({ error: "poll_not_found" }, 404, origin);
+  if (!poll) return json(request, env, { error: "poll_not_found" }, 404);
   if (optionIndex < 0 || optionIndex >= poll.options.length) {
-    return json({ error: "invalid_option" }, 400, origin);
+    return json(request, env, { error: "invalid_option" }, 400);
   }
   if (!Number.isInteger(currentTokens) || currentTokens < 1) {
-    return json({ error: "not_enough_tokens" }, 400, origin);
+    return json(request, env, { error: "not_enough_tokens" }, 400);
   }
 
   const userVotes = await getUserVotes(env, userKey);
   if (Object.hasOwn(userVotes, pollId)) {
-    return json({ error: "already_voted" }, 409, origin);
+    return json(request, env, { error: "already_voted" }, 409);
   }
 
   const results = await getResults(env, pollId);
@@ -151,6 +143,8 @@ async function vote(request, env, origin) {
   await upstash(env, `/sadd/governance:poll:${pollId}:voters/${userKey}`);
 
   return json(
+    request,
+    env,
     {
       ok: true,
       pollId,
@@ -158,14 +152,12 @@ async function vote(request, env, origin) {
       optionCounts: results,
       voteCount: results.reduce((sum, count) => sum + count, 0)
     },
-    200,
-    origin
+    200
   );
 }
 
 export async function onRequest(context) {
   const { request, env, params } = context;
-  const origin = request.headers.get("origin") || env.ALLOWED_ORIGIN || "*";
   const route = Array.isArray(params.route)
     ? params.route
     : typeof params.route === "string" && params.route.length > 0
@@ -173,31 +165,43 @@ export async function onRequest(context) {
       : [];
 
   if (request.method === "OPTIONS") {
-    return json({ ok: true }, 200, origin);
+    return json(request, env, { ok: true }, 200);
   }
 
   try {
+    const session = await requireSession(request, env);
+    if (!session) {
+      return json(request, env, { error: "unauthorized" }, 401);
+    }
+
     if (request.method === "GET" && route.length === 1 && route[0] === "polls") {
-      const url = new URL(request.url);
-      const userKey = url.searchParams.get("userKey") || "";
+      const userKey = `${session.role}:${session.userId}`;
       const polls = await listPolls(env, userKey);
-      return json({ polls }, 200, origin);
+      return json(request, env, { polls }, 200);
     }
 
     if (request.method === "POST" && route.length === 1 && route[0] === "polls") {
-      return createPoll(request, env, origin);
+      if (session.role !== "admin") {
+        return json(request, env, { error: "forbidden" }, 403);
+      }
+
+      return createPoll(request, env);
     }
 
     if (request.method === "DELETE" && route.length === 2 && route[0] === "polls") {
-      return removePoll(decodeURIComponent(route[1]), env, origin);
+      if (session.role !== "admin") {
+        return json(request, env, { error: "forbidden" }, 403);
+      }
+
+      return removePoll(request, env, decodeURIComponent(route[1]));
     }
 
     if (request.method === "POST" && route.length === 1 && route[0] === "vote") {
-      return vote(request, env, origin);
+      return vote(request, env, session);
     }
 
-    return json({ error: "not_found" }, 404, origin);
+    return json(request, env, { error: "not_found" }, 404);
   } catch (error) {
-    return json({ error: error.message || "internal_error" }, 500, origin);
+    return json(request, env, { error: error.message || "internal_error" }, 500);
   }
 }

@@ -1,3 +1,8 @@
 ALLOWED_ORIGIN="https://makehtml-ezt.pages.dev"
 UPSTASH_REDIS_REST_URL="https://your-database.upstash.io"
 UPSTASH_REDIS_REST_TOKEN="your-upstash-rest-token"
+AUTH_SESSION_SECRET="replace-with-a-long-random-secret"
+ADMIN_USER_ID="admin"
+ADMIN_USER_PASSWORD="admin"
+STUDENT_USER_ID="student"
+STUDENT_USER_PASSWORD="student"

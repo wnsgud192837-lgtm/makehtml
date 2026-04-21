@@ -2,6 +2,10 @@ const loginForm = document.querySelector("#login-form");
 const loginPage = document.querySelector("#login-page");
 const dashboardPage = document.querySelector("#dashboard-page");
 const loginMessage = document.querySelector("#login-message");
+const loginUserIdInput = loginForm?.querySelector('input[name="userId"]') || null;
+const loginPasswordInput = loginForm?.querySelector('input[name="password"]') || null;
+const rememberIdCheckbox = loginForm?.querySelector('input[name="rememberId"]') || null;
+const loginSubmitButton = loginForm?.querySelector('button[type="submit"]') || null;
 const logoutButton = document.querySelector("#logout-button");
 const modeButtons = Array.from(document.querySelectorAll("[data-mode]"));
 const navItems = Array.from(document.querySelectorAll(".app-nav-item"));
@@ -127,6 +131,7 @@ const PAYMENT_STORAGE_KEY = "postech_payment_state";
 const POLL_STORAGE_KEY = "postech_governance_polls";
 const STUDENT_GOVERNANCE_STORAGE_KEY = "postech_student_governance";
 const TOKEN_MARKET_STORAGE_KEY = "postech_token_market_state";
+const REMEMBER_ID_STORAGE_KEY = "postech_remembered_user_id";
 const INITIAL_TOKEN_MARKET_STATE = {
   pointReserve: 24000,
   eventTokenReserve: 12,
@@ -402,7 +407,7 @@ const baseState = {
 let currentMode = "payer";
 let currentView = "dashboard";
 let currentRole = "student";
-let currentUserId = "student";
+let currentUserId = "";
 let currentCalendarMonth = highlightedMonth >= 0 ? highlightedMonth : 3;
 let activeStepIndex = 0;
 let completedSteps = new Set();
@@ -481,13 +486,28 @@ async function governanceApiRequest(path, options = {}) {
   return data;
 }
 
+async function authApiRequest(path, options = {}) {
+  const response = await fetch(path, {
+    ...options,
+    headers: {
+      "content-type": "application/json",
+      ...(options.headers || {})
+    }
+  });
+
+  const data = await response.json();
+  if (!response.ok || data.error) {
+    throw new Error(data.error || `auth_api_${response.status}`);
+  }
+
+  return data;
+}
+
 async function syncGovernanceFromApi() {
   if (!governanceApiUrl) return false;
 
   try {
-    const data = await governanceApiRequest(
-      `/api/governance/polls?userKey=${encodeURIComponent(getGovernanceUserKey())}`
-    );
+    const data = await governanceApiRequest("/api/governance/polls");
 
     governancePolls = (data.polls || []).map((poll) => ({
       id: poll.id,
@@ -907,6 +927,23 @@ function persistStudentGovernanceState() {
     STUDENT_GOVERNANCE_STORAGE_KEY,
     JSON.stringify(studentGovernanceState)
   );
+}
+
+function loadRememberedUserId() {
+  if (typeof window === "undefined") return "";
+
+  return window.localStorage.getItem(REMEMBER_ID_STORAGE_KEY) || "";
+}
+
+function persistRememberedUserId(userId) {
+  if (typeof window === "undefined") return;
+
+  if (userId) {
+    window.localStorage.setItem(REMEMBER_ID_STORAGE_KEY, userId);
+    return;
+  }
+
+  window.localStorage.removeItem(REMEMBER_ID_STORAGE_KEY);
 }
 
 function persistPaymentState() {
@@ -1777,7 +1814,6 @@ if (governanceList) {
           method: "POST",
           body: JSON.stringify({
             pollId,
-            userKey: getGovernanceUserKey(),
             optionIndex,
             currentTokens: studentGovernanceState.tokens + 1
           })
@@ -1822,49 +1858,131 @@ if (governanceEarnButton) {
 }
 
 if (logoutButton) {
-  logoutButton.addEventListener("click", () => {
+  logoutButton.addEventListener("click", async () => {
+    try {
+      await authApiRequest("/api/auth/logout", {
+        method: "POST"
+      });
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+
     if (dashboardPage) dashboardPage.classList.add("is-hidden");
     if (loginPage) loginPage.classList.remove("is-hidden");
-    if (loginForm) loginForm.reset();
     if (loginMessage) loginMessage.textContent = "";
     currentRole = "student";
-    currentUserId = "student";
+    currentUserId = "";
     governanceVoteSelections = {};
     applyRoleLayout(currentRole);
     resetScenario(roleConfigs[currentRole].defaultMode);
     switchView("dashboard");
+
+    if (loginForm) loginForm.reset();
+    if (loginUserIdInput) {
+      loginUserIdInput.value = loadRememberedUserId();
+    }
+    if (rememberIdCheckbox) {
+      rememberIdCheckbox.checked = Boolean(loadRememberedUserId());
+    }
+    if (loginPasswordInput) {
+      loginPasswordInput.value = "";
+    }
   });
 }
 
 if (loginForm) {
-  loginForm.addEventListener("submit", (event) => {
+  loginForm.addEventListener("submit", async (event) => {
     event.preventDefault();
 
     const formData = new FormData(loginForm);
     const userId = String(formData.get("userId") || "").trim();
     const password = String(formData.get("password") || "").trim();
+    const rememberId = Boolean(formData.get("rememberId"));
 
-    let nextRole = "";
-
-    if (userId === "admin" && password === "admin") {
-      nextRole = "admin";
-    } else if (userId === "student" && password === "student") {
-      nextRole = "student";
-    }
-
-    if (!nextRole) {
+    if (!userId || !password) {
       if (loginMessage) {
-        loginMessage.textContent = "아이디 또는 비밀번호가 올바르지 않습니다.";
+        loginMessage.textContent = "아이디와 비밀번호를 모두 입력해야 합니다.";
       }
       return;
     }
 
-    if (loginMessage) {
-      loginMessage.textContent = "";
+    if (loginSubmitButton) {
+      loginSubmitButton.disabled = true;
     }
 
-    currentUserId = userId;
-    currentRole = nextRole;
+    try {
+      const data = await authApiRequest("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({
+          userId,
+          password
+        })
+      });
+
+      if (loginMessage) {
+        loginMessage.textContent = "";
+      }
+
+      persistRememberedUserId(rememberId ? userId : "");
+
+      currentUserId = data.user.userId;
+      currentRole = data.user.role;
+      applyRoleLayout(currentRole);
+      resetScenario(roleConfigs[currentRole].defaultMode);
+      switchView("dashboard");
+
+      if (loginPage) loginPage.classList.add("is-hidden");
+      if (dashboardPage) dashboardPage.classList.remove("is-hidden");
+      if (loginPasswordInput) {
+        loginPasswordInput.value = "";
+      }
+
+      void syncGovernanceFromApi();
+    } catch (error) {
+      if (loginMessage) {
+        loginMessage.textContent =
+          error.message === "invalid_credentials"
+            ? "아이디 또는 비밀번호가 올바르지 않습니다."
+            : "로그인 처리 중 오류가 발생했습니다.";
+      }
+    } finally {
+      if (loginSubmitButton) {
+        loginSubmitButton.disabled = false;
+      }
+    }
+  });
+}
+
+async function initializeApp() {
+  noticeItems = loadNoticeItems();
+  paymentState = loadPaymentState();
+  governancePolls = loadGovernancePolls();
+  studentTokenMarketState = loadTokenMarketState();
+  studentGovernanceState = loadStudentGovernanceState();
+
+  const rememberedUserId = loadRememberedUserId();
+  if (loginUserIdInput) {
+    loginUserIdInput.value = rememberedUserId;
+  }
+  if (rememberIdCheckbox) {
+    rememberIdCheckbox.checked = Boolean(rememberedUserId);
+  }
+
+  applyRoleLayout(currentRole);
+  resetScenario(roleConfigs[currentRole].defaultMode);
+  switchView("dashboard");
+
+  try {
+    const data = await authApiRequest("/api/auth/session", {
+      method: "GET"
+    });
+
+    if (!data.authenticated || !data.user) {
+      return;
+    }
+
+    currentUserId = data.user.userId;
+    currentRole = data.user.role;
     applyRoleLayout(currentRole);
     resetScenario(roleConfigs[currentRole].defaultMode);
     switchView("dashboard");
@@ -1872,18 +1990,10 @@ if (loginForm) {
     if (loginPage) loginPage.classList.add("is-hidden");
     if (dashboardPage) dashboardPage.classList.remove("is-hidden");
 
-    setTimeout(() => {
-      void syncGovernanceFromApi();
-    }, 0);
-  });
+    void syncGovernanceFromApi();
+  } catch (error) {
+    console.error("Session restore failed:", error);
+  }
 }
 
-noticeItems = loadNoticeItems();
-paymentState = loadPaymentState();
-governancePolls = loadGovernancePolls();
-studentTokenMarketState = loadTokenMarketState();
-studentGovernanceState = loadStudentGovernanceState();
-applyRoleLayout(currentRole);
-resetScenario(roleConfigs[currentRole].defaultMode);
-switchView("dashboard");
-void syncGovernanceFromApi();
+void initializeApp();
