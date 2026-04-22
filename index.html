@@ -224,17 +224,23 @@
       </section>
 
       <section class="view-section is-hidden" id="placeholder-view">
-        <article class="board-panel placeholder-panel">
+        <article class="board-panel placeholder-panel" id="placeholder-panel">
           <header class="panel-titlebar">
             <div>
-              <p class="panel-kicker">준비 중</p>
+              <p class="panel-kicker" id="placeholder-kicker">준비 중</p>
               <h3 id="placeholder-title">상세 설계 예정</h3>
             </div>
           </header>
           <p class="detail-text" id="placeholder-text">이 메뉴는 다음 단계에서 구체적인 상호작용을 설계할 예정입니다.</p>
 
           <section class="notice-admin is-hidden" id="notice-admin-panel">
-            <div id="notice-admin-editor">
+            <section class="notice-admin-card" id="notice-admin-editor">
+              <div class="panel-titlebar panel-titlebar-compact">
+                <div>
+                  <p class="panel-kicker">공지 사항</p>
+                  <h3>공지 사항 관리</h3>
+                </div>
+              </div>
               <form class="notice-form" id="notice-form">
                 <label class="notice-field">
                   <span>공지 제목</span>
@@ -250,7 +256,8 @@
               </form>
 
               <p class="login-message" id="notice-message" aria-live="polite"></p>
-            </div>
+              <ul class="notice-list notice-list-admin" id="admin-notice-list"></ul>
+            </section>
 
             <section class="operations-admin" id="operations-admin-panel">
               <div class="panel-titlebar panel-titlebar-compact">
@@ -301,8 +308,6 @@
 
               <p class="login-message" id="operations-message" aria-live="polite"></p>
             </section>
-
-            <ul class="notice-list notice-list-admin" id="admin-notice-list"></ul>
           </section>
 
           <section class="governance-panel is-hidden" id="governance-panel">

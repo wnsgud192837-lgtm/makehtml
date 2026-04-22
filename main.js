@@ -41,6 +41,8 @@ const tokenView = document.querySelector("#token-view");
 const studentManagementView = document.querySelector("#student-management-view");
 const tokenMarketPanel = document.querySelector("#token-market-panel");
 const placeholderView = document.querySelector("#placeholder-view");
+const placeholderPanel = document.querySelector("#placeholder-panel");
+const placeholderKicker = document.querySelector("#placeholder-kicker");
 const placeholderTitle = document.querySelector("#placeholder-title");
 const placeholderText = document.querySelector("#placeholder-text");
 const noticeAdminPanel = document.querySelector("#notice-admin-panel");
@@ -1501,6 +1503,10 @@ function switchView(view) {
     const copy = placeholderCopy[currentRole]?.[view];
     if (placeholderTitle && copy) placeholderTitle.textContent = copy.title;
     if (placeholderText && copy) placeholderText.textContent = copy.text;
+    if (placeholderKicker) {
+      placeholderKicker.textContent =
+        currentRole === "admin" && view === "market" ? "공지 사항" : "준비 중";
+    }
   }
 
   const isAdminNoticeView = currentRole === "admin" && view === "market";
@@ -1530,6 +1536,10 @@ function switchView(view) {
 
   if (heroDescription) {
     heroDescription.classList.toggle("is-hidden", currentRole === "student" || isAdminNoticeView || isGovernanceView);
+  }
+
+  if (placeholderPanel) {
+    placeholderPanel.classList.toggle("is-flat-notice-view", isAdminNoticeView);
   }
 
   if (noticeAdminPanel) {

@@ -964,9 +964,27 @@ input {
   min-height: 260px;
 }
 
+.placeholder-panel.is-flat-notice-view {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 .notice-admin {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
+  align-items: start;
+}
+
+.notice-admin-card,
+.operations-admin {
+  padding: 18px;
+  border: 1px solid #dce3ee;
+  border-radius: 20px;
+  background: #fbfcfe;
 }
 
 .notice-form {
@@ -1007,13 +1025,6 @@ input {
 
 .notice-list-admin {
   margin-top: 0;
-}
-
-.operations-admin {
-  padding: 18px;
-  border: 1px solid #dce3ee;
-  border-radius: 20px;
-  background: #fbfcfe;
 }
 
 .operations-form {
@@ -1404,6 +1415,10 @@ input {
   }
 
   .operations-admin-row {
+    grid-template-columns: 1fr;
+  }
+
+  .notice-admin {
     grid-template-columns: 1fr;
   }
 
