@@ -25,6 +25,7 @@ const studentManagementMessage = document.querySelector("#student-management-mes
 const studentManagementLogList = document.querySelector("#student-management-log-list");
 const studentManagementUserList = document.querySelector("#student-management-user-list");
 const appRoleSubtitle = document.querySelector("#app-role-subtitle");
+const heroPanel = document.querySelector("#hero-panel");
 const heroKicker = document.querySelector("#hero-kicker");
 const heroTitle = document.querySelector("#hero-title");
 const heroDescription = document.querySelector("#hero-description");
@@ -153,7 +154,6 @@ let noticeItems = [];
 let operationsItems = [];
 const NOTICE_STORAGE_KEY = "postech_notice_items";
 const POLL_STORAGE_KEY = "postech_governance_polls";
-const OPERATIONS_STORAGE_KEY = "postech_operations_metrics";
 const REMEMBER_ID_STORAGE_KEY = "postech_remembered_user_id";
 const INITIAL_OPERATIONS_ITEMS = [
   { label: "비조천 행사비", value: 72, tone: "magenta" },
@@ -806,6 +806,23 @@ async function eventsApiRequest(path = "", options = {}) {
   return data;
 }
 
+async function operationsApiRequest(path = "", options = {}) {
+  const response = await fetch(`/api/operations${path}`, {
+    ...options,
+    headers: {
+      "content-type": "application/json",
+      ...(options.headers || {})
+    }
+  });
+
+  const data = await response.json();
+  if (!response.ok || data.error) {
+    throw new Error(data.error || `operations_api_${response.status}`);
+  }
+
+  return data;
+}
+
 async function syncEventsFromApi() {
   try {
     const data = await eventsApiRequest("", { method: "GET" });
@@ -857,6 +874,22 @@ async function syncGovernanceFromApi() {
     return true;
   } catch (error) {
     console.error("Governance API sync failed:", error);
+    return false;
+  }
+}
+
+async function syncOperationsFromApi() {
+  try {
+    const data = await operationsApiRequest("", { method: "GET" });
+    operationsItems = normalizeOperationsItems(data?.items);
+    renderOperationsCard();
+    populateOperationsForm();
+    return true;
+  } catch (error) {
+    console.error("Operations sync failed:", error);
+    operationsItems = cloneInitialOperationsItems();
+    renderOperationsCard();
+    populateOperationsForm();
     return false;
   }
 }
@@ -1132,50 +1165,32 @@ function persistNoticeItems() {
   window.localStorage.setItem(NOTICE_STORAGE_KEY, JSON.stringify(noticeItems));
 }
 
-function loadOperationsItems() {
-  if (typeof window === "undefined") {
-    return INITIAL_OPERATIONS_ITEMS.map((item) => ({ ...item }));
-  }
-
-  const raw = window.localStorage.getItem(OPERATIONS_STORAGE_KEY);
-  if (!raw) {
-    return INITIAL_OPERATIONS_ITEMS.map((item) => ({ ...item }));
-  }
-
-  try {
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      return INITIAL_OPERATIONS_ITEMS.map((item) => ({ ...item }));
-    }
-
-    return parsed
-      .slice(0, INITIAL_OPERATIONS_ITEMS.length)
-      .map((item, index) => {
-        const fallback = INITIAL_OPERATIONS_ITEMS[index];
-        const label =
-          item && typeof item.label === "string" && item.label.trim()
-            ? item.label.trim()
-            : fallback.label;
-        const parsedValue = Number(item?.value);
-        const value = Number.isFinite(parsedValue)
-          ? Math.max(0, Math.min(100, Math.round(parsedValue)))
-          : fallback.value;
-
-        return {
-          label,
-          value,
-          tone: fallback.tone
-        };
-      });
-  } catch {
-    return INITIAL_OPERATIONS_ITEMS.map((item) => ({ ...item }));
-  }
+function cloneInitialOperationsItems() {
+  return INITIAL_OPERATIONS_ITEMS.map((item) => ({ ...item }));
 }
 
-function persistOperationsItems() {
-  if (typeof window === "undefined") return;
+function normalizeOperationsItems(items) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return cloneInitialOperationsItems();
+  }
 
-  window.localStorage.setItem(OPERATIONS_STORAGE_KEY, JSON.stringify(operationsItems));
+  return INITIAL_OPERATIONS_ITEMS.map((fallback, index) => {
+    const item = items[index];
+    const label =
+      item && typeof item.label === "string" && item.label.trim()
+        ? item.label.trim()
+        : fallback.label;
+    const parsedValue = Number(item?.value);
+    const value = Number.isFinite(parsedValue)
+      ? Math.max(0, Math.min(100, Math.round(parsedValue)))
+      : fallback.value;
+
+    return {
+      label,
+      value,
+      tone: fallback.tone
+    };
+  });
 }
 
 function loadPaymentState() {
@@ -1360,6 +1375,7 @@ function applyRoleLayout(role) {
   if (heroDescription) heroDescription.classList.toggle("is-hidden", role === "student");
   if (heroNoticeList) heroNoticeList.classList.toggle("is-hidden", role !== "student");
   if (operationsCard) operationsCard.classList.toggle("is-hidden", !isStudentDashboard);
+  if (heroPanel) heroPanel.classList.toggle("is-student-split", isStudentDashboard);
   if (paymentLabel) paymentLabel.textContent = roleConfig.labels.payment;
   if (pointsLabel) pointsLabel.textContent = roleConfig.labels.points;
   if (tokenLabel) tokenLabel.textContent = roleConfig.labels.token;
@@ -1463,6 +1479,10 @@ function switchView(view) {
 
   if (operationsCard) {
     operationsCard.classList.toggle("is-hidden", !isStudentDashboardOperationsView);
+  }
+
+  if (heroPanel) {
+    heroPanel.classList.toggle("is-student-split", isStudentDashboardOperationsView);
   }
 
   if (heroDescription) {
@@ -2041,7 +2061,7 @@ if (noticeForm) {
 }
 
 if (operationsForm) {
-  operationsForm.addEventListener("submit", (event) => {
+  operationsForm.addEventListener("submit", async (event) => {
     event.preventDefault();
 
     if (currentRole !== "admin") return;
@@ -2074,13 +2094,22 @@ if (operationsForm) {
       return;
     }
 
-    operationsItems = nextItems;
-    persistOperationsItems();
-    renderOperationsCard();
-    populateOperationsForm();
+    try {
+      const data = await operationsApiRequest("", {
+        method: "POST",
+        body: JSON.stringify({ items: nextItems })
+      });
+      operationsItems = normalizeOperationsItems(data?.items);
+      renderOperationsCard();
+      populateOperationsForm();
 
-    if (operationsMessage) {
-      operationsMessage.textContent = "총학 운영 내역이 저장되었습니다.";
+      if (operationsMessage) {
+        operationsMessage.textContent = "총학 운영 내역이 저장되었습니다.";
+      }
+    } catch (error) {
+      if (operationsMessage) {
+        operationsMessage.textContent = "총학 운영 내역 저장 중 오류가 발생했습니다.";
+      }
     }
   });
 }
@@ -2421,6 +2450,7 @@ if (loginForm) {
       applyRoleLayout(currentRole);
       resetScenario(roleConfigs[currentRole].defaultMode);
       switchView("dashboard");
+      await syncOperationsFromApi();
 
       if (loginPage) loginPage.classList.add("is-hidden");
       if (dashboardPage) dashboardPage.classList.remove("is-hidden");
@@ -2506,7 +2536,7 @@ if (registerForm) {
 
 async function initializeApp() {
   noticeItems = loadNoticeItems();
-  operationsItems = loadOperationsItems();
+  operationsItems = cloneInitialOperationsItems();
   paymentState = loadPaymentState();
   governancePolls = loadGovernancePolls();
   studentTokenMarketState = loadTokenMarketState();
@@ -2542,6 +2572,7 @@ async function initializeApp() {
     applyRoleLayout(currentRole);
     resetScenario(roleConfigs[currentRole].defaultMode);
     switchView("dashboard");
+    await syncOperationsFromApi();
 
     if (loginPage) loginPage.classList.add("is-hidden");
     if (dashboardPage) dashboardPage.classList.remove("is-hidden");
