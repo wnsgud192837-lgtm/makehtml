@@ -472,7 +472,7 @@ input {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.hero-copy,
+.notice-card,
 .operations-card {
   min-width: 0;
 }
@@ -485,18 +485,36 @@ input {
   letter-spacing: 0.08em;
 }
 
-.hero-copy h2 {
+.notice-card {
+  align-self: start;
+}
+
+.notice-card.is-student-card {
+  min-height: 100%;
+  padding: 20px 20px 18px;
+  border: 1px solid #e5e8ef;
+  border-radius: 20px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  box-shadow: 0 14px 28px rgba(35, 44, 64, 0.08);
+}
+
+.notice-card h2 {
   margin: 0;
   color: #173f7d;
   font-size: 2rem;
   line-height: 1.2;
 }
 
-.hero-copy p:last-child {
+.notice-card p:last-child {
   margin: 14px 0 0;
   color: #5d6c82;
   font-size: 0.95rem;
   line-height: 1.7;
+}
+
+.notice-card.is-student-card h2 {
+  font-size: 1.12rem;
+  color: #1f2734;
 }
 
 .notice-list {
@@ -1392,6 +1410,14 @@ input {
 
   .operations-admin-row {
     grid-template-columns: 1fr;
+  }
+
+  .notice-card h2 {
+    font-size: 1.5rem;
+  }
+
+  .notice-card.is-student-card h2 {
+    font-size: 1.06rem;
   }
 
   .operations-label,

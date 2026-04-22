@@ -26,6 +26,7 @@ const studentManagementLogList = document.querySelector("#student-management-log
 const studentManagementUserList = document.querySelector("#student-management-user-list");
 const appRoleSubtitle = document.querySelector("#app-role-subtitle");
 const heroPanel = document.querySelector("#hero-panel");
+const noticeCard = document.querySelector("#notice-card");
 const heroKicker = document.querySelector("#hero-kicker");
 const heroTitle = document.querySelector("#hero-title");
 const heroDescription = document.querySelector("#hero-description");
@@ -1365,6 +1366,7 @@ function buildStudentState() {
 function applyRoleLayout(role) {
   const roleConfig = roleConfigs[role];
   const isStudentDashboard = role === "student" && currentView === "dashboard";
+  const isDashboard = currentView === "dashboard";
 
   if (!roleConfig) return;
 
@@ -1376,6 +1378,8 @@ function applyRoleLayout(role) {
   if (heroNoticeList) heroNoticeList.classList.toggle("is-hidden", role !== "student");
   if (operationsCard) operationsCard.classList.toggle("is-hidden", !isStudentDashboard);
   if (heroPanel) heroPanel.classList.toggle("is-student-split", isStudentDashboard);
+  if (heroPanel) heroPanel.classList.toggle("is-hidden", !isDashboard);
+  if (noticeCard) noticeCard.classList.toggle("is-student-card", role === "student");
   if (paymentLabel) paymentLabel.textContent = roleConfig.labels.payment;
   if (pointsLabel) pointsLabel.textContent = roleConfig.labels.points;
   if (tokenLabel) tokenLabel.textContent = roleConfig.labels.token;
@@ -1437,7 +1441,7 @@ function switchView(view) {
   const isTokenView = view === "tokens";
   const isStudentManagementView = currentRole === "admin" && view === "students";
 
-  if (statusGrid) statusGrid.classList.toggle("is-hidden", !isDashboard);
+  if (statusGrid) statusGrid.classList.remove("is-hidden");
   if (dashboardView) dashboardView.classList.toggle("is-hidden", !isDashboard);
   if (pointsView) pointsView.classList.toggle("is-hidden", !isPoints);
   if (tokenView) tokenView.classList.toggle("is-hidden", !isTokenView);
@@ -1483,6 +1487,11 @@ function switchView(view) {
 
   if (heroPanel) {
     heroPanel.classList.toggle("is-student-split", isStudentDashboardOperationsView);
+    heroPanel.classList.toggle("is-hidden", !isDashboard);
+  }
+
+  if (noticeCard) {
+    noticeCard.classList.toggle("is-student-card", currentRole === "student");
   }
 
   if (heroDescription) {
