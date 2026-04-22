@@ -160,9 +160,9 @@ const NOTICE_STORAGE_KEY = "postech_notice_items";
 const POLL_STORAGE_KEY = "postech_governance_polls";
 const REMEMBER_ID_STORAGE_KEY = "postech_remembered_user_id";
 const INITIAL_OPERATIONS_ITEMS = [
-  { label: "비조천 행사비", value: 72, tone: "magenta" },
-  { label: "교복제 행사비", value: 50, tone: "amber" },
-  { label: "운영비", value: 31, tone: "gray" }
+  { title: "25-1 예산 집행 현황", label: "비조천 행사비", value: 72, tone: "magenta" },
+  { title: "학생 행사 운영", label: "교복제 행사비", value: 50, tone: "amber" },
+  { title: "행정 및 공통 운영", label: "운영비", value: 31, tone: "gray" }
 ];
 const INITIAL_TOKEN_MARKET_STATE = {
   pointReserve: 24000,
@@ -1180,6 +1180,10 @@ function normalizeOperationsItems(items) {
 
   return INITIAL_OPERATIONS_ITEMS.map((fallback, index) => {
     const item = items[index];
+    const title =
+      item && typeof item.title === "string" && item.title.trim()
+        ? item.title.trim()
+        : fallback.title;
     const label =
       item && typeof item.label === "string" && item.label.trim()
         ? item.label.trim()
@@ -1190,6 +1194,7 @@ function normalizeOperationsItems(items) {
       : fallback.value;
 
     return {
+      title,
       label,
       value,
       tone: fallback.tone
@@ -1776,7 +1781,10 @@ function renderOperationsCard() {
     .map(
       (item) => `
         <div class="operations-metric">
-          <span class="operations-label">${escapeHtml(item.label)}</span>
+          <div class="operations-copy">
+            <strong class="operations-title">${escapeHtml(item.title)}</strong>
+            <span class="operations-label">${escapeHtml(item.label)}</span>
+          </div>
           <div class="operations-bar-track" aria-hidden="true">
             <span class="operations-bar-fill is-${escapeHtml(item.tone)}" style="width: ${item.value}%;"></span>
           </div>
@@ -1791,8 +1799,13 @@ function populateOperationsForm() {
   if (!operationsForm) return;
 
   operationsItems.forEach((item, index) => {
+    const titleInput = operationsForm.elements.namedItem(`title-${index}`);
     const labelInput = operationsForm.elements.namedItem(`label-${index}`);
     const valueInput = operationsForm.elements.namedItem(`value-${index}`);
+
+    if (titleInput instanceof HTMLInputElement) {
+      titleInput.value = item.title;
+    }
 
     if (labelInput instanceof HTMLInputElement) {
       labelInput.value = item.label;
@@ -2137,8 +2150,13 @@ if (operationsForm) {
     if (currentRole !== "admin") return;
 
     const nextItems = INITIAL_OPERATIONS_ITEMS.map((item, index) => {
+      const titleInput = operationsForm.elements.namedItem(`title-${index}`);
       const labelInput = operationsForm.elements.namedItem(`label-${index}`);
       const valueInput = operationsForm.elements.namedItem(`value-${index}`);
+      const title =
+        titleInput instanceof HTMLInputElement && titleInput.value.trim()
+          ? titleInput.value.trim()
+          : item.title;
       const label =
         labelInput instanceof HTMLInputElement && labelInput.value.trim()
           ? labelInput.value.trim()
@@ -2150,16 +2168,17 @@ if (operationsForm) {
         : item.value;
 
       return {
+        title,
         label,
         value,
         tone: item.tone
       };
     });
 
-    const hasEmptyLabel = nextItems.some((item) => !item.label);
-    if (hasEmptyLabel) {
+    const hasEmptyField = nextItems.some((item) => !item.title || !item.label);
+    if (hasEmptyField) {
       if (operationsMessage) {
-        operationsMessage.textContent = "각 항목 이름을 모두 입력해야 합니다.";
+        operationsMessage.textContent = "각 항목의 제목과 이름을 모두 입력해야 합니다.";
       }
       return;
     }
@@ -2174,11 +2193,11 @@ if (operationsForm) {
       populateOperationsForm();
 
       if (operationsMessage) {
-        operationsMessage.textContent = "총학 운영 내역이 저장되었습니다.";
+        operationsMessage.textContent = "운영 내역이 저장되었습니다.";
       }
     } catch (error) {
       if (operationsMessage) {
-        operationsMessage.textContent = "총학 운영 내역 저장 중 오류가 발생했습니다.";
+        operationsMessage.textContent = "운영 내역 저장 중 오류가 발생했습니다.";
       }
     }
   });

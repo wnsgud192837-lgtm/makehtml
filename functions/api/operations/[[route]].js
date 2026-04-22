@@ -2,9 +2,9 @@ import { json, requireSession } from "../../_lib/auth.js";
 
 const OPERATIONS_STORAGE_KEY = "operations:summary";
 const DEFAULT_OPERATIONS_ITEMS = [
-  { label: "비조천 행사비", value: 72, tone: "magenta" },
-  { label: "교복제 행사비", value: 50, tone: "amber" },
-  { label: "운영비", value: 31, tone: "gray" }
+  { title: "25-1 예산 집행 현황", label: "비조천 행사비", value: 72, tone: "magenta" },
+  { title: "학생 행사 운영", label: "교복제 행사비", value: 50, tone: "amber" },
+  { title: "행정 및 공통 운영", label: "운영비", value: 31, tone: "gray" }
 ];
 
 async function upstash(env, command, body) {
@@ -40,6 +40,10 @@ function normalizeOperationsItems(items) {
 
   return DEFAULT_OPERATIONS_ITEMS.map((fallback, index) => {
     const item = items[index];
+    const title =
+      item && typeof item.title === "string" && item.title.trim()
+        ? item.title.trim()
+        : fallback.title;
     const label =
       item && typeof item.label === "string" && item.label.trim()
         ? item.label.trim()
@@ -50,6 +54,7 @@ function normalizeOperationsItems(items) {
       : fallback.value;
 
     return {
+      title,
       label,
       value,
       tone: fallback.tone
