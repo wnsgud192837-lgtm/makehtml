@@ -461,11 +461,6 @@ input {
   grid-template-columns: minmax(0, 1fr);
   gap: 22px;
   margin-bottom: 22px;
-  padding: 24px 26px;
-  border: 1px solid #d8e0ec;
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.97);
-  box-shadow: 0 18px 34px rgba(15, 40, 85, 0.08);
 }
 
 .hero-panel.is-student-split {

@@ -1368,6 +1368,7 @@ function applyRoleLayout(role) {
   const roleConfig = roleConfigs[role];
   const isStudentDashboard = role === "student" && currentView === "dashboard";
   const isDashboard = currentView === "dashboard";
+  const showStudentNoticeCard = true;
   const isAdminNoticeView = role === "admin" && currentView === "market";
   const isGovernanceView = currentView === "governance";
   const isAdminGovernanceView = role === "admin" && isGovernanceView;
@@ -1382,9 +1383,12 @@ function applyRoleLayout(role) {
   if (heroDescription) heroDescription.classList.toggle("is-hidden", role === "student");
   if (heroNoticeList) heroNoticeList.classList.toggle("is-hidden", !isStudentDashboard);
   if (operationsCard) operationsCard.classList.toggle("is-hidden", !isStudentDashboard);
-  if (heroPanel) heroPanel.classList.toggle("is-student-split", isStudentDashboard);
+  if (heroPanel) heroPanel.classList.toggle("is-student-split", isStudentDashboard && showStudentNoticeCard);
   if (heroPanel) heroPanel.classList.toggle("is-hidden", !isDashboard);
-  if (noticeCard) noticeCard.classList.toggle("is-student-card", role === "student");
+  if (noticeCard) {
+    noticeCard.classList.toggle("is-student-card", role === "student");
+    noticeCard.classList.toggle("is-hidden", role === "student" && !isStudentDashboard);
+  }
   if (paymentLabel) paymentLabel.textContent = roleConfig.labels.payment;
   if (pointsLabel) pointsLabel.textContent = roleConfig.labels.points;
   if (tokenLabel) tokenLabel.textContent = roleConfig.labels.token;
@@ -1515,12 +1519,13 @@ function switchView(view) {
   }
 
   if (heroPanel) {
-    heroPanel.classList.toggle("is-student-split", isStudentDashboardOperationsView);
+    heroPanel.classList.toggle("is-student-split", isStudentDashboardNoticeView && isStudentDashboardOperationsView);
     heroPanel.classList.toggle("is-hidden", !isDashboard);
   }
 
   if (noticeCard) {
     noticeCard.classList.toggle("is-student-card", currentRole === "student");
+    noticeCard.classList.toggle("is-hidden", currentRole === "student" && !isStudentDashboardNoticeView);
   }
 
   if (heroDescription) {
