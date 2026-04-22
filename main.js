@@ -47,6 +47,7 @@ const noticeAdminPanel = document.querySelector("#notice-admin-panel");
 const noticeAdminEditor = document.querySelector("#notice-admin-editor");
 const noticeForm = document.querySelector("#notice-form");
 const noticeMessage = document.querySelector("#notice-message");
+const operationsAdminPanel = document.querySelector("#operations-admin-panel");
 const operationsForm = document.querySelector("#operations-form");
 const operationsMessage = document.querySelector("#operations-message");
 const adminNoticeList = document.querySelector("#admin-notice-list");
@@ -1375,7 +1376,7 @@ function applyRoleLayout(role) {
   if (heroTitle) heroTitle.textContent = roleConfig.heroTitle;
   if (heroDescription) heroDescription.textContent = roleConfig.heroDescription;
   if (heroDescription) heroDescription.classList.toggle("is-hidden", role === "student");
-  if (heroNoticeList) heroNoticeList.classList.toggle("is-hidden", role !== "student");
+  if (heroNoticeList) heroNoticeList.classList.toggle("is-hidden", !isStudentDashboard);
   if (operationsCard) operationsCard.classList.toggle("is-hidden", !isStudentDashboard);
   if (heroPanel) heroPanel.classList.toggle("is-student-split", isStudentDashboard);
   if (heroPanel) heroPanel.classList.toggle("is-hidden", !isDashboard);
@@ -1504,6 +1505,10 @@ function switchView(view) {
 
   if (noticeAdminEditor) {
     noticeAdminEditor.classList.toggle("is-hidden", !isAdminNoticeView);
+  }
+
+  if (operationsAdminPanel) {
+    operationsAdminPanel.classList.toggle("is-hidden", !isAdminNoticeView);
   }
 
   if (governancePanel) {
@@ -1668,25 +1673,29 @@ function renderPointsHistory() {
 
 function renderNoticeLists() {
   if (heroNoticeList) {
-    heroNoticeList.innerHTML =
-      noticeItems.length === 0
-        ? `
-          <li class="notice-item notice-empty">
-            <strong>현재 등록된 공지가 없습니다.</strong>
-            <p>현재 등록된 공지가 없습니다.</p>
-          </li>
-        `
-        : noticeItems
-            .map((notice) => `
-              <li class="notice-item">
-                <div class="notice-meta">
-                  <strong>${notice.title}</strong>
-                  <span>${notice.date}</span>
-                </div>
-                <p>${notice.content}</p>
-              </li>
-            `)
-            .join("");
+    if (currentRole === "student" && currentView === "dashboard") {
+      heroNoticeList.innerHTML =
+        noticeItems.length === 0
+          ? `
+            <li class="notice-item notice-empty">
+              <strong>현재 등록된 공지가 없습니다.</strong>
+              <p>현재 등록된 공지가 없습니다.</p>
+            </li>
+          `
+          : noticeItems
+              .map((notice) => `
+                <li class="notice-item">
+                  <div class="notice-meta">
+                    <strong>${notice.title}</strong>
+                    <span>${notice.date}</span>
+                  </div>
+                  <p>${notice.content}</p>
+                </li>
+              `)
+              .join("");
+    } else {
+      heroNoticeList.innerHTML = "";
+    }
   }
 
   if (adminNoticeList) {
