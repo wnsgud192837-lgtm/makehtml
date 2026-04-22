@@ -1368,6 +1368,10 @@ function applyRoleLayout(role) {
   const roleConfig = roleConfigs[role];
   const isStudentDashboard = role === "student" && currentView === "dashboard";
   const isDashboard = currentView === "dashboard";
+  const isAdminNoticeView = role === "admin" && currentView === "market";
+  const isGovernanceView = currentView === "governance";
+  const isAdminGovernanceView = role === "admin" && isGovernanceView;
+  const isStudentGovernanceView = role === "student" && isGovernanceView;
 
   if (!roleConfig) return;
 
@@ -1399,6 +1403,30 @@ function applyRoleLayout(role) {
 
   if (studentManagementPanel) {
     studentManagementPanel.classList.toggle("is-hidden", true);
+  }
+
+  if (noticeAdminPanel) {
+    noticeAdminPanel.classList.toggle("is-hidden", !isAdminNoticeView);
+  }
+
+  if (noticeAdminEditor) {
+    noticeAdminEditor.classList.toggle("is-hidden", !isAdminNoticeView);
+  }
+
+  if (operationsAdminPanel) {
+    operationsAdminPanel.classList.toggle("is-hidden", !isAdminNoticeView);
+  }
+
+  if (governancePanel) {
+    governancePanel.classList.toggle("is-hidden", !isGovernanceView);
+  }
+
+  if (governanceAdminPanel) {
+    governanceAdminPanel.classList.toggle("is-hidden", !isAdminGovernanceView);
+  }
+
+  if (governanceStudentPanel) {
+    governanceStudentPanel.classList.toggle("is-hidden", !isStudentGovernanceView);
   }
 
   renderNoticeLists();
@@ -1699,26 +1727,30 @@ function renderNoticeLists() {
   }
 
   if (adminNoticeList) {
-    adminNoticeList.innerHTML =
-      noticeItems.length === 0
-        ? `
-          <li class="notice-item notice-empty">
-            <strong>등록된 공지가 없습니다.</strong>
-            <p>위 폼에서 제목과 내용을 입력해 첫 공지를 등록하세요.</p>
-          </li>
-        `
-        : noticeItems
-            .map((notice, index) => `
-              <li class="notice-item notice-item-admin">
-                <div class="notice-meta">
-                  <strong>${notice.title}</strong>
-                  <span>${notice.date}</span>
-                </div>
-                <p>${notice.content}</p>
-                <button type="button" class="notice-delete-button" data-notice-index="${index}">삭제</button>
-              </li>
-            `)
-            .join("");
+    if (currentRole === "admin" && currentView === "market") {
+      adminNoticeList.innerHTML =
+        noticeItems.length === 0
+          ? `
+            <li class="notice-item notice-empty">
+              <strong>등록된 공지가 없습니다.</strong>
+              <p>위 폼에서 제목과 내용을 입력해 첫 공지를 등록하세요.</p>
+            </li>
+          `
+          : noticeItems
+              .map((notice, index) => `
+                <li class="notice-item notice-item-admin">
+                  <div class="notice-meta">
+                    <strong>${notice.title}</strong>
+                    <span>${notice.date}</span>
+                  </div>
+                  <p>${notice.content}</p>
+                  <button type="button" class="notice-delete-button" data-notice-index="${index}">삭제</button>
+                </li>
+              `)
+              .join("");
+    } else {
+      adminNoticeList.innerHTML = "";
+    }
   }
 }
 
@@ -1759,6 +1791,11 @@ function populateOperationsForm() {
 
 function renderGovernanceList() {
   if (!governanceList) return;
+
+  if (currentView !== "governance") {
+    governanceList.innerHTML = "";
+    return;
+  }
 
   if (governancePolls.length === 0) {
     governanceList.innerHTML = `
