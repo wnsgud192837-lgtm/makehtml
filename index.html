@@ -155,6 +155,11 @@
           <p id="hero-description">로그인 이후 사용자의 납부 상태를 기준으로 접근 권한, 보상, 참여 수단이 자연스럽게 갈라지도록 구조를 설계했습니다. 납부자는 혜택이 확장되고, 미납부자는 비교와 전환 유도를 거치며 납부 전환의 필요성을 이해하게 됩니다.</p>
           <ul class="notice-list is-hidden" id="hero-notice-list"></ul>
         </div>
+        <aside class="operations-card is-hidden" id="operations-card" aria-labelledby="operations-card-title">
+          <p class="operations-kicker">25-1 예산 집행 현황</p>
+          <h3 id="operations-card-title">총학 운영 내역</h3>
+          <div class="operations-metrics" id="operations-metrics" aria-label="총학 운영 예산 집행 내역"></div>
+        </aside>
       </section>
 
       <section class="status-grid" id="status-grid">
@@ -246,6 +251,56 @@
 
               <p class="login-message" id="notice-message" aria-live="polite"></p>
             </div>
+
+            <section class="operations-admin" id="operations-admin-panel">
+              <div class="panel-titlebar panel-titlebar-compact">
+                <div>
+                  <p class="panel-kicker">운영 내역</p>
+                  <h3>총학 운영 내역 관리</h3>
+                </div>
+              </div>
+
+              <form class="notice-form operations-form" id="operations-form">
+                <div class="operations-admin-grid">
+                  <div class="operations-admin-row">
+                    <label class="notice-field">
+                      <span>항목 1 이름</span>
+                      <input type="text" name="label-0" placeholder="예: 비조천 행사비" maxlength="40">
+                    </label>
+                    <label class="notice-field">
+                      <span>항목 1 비율</span>
+                      <input type="number" name="value-0" placeholder="0" min="0" max="100" step="1">
+                    </label>
+                  </div>
+
+                  <div class="operations-admin-row">
+                    <label class="notice-field">
+                      <span>항목 2 이름</span>
+                      <input type="text" name="label-1" placeholder="예: 교복제 행사비" maxlength="40">
+                    </label>
+                    <label class="notice-field">
+                      <span>항목 2 비율</span>
+                      <input type="number" name="value-1" placeholder="0" min="0" max="100" step="1">
+                    </label>
+                  </div>
+
+                  <div class="operations-admin-row">
+                    <label class="notice-field">
+                      <span>항목 3 이름</span>
+                      <input type="text" name="label-2" placeholder="예: 운영비" maxlength="40">
+                    </label>
+                    <label class="notice-field">
+                      <span>항목 3 비율</span>
+                      <input type="number" name="value-2" placeholder="0" min="0" max="100" step="1">
+                    </label>
+                  </div>
+                </div>
+
+                <button type="submit" class="login-button notice-submit">운영 내역 저장</button>
+              </form>
+
+              <p class="login-message" id="operations-message" aria-live="polite"></p>
+            </section>
 
             <ul class="notice-list notice-list-admin" id="admin-notice-list"></ul>
           </section>

@@ -566,6 +566,81 @@ input {
   align-content: center;
 }
 
+.operations-card {
+  align-self: start;
+  padding: 20px 20px 18px;
+  border: 1px solid #e5e8ef;
+  border-radius: 20px;
+  background: linear-gradient(180deg, #ffffff 0%, #f7f5f2 100%);
+  box-shadow: 0 14px 28px rgba(35, 44, 64, 0.08);
+}
+
+.operations-kicker {
+  margin: 0 0 10px;
+  color: #6f757f;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.operations-card h3 {
+  margin: 0;
+  color: #1f2734;
+  font-size: 1.12rem;
+  font-weight: 700;
+}
+
+.operations-metrics {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.operations-metric {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 1.3fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.operations-label {
+  color: #606775;
+  font-size: 0.86rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.operations-bar-track {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  background: #e4e4e7;
+  overflow: hidden;
+}
+
+.operations-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.operations-bar-fill.is-magenta {
+  background: linear-gradient(90deg, #a10d58 0%, #c51371 100%);
+}
+
+.operations-bar-fill.is-amber {
+  background: linear-gradient(90deg, #ffb000 0%, #ff9800 100%);
+}
+
+.operations-bar-fill.is-gray {
+  background: linear-gradient(90deg, #696969 0%, #8a8a8a 100%);
+}
+
+.operations-value {
+  color: #6c717b;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
 .mode-button {
   min-height: 60px;
   padding: 0 18px;
@@ -909,6 +984,28 @@ input {
 
 .notice-list-admin {
   margin-top: 0;
+}
+
+.operations-admin {
+  padding: 18px;
+  border: 1px solid #dce3ee;
+  border-radius: 20px;
+  background: #fbfcfe;
+}
+
+.operations-form {
+  margin-top: 14px;
+}
+
+.operations-admin-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.operations-admin-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(160px, 0.8fr);
+  gap: 12px;
 }
 
 .governance-panel {
@@ -1276,6 +1373,20 @@ input {
   .notice-meta {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .operations-metric {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .operations-admin-row {
+    grid-template-columns: 1fr;
+  }
+
+  .operations-label,
+  .operations-value {
+    white-space: normal;
   }
 
   .token-market-stats {

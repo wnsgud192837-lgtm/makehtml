@@ -29,6 +29,8 @@ const heroKicker = document.querySelector("#hero-kicker");
 const heroTitle = document.querySelector("#hero-title");
 const heroDescription = document.querySelector("#hero-description");
 const heroNoticeList = document.querySelector("#hero-notice-list");
+const operationsCard = document.querySelector("#operations-card");
+const operationsMetrics = document.querySelector("#operations-metrics");
 const heroActions = document.querySelector("#hero-actions");
 const statusGrid = document.querySelector("#status-grid");
 const dashboardView = document.querySelector("#dashboard-view");
@@ -43,6 +45,8 @@ const noticeAdminPanel = document.querySelector("#notice-admin-panel");
 const noticeAdminEditor = document.querySelector("#notice-admin-editor");
 const noticeForm = document.querySelector("#notice-form");
 const noticeMessage = document.querySelector("#notice-message");
+const operationsForm = document.querySelector("#operations-form");
+const operationsMessage = document.querySelector("#operations-message");
 const adminNoticeList = document.querySelector("#admin-notice-list");
 const governancePanel = document.querySelector("#governance-panel");
 const governanceAdminPanel = document.querySelector("#governance-admin-panel");
@@ -146,9 +150,16 @@ const placeholderCopy = {
 };
 
 let noticeItems = [];
+let operationsItems = [];
 const NOTICE_STORAGE_KEY = "postech_notice_items";
 const POLL_STORAGE_KEY = "postech_governance_polls";
+const OPERATIONS_STORAGE_KEY = "postech_operations_metrics";
 const REMEMBER_ID_STORAGE_KEY = "postech_remembered_user_id";
+const INITIAL_OPERATIONS_ITEMS = [
+  { label: "비조천 행사비", value: 72, tone: "magenta" },
+  { label: "교복제 행사비", value: 50, tone: "amber" },
+  { label: "운영비", value: 31, tone: "gray" }
+];
 const INITIAL_TOKEN_MARKET_STATE = {
   pointReserve: 24000,
   eventTokenReserve: 12,
@@ -1121,6 +1132,52 @@ function persistNoticeItems() {
   window.localStorage.setItem(NOTICE_STORAGE_KEY, JSON.stringify(noticeItems));
 }
 
+function loadOperationsItems() {
+  if (typeof window === "undefined") {
+    return INITIAL_OPERATIONS_ITEMS.map((item) => ({ ...item }));
+  }
+
+  const raw = window.localStorage.getItem(OPERATIONS_STORAGE_KEY);
+  if (!raw) {
+    return INITIAL_OPERATIONS_ITEMS.map((item) => ({ ...item }));
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      return INITIAL_OPERATIONS_ITEMS.map((item) => ({ ...item }));
+    }
+
+    return parsed
+      .slice(0, INITIAL_OPERATIONS_ITEMS.length)
+      .map((item, index) => {
+        const fallback = INITIAL_OPERATIONS_ITEMS[index];
+        const label =
+          item && typeof item.label === "string" && item.label.trim()
+            ? item.label.trim()
+            : fallback.label;
+        const parsedValue = Number(item?.value);
+        const value = Number.isFinite(parsedValue)
+          ? Math.max(0, Math.min(100, Math.round(parsedValue)))
+          : fallback.value;
+
+        return {
+          label,
+          value,
+          tone: fallback.tone
+        };
+      });
+  } catch {
+    return INITIAL_OPERATIONS_ITEMS.map((item) => ({ ...item }));
+  }
+}
+
+function persistOperationsItems() {
+  if (typeof window === "undefined") return;
+
+  window.localStorage.setItem(OPERATIONS_STORAGE_KEY, JSON.stringify(operationsItems));
+}
+
 function loadPaymentState() {
   return { studentPaid: false, paidAt: "" };
 }
@@ -1292,6 +1349,7 @@ function buildStudentState() {
 
 function applyRoleLayout(role) {
   const roleConfig = roleConfigs[role];
+  const isStudentDashboard = role === "student" && currentView === "dashboard";
 
   if (!roleConfig) return;
 
@@ -1301,6 +1359,7 @@ function applyRoleLayout(role) {
   if (heroDescription) heroDescription.textContent = roleConfig.heroDescription;
   if (heroDescription) heroDescription.classList.toggle("is-hidden", role === "student");
   if (heroNoticeList) heroNoticeList.classList.toggle("is-hidden", role !== "student");
+  if (operationsCard) operationsCard.classList.toggle("is-hidden", !isStudentDashboard);
   if (paymentLabel) paymentLabel.textContent = roleConfig.labels.payment;
   if (pointsLabel) pointsLabel.textContent = roleConfig.labels.points;
   if (tokenLabel) tokenLabel.textContent = roleConfig.labels.token;
@@ -1322,6 +1381,8 @@ function applyRoleLayout(role) {
   }
 
   renderNoticeLists();
+  renderOperationsCard();
+  populateOperationsForm();
   renderGovernanceList();
   renderTokenMarket();
   renderStudentManagementPanel();
@@ -1394,9 +1455,14 @@ function switchView(view) {
   const isAdminGovernanceView = currentRole === "admin" && isGovernanceView;
   const isStudentGovernanceView = currentRole === "student" && isGovernanceView;
   const isStudentDashboardNoticeView = currentRole === "student" && isDashboard;
+  const isStudentDashboardOperationsView = currentRole === "student" && isDashboard;
 
   if (heroNoticeList) {
     heroNoticeList.classList.toggle("is-hidden", !isStudentDashboardNoticeView);
+  }
+
+  if (operationsCard) {
+    operationsCard.classList.toggle("is-hidden", !isStudentDashboardOperationsView);
   }
 
   if (heroDescription) {
@@ -1438,8 +1504,16 @@ function switchView(view) {
     noticeMessage.textContent = "";
   }
 
+  if (operationsMessage && !isAdminNoticeView) {
+    operationsMessage.textContent = "";
+  }
+
   if (noticeForm && !isAdminNoticeView) {
     noticeForm.reset();
+  }
+
+  if (operationsForm && !isAdminNoticeView) {
+    populateOperationsForm();
   }
 
   if (pollMessage && !isAdminGovernanceView) {
@@ -1608,6 +1682,41 @@ function renderNoticeLists() {
             `)
             .join("");
   }
+}
+
+function renderOperationsCard() {
+  if (!operationsMetrics) return;
+
+  operationsMetrics.innerHTML = operationsItems
+    .map(
+      (item) => `
+        <div class="operations-metric">
+          <span class="operations-label">${escapeHtml(item.label)}</span>
+          <div class="operations-bar-track" aria-hidden="true">
+            <span class="operations-bar-fill is-${escapeHtml(item.tone)}" style="width: ${item.value}%;"></span>
+          </div>
+          <strong class="operations-value">${item.value}%</strong>
+        </div>
+      `
+    )
+    .join("");
+}
+
+function populateOperationsForm() {
+  if (!operationsForm) return;
+
+  operationsItems.forEach((item, index) => {
+    const labelInput = operationsForm.elements.namedItem(`label-${index}`);
+    const valueInput = operationsForm.elements.namedItem(`value-${index}`);
+
+    if (labelInput instanceof HTMLInputElement) {
+      labelInput.value = item.label;
+    }
+
+    if (valueInput instanceof HTMLInputElement) {
+      valueInput.value = String(item.value);
+    }
+  });
 }
 
 function renderGovernanceList() {
@@ -1928,6 +2037,51 @@ if (noticeForm) {
     noticeForm.reset();
     persistNoticeItems();
     renderNoticeLists();
+  });
+}
+
+if (operationsForm) {
+  operationsForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+
+    if (currentRole !== "admin") return;
+
+    const nextItems = INITIAL_OPERATIONS_ITEMS.map((item, index) => {
+      const labelInput = operationsForm.elements.namedItem(`label-${index}`);
+      const valueInput = operationsForm.elements.namedItem(`value-${index}`);
+      const label =
+        labelInput instanceof HTMLInputElement && labelInput.value.trim()
+          ? labelInput.value.trim()
+          : item.label;
+      const rawValue =
+        valueInput instanceof HTMLInputElement ? Number(valueInput.value) : item.value;
+      const value = Number.isFinite(rawValue)
+        ? Math.max(0, Math.min(100, Math.round(rawValue)))
+        : item.value;
+
+      return {
+        label,
+        value,
+        tone: item.tone
+      };
+    });
+
+    const hasEmptyLabel = nextItems.some((item) => !item.label);
+    if (hasEmptyLabel) {
+      if (operationsMessage) {
+        operationsMessage.textContent = "각 항목 이름을 모두 입력해야 합니다.";
+      }
+      return;
+    }
+
+    operationsItems = nextItems;
+    persistOperationsItems();
+    renderOperationsCard();
+    populateOperationsForm();
+
+    if (operationsMessage) {
+      operationsMessage.textContent = "총학 운영 내역이 저장되었습니다.";
+    }
   });
 }
 
@@ -2352,6 +2506,7 @@ if (registerForm) {
 
 async function initializeApp() {
   noticeItems = loadNoticeItems();
+  operationsItems = loadOperationsItems();
   paymentState = loadPaymentState();
   governancePolls = loadGovernancePolls();
   studentTokenMarketState = loadTokenMarketState();
