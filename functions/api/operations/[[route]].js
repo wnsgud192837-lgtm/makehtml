@@ -1,10 +1,11 @@
 import { json, requireSession } from "../../_lib/auth.js";
 
 const OPERATIONS_STORAGE_KEY = "operations:summary";
+const DEFAULT_OPERATIONS_TITLE = "25-1 예산 집행 현황";
 const DEFAULT_OPERATIONS_ITEMS = [
-  { title: "25-1 예산 집행 현황", label: "비조천 행사비", value: 72, tone: "magenta" },
-  { title: "학생 행사 운영", label: "교복제 행사비", value: 50, tone: "amber" },
-  { title: "행정 및 공통 운영", label: "운영비", value: 31, tone: "gray" }
+  { label: "비조천 행사비", value: 72, tone: "magenta" },
+  { label: "교복제 행사비", value: 50, tone: "amber" },
+  { label: "운영비", value: 31, tone: "gray" }
 ];
 
 async function upstash(env, command, body) {
@@ -33,6 +34,10 @@ function cloneDefaultOperationsItems() {
   return DEFAULT_OPERATIONS_ITEMS.map((item) => ({ ...item }));
 }
 
+function normalizeOperationsTitle(title) {
+  return typeof title === "string" && title.trim() ? title.trim() : DEFAULT_OPERATIONS_TITLE;
+}
+
 function normalizeOperationsItems(items) {
   if (!Array.isArray(items) || items.length === 0) {
     return cloneDefaultOperationsItems();
@@ -40,10 +45,6 @@ function normalizeOperationsItems(items) {
 
   return DEFAULT_OPERATIONS_ITEMS.map((fallback, index) => {
     const item = items[index];
-    const title =
-      item && typeof item.title === "string" && item.title.trim()
-        ? item.title.trim()
-        : fallback.title;
     const label =
       item && typeof item.label === "string" && item.label.trim()
         ? item.label.trim()
@@ -54,7 +55,6 @@ function normalizeOperationsItems(items) {
       : fallback.value;
 
     return {
-      title,
       label,
       value,
       tone: fallback.tone
@@ -62,21 +62,42 @@ function normalizeOperationsItems(items) {
   });
 }
 
-async function getOperationsItems(env) {
+function normalizeOperationsPayload(raw) {
+  if (Array.isArray(raw)) {
+    const legacyTitle = raw.find((item) => typeof item?.title === "string" && item.title.trim())?.title;
+    return {
+      title: normalizeOperationsTitle(legacyTitle),
+      items: normalizeOperationsItems(raw)
+    };
+  }
+
+  return {
+    title: normalizeOperationsTitle(raw?.title),
+    items: normalizeOperationsItems(raw?.items)
+  };
+}
+
+async function getOperationsSummary(env) {
   const raw = await upstash(env, `/get/${OPERATIONS_STORAGE_KEY}`);
   if (!raw) {
-    return cloneDefaultOperationsItems();
+    return {
+      title: DEFAULT_OPERATIONS_TITLE,
+      items: cloneDefaultOperationsItems()
+    };
   }
 
   try {
-    return normalizeOperationsItems(JSON.parse(raw));
+    return normalizeOperationsPayload(JSON.parse(raw));
   } catch {
-    return cloneDefaultOperationsItems();
+    return {
+      title: DEFAULT_OPERATIONS_TITLE,
+      items: cloneDefaultOperationsItems()
+    };
   }
 }
 
-async function setOperationsItems(env, items) {
-  const normalized = normalizeOperationsItems(items);
+async function setOperationsSummary(env, payload) {
+  const normalized = normalizeOperationsPayload(payload);
   await upstash(env, `/set/${OPERATIONS_STORAGE_KEY}`, normalized);
   return normalized;
 }
@@ -104,8 +125,8 @@ export async function onRequest(context) {
     }
 
     if (request.method === "GET") {
-      const items = await getOperationsItems(env);
-      return json(request, env, { items }, 200);
+      const summary = await getOperationsSummary(env);
+      return json(request, env, summary, 200);
     }
 
     if (request.method === "POST") {
@@ -114,8 +135,8 @@ export async function onRequest(context) {
       }
 
       const body = await request.json();
-      const items = await setOperationsItems(env, body?.items);
-      return json(request, env, { ok: true, items }, 200);
+      const summary = await setOperationsSummary(env, body);
+      return json(request, env, { ok: true, ...summary }, 200);
     }
 
     return json(request, env, { error: "not_found" }, 404);

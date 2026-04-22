@@ -625,17 +625,6 @@ input {
   gap: 12px;
 }
 
-.operations-copy {
-  display: grid;
-  gap: 4px;
-}
-
-.operations-title {
-  color: #1f2734;
-  font-size: 0.95rem;
-  font-weight: 700;
-}
-
 .operations-label {
   color: #606775;
   font-size: 0.86rem;
@@ -1440,7 +1429,6 @@ input {
     font-size: 1.06rem;
   }
 
-  .operations-title,
   .operations-label,
   .operations-value {
     white-space: normal;

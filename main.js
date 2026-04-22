@@ -32,6 +32,7 @@ const heroTitle = document.querySelector("#hero-title");
 const heroDescription = document.querySelector("#hero-description");
 const heroNoticeList = document.querySelector("#hero-notice-list");
 const operationsCard = document.querySelector("#operations-card");
+const operationsKicker = document.querySelector("#operations-kicker");
 const operationsMetrics = document.querySelector("#operations-metrics");
 const heroActions = document.querySelector("#hero-actions");
 const statusGrid = document.querySelector("#status-grid");
@@ -156,13 +157,15 @@ const placeholderCopy = {
 
 let noticeItems = [];
 let operationsItems = [];
+let operationsTitle = "";
 const NOTICE_STORAGE_KEY = "postech_notice_items";
 const POLL_STORAGE_KEY = "postech_governance_polls";
 const REMEMBER_ID_STORAGE_KEY = "postech_remembered_user_id";
+const INITIAL_OPERATIONS_TITLE = "25-1 예산 집행 현황";
 const INITIAL_OPERATIONS_ITEMS = [
-  { title: "25-1 예산 집행 현황", label: "비조천 행사비", value: 72, tone: "magenta" },
-  { title: "학생 행사 운영", label: "교복제 행사비", value: 50, tone: "amber" },
-  { title: "행정 및 공통 운영", label: "운영비", value: 31, tone: "gray" }
+  { label: "비조천 행사비", value: 72, tone: "magenta" },
+  { label: "교복제 행사비", value: 50, tone: "amber" },
+  { label: "운영비", value: 31, tone: "gray" }
 ];
 const INITIAL_TOKEN_MARKET_STATE = {
   pointReserve: 24000,
@@ -885,12 +888,14 @@ async function syncGovernanceFromApi() {
 async function syncOperationsFromApi() {
   try {
     const data = await operationsApiRequest("", { method: "GET" });
+    operationsTitle = normalizeOperationsTitle(data?.title);
     operationsItems = normalizeOperationsItems(data?.items);
     renderOperationsCard();
     populateOperationsForm();
     return true;
   } catch (error) {
     console.error("Operations sync failed:", error);
+    operationsTitle = INITIAL_OPERATIONS_TITLE;
     operationsItems = cloneInitialOperationsItems();
     renderOperationsCard();
     populateOperationsForm();
@@ -1173,6 +1178,10 @@ function cloneInitialOperationsItems() {
   return INITIAL_OPERATIONS_ITEMS.map((item) => ({ ...item }));
 }
 
+function normalizeOperationsTitle(title) {
+  return typeof title === "string" && title.trim() ? title.trim() : INITIAL_OPERATIONS_TITLE;
+}
+
 function normalizeOperationsItems(items) {
   if (!Array.isArray(items) || items.length === 0) {
     return cloneInitialOperationsItems();
@@ -1180,10 +1189,6 @@ function normalizeOperationsItems(items) {
 
   return INITIAL_OPERATIONS_ITEMS.map((fallback, index) => {
     const item = items[index];
-    const title =
-      item && typeof item.title === "string" && item.title.trim()
-        ? item.title.trim()
-        : fallback.title;
     const label =
       item && typeof item.label === "string" && item.label.trim()
         ? item.label.trim()
@@ -1194,7 +1199,6 @@ function normalizeOperationsItems(items) {
       : fallback.value;
 
     return {
-      title,
       label,
       value,
       tone: fallback.tone
@@ -1777,14 +1781,15 @@ function renderNoticeLists() {
 function renderOperationsCard() {
   if (!operationsMetrics) return;
 
+  if (operationsKicker) {
+    operationsKicker.textContent = operationsTitle || INITIAL_OPERATIONS_TITLE;
+  }
+
   operationsMetrics.innerHTML = operationsItems
     .map(
       (item) => `
         <div class="operations-metric">
-          <div class="operations-copy">
-            <strong class="operations-title">${escapeHtml(item.title)}</strong>
-            <span class="operations-label">${escapeHtml(item.label)}</span>
-          </div>
+          <span class="operations-label">${escapeHtml(item.label)}</span>
           <div class="operations-bar-track" aria-hidden="true">
             <span class="operations-bar-fill is-${escapeHtml(item.tone)}" style="width: ${item.value}%;"></span>
           </div>
@@ -1798,14 +1803,14 @@ function renderOperationsCard() {
 function populateOperationsForm() {
   if (!operationsForm) return;
 
+  const operationsTitleInput = operationsForm.elements.namedItem("operations-title");
+  if (operationsTitleInput instanceof HTMLInputElement) {
+    operationsTitleInput.value = operationsTitle || INITIAL_OPERATIONS_TITLE;
+  }
+
   operationsItems.forEach((item, index) => {
-    const titleInput = operationsForm.elements.namedItem(`title-${index}`);
     const labelInput = operationsForm.elements.namedItem(`label-${index}`);
     const valueInput = operationsForm.elements.namedItem(`value-${index}`);
-
-    if (titleInput instanceof HTMLInputElement) {
-      titleInput.value = item.title;
-    }
 
     if (labelInput instanceof HTMLInputElement) {
       labelInput.value = item.label;
@@ -2149,14 +2154,13 @@ if (operationsForm) {
 
     if (currentRole !== "admin") return;
 
+    const operationsTitleInput = operationsForm.elements.namedItem("operations-title");
+    const nextTitle =
+      operationsTitleInput instanceof HTMLInputElement ? operationsTitleInput.value.trim() : "";
+
     const nextItems = INITIAL_OPERATIONS_ITEMS.map((item, index) => {
-      const titleInput = operationsForm.elements.namedItem(`title-${index}`);
       const labelInput = operationsForm.elements.namedItem(`label-${index}`);
       const valueInput = operationsForm.elements.namedItem(`value-${index}`);
-      const title =
-        titleInput instanceof HTMLInputElement && titleInput.value.trim()
-          ? titleInput.value.trim()
-          : item.title;
       const label =
         labelInput instanceof HTMLInputElement && labelInput.value.trim()
           ? labelInput.value.trim()
@@ -2168,17 +2172,16 @@ if (operationsForm) {
         : item.value;
 
       return {
-        title,
         label,
         value,
         tone: item.tone
       };
     });
 
-    const hasEmptyField = nextItems.some((item) => !item.title || !item.label);
-    if (hasEmptyField) {
+    const hasEmptyLabel = nextItems.some((item) => !item.label);
+    if (!nextTitle || hasEmptyLabel) {
       if (operationsMessage) {
-        operationsMessage.textContent = "각 항목의 제목과 이름을 모두 입력해야 합니다.";
+        operationsMessage.textContent = "전체 제목과 각 항목 이름을 모두 입력해야 합니다.";
       }
       return;
     }
@@ -2186,8 +2189,9 @@ if (operationsForm) {
     try {
       const data = await operationsApiRequest("", {
         method: "POST",
-        body: JSON.stringify({ items: nextItems })
+        body: JSON.stringify({ title: normalizeOperationsTitle(nextTitle), items: nextItems })
       });
+      operationsTitle = normalizeOperationsTitle(data?.title);
       operationsItems = normalizeOperationsItems(data?.items);
       renderOperationsCard();
       populateOperationsForm();

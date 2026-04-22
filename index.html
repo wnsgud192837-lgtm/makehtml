@@ -156,7 +156,7 @@
           <ul class="notice-list is-hidden" id="hero-notice-list"></ul>
         </aside>
         <aside class="operations-card is-hidden" id="operations-card" aria-labelledby="operations-card-title">
-          <p class="operations-kicker">25-1 예산 집행 현황</p>
+          <p class="operations-kicker" id="operations-kicker">25-1 예산 집행 현황</p>
           <h3 id="operations-card-title">총학 운영 내역</h3>
           <div class="operations-metrics" id="operations-metrics" aria-label="총학 운영 예산 집행 내역"></div>
         </aside>
@@ -268,12 +268,13 @@
               </div>
 
               <form class="notice-form operations-form" id="operations-form">
+                <label class="notice-field">
+                  <span>전체 제목</span>
+                  <input type="text" name="operations-title" placeholder="예: 25-1 예산 집행 현황" maxlength="60">
+                </label>
+
                 <div class="operations-admin-grid">
                   <div class="operations-admin-row">
-                    <label class="notice-field">
-                      <span>항목 1 제목</span>
-                      <input type="text" name="title-0" placeholder="예: 25-1 예산 집행 현황" maxlength="60">
-                    </label>
                     <label class="notice-field">
                       <span>항목 1 이름</span>
                       <input type="text" name="label-0" placeholder="예: 비조천 행사비" maxlength="40">
@@ -286,10 +287,6 @@
 
                   <div class="operations-admin-row">
                     <label class="notice-field">
-                      <span>항목 2 제목</span>
-                      <input type="text" name="title-1" placeholder="예: 학생 행사 운영" maxlength="60">
-                    </label>
-                    <label class="notice-field">
                       <span>항목 2 이름</span>
                       <input type="text" name="label-1" placeholder="예: 교복제 행사비" maxlength="40">
                     </label>
@@ -300,10 +297,6 @@
                   </div>
 
                   <div class="operations-admin-row">
-                    <label class="notice-field">
-                      <span>항목 3 제목</span>
-                      <input type="text" name="title-2" placeholder="예: 행정 및 공통 운영" maxlength="60">
-                    </label>
                     <label class="notice-field">
                       <span>항목 3 이름</span>
                       <input type="text" name="label-2" placeholder="예: 운영비" maxlength="40">
