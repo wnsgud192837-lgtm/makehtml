@@ -457,7 +457,7 @@ const currentSubnavIndexByView = {
   dashboard: 1
 };
 const subnavCopy = {
-  dashboard: { labels: ["Notice", "Calendar", "Status"], activeIndex: 1 },
+  dashboard: { labels: ["Notice", "Calendar"], activeIndex: 1 },
   points: { labels: ["Balance", "History", "Token"], activeIndex: 1 },
   tokens: { labels: ["Primary", "Purchase", "Token"], activeIndex: 1 },
   market: { labels: ["Market", "Trade", "Activity"], activeIndex: 1 },
@@ -2054,8 +2054,10 @@ function renderSubnav() {
   assetsSubnav.classList.toggle("is-hidden", false);
 
   assetsSubnavItems.forEach((item, index) => {
-    item.textContent = config.labels[index] || "";
+    const label = config.labels[index] || "";
+    item.textContent = label;
     item.classList.toggle("is-active", index === activeIndex);
+    item.classList.toggle("is-hidden", !label);
   });
 }
 
@@ -2065,7 +2067,6 @@ function renderHomeSubnavSections() {
   const activeIndex = currentSubnavIndexByView.dashboard ?? 1;
   const showNotice = activeIndex === 0;
   const showCalendar = activeIndex === 1;
-  const showStatus = activeIndex === 2;
 
   if (heroPanel) {
     heroPanel.classList.toggle("is-hidden", !showNotice);
@@ -2086,7 +2087,7 @@ function renderHomeSubnavSections() {
   }
 
   if (statusGrid) {
-    statusGrid.classList.toggle("is-hidden", !showStatus);
+    statusGrid.classList.toggle("is-hidden", true);
   }
 }
 

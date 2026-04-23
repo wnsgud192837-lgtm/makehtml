@@ -383,6 +383,10 @@ input {
   border-bottom-color: #1f7aec;
 }
 
+.assets-subnav-item.is-hidden {
+  display: none;
+}
+
 .asset-balance-panel {
   margin-bottom: 14px;
 }
