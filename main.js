@@ -1707,8 +1707,9 @@ function switchView(view) {
       ? view === "tokens"
       : view === "points" || view === "tokens" || view === "market";
   const isStudentManagementView = currentRole === "admin" && view === "students";
+  const showStatusGrid = currentRole === "student" ? isDashboard : true;
 
-  if (statusGrid) statusGrid.classList.remove("is-hidden");
+  if (statusGrid) statusGrid.classList.toggle("is-hidden", !showStatusGrid);
   if (dashboardView) dashboardView.classList.toggle("is-hidden", !isDashboard);
   if (pointsView) pointsView.classList.toggle("is-hidden", !isPoints);
   if (tokenView) tokenView.classList.toggle("is-hidden", !isTokenView);
