@@ -428,6 +428,9 @@ input {
   font-weight: 700;
   cursor: pointer;
   padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   white-space: nowrap;
 }
 
@@ -441,7 +444,137 @@ input {
 }
 
 .app-nav-icon {
-  display: none;
+  position: relative;
+  display: block;
+  width: 24px;
+  height: 24px;
+  color: currentColor;
+  flex: 0 0 auto;
+}
+
+.app-nav-icon::before,
+.app-nav-icon::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  box-sizing: border-box;
+}
+
+.app-nav-icon--dashboard::before {
+  width: 13px;
+  height: 10px;
+  border: 2px solid currentColor;
+  border-top: 0;
+  border-radius: 2px;
+  top: 56%;
+}
+
+.app-nav-icon--dashboard::after {
+  width: 10px;
+  height: 10px;
+  border-top: 2px solid currentColor;
+  border-left: 2px solid currentColor;
+  transform: translate(-50%, -67%) rotate(45deg);
+}
+
+.app-nav-icon--points::before {
+  width: 16px;
+  height: 11px;
+  border: 2px solid currentColor;
+  border-radius: 4px;
+  top: 57%;
+}
+
+.app-nav-icon--points::after {
+  width: 7px;
+  height: 7px;
+  border: 2px solid currentColor;
+  border-radius: 3px;
+  background: transparent;
+  left: 62%;
+  top: 44%;
+  clip-path: inset(0 0 0 20%);
+}
+
+.app-nav-icon--tokens::before {
+  width: 14px;
+  height: 11px;
+  border: 2px solid currentColor;
+  border-radius: 3px;
+}
+
+.app-nav-icon--tokens::after {
+  width: 7px;
+  height: 2px;
+  background: currentColor;
+  border-radius: 999px;
+  box-shadow: 0 -4px 0 0 currentColor, 0 4px 0 0 currentColor;
+}
+
+.app-nav-icon--market::before {
+  width: 15px;
+  height: 10px;
+  border-left: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  left: 44%;
+  top: 58%;
+}
+
+.app-nav-icon--market::after {
+  width: 12px;
+  height: 12px;
+  border-top: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  transform: translate(0, -5px) rotate(45deg);
+  left: 44%;
+  top: 52%;
+  box-shadow:
+    -8px 7px 0 -5px currentColor,
+    -4px 4px 0 -5px currentColor,
+    1px 0 0 -5px currentColor;
+}
+
+.app-nav-icon--governance::before {
+  width: 16px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-radius: 4px;
+  top: 57%;
+}
+
+.app-nav-icon--governance::after {
+  width: 8px;
+  height: 5px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translate(-50%, -60%) rotate(35deg);
+  top: 48%;
+}
+
+.app-nav-icon--rental::before {
+  width: 11px;
+  height: 8px;
+  border: 2px solid currentColor;
+  border-radius: 2px;
+  transform: translate(-15%, -70%) rotate(-12deg);
+  top: 50%;
+  left: 56%;
+}
+
+.app-nav-icon--rental::after {
+  width: 14px;
+  height: 10px;
+  border-left: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  border-radius: 0 0 0 4px;
+  transform: translate(-50%, -50%) skewX(10deg);
+  top: 58%;
+  left: 44%;
+  box-shadow:
+    2px 8px 0 -5px currentColor,
+    10px 8px 0 -5px currentColor;
 }
 
 .app-nav-item.is-active {
@@ -1691,100 +1824,123 @@ input {
   .app-nav-icon--dashboard::before {
     width: 18px;
     height: 14px;
-    border: 3px solid currentColor;
+    border: 2.5px solid currentColor;
     border-top: 0;
-    border-radius: 4px;
-    top: 54%;
+    border-radius: 3px;
+    top: 55%;
   }
 
   .app-nav-icon--dashboard::after {
-    width: 14px;
-    height: 14px;
-    border-top: 3px solid currentColor;
-    border-left: 3px solid currentColor;
-    transform: translate(-50%, -63%) rotate(45deg);
+    width: 13px;
+    height: 13px;
+    border-top: 2.5px solid currentColor;
+    border-left: 2.5px solid currentColor;
+    transform: translate(-50%, -67%) rotate(45deg);
     border-top-left-radius: 2px;
   }
 
   .app-nav-icon--points::before {
-    width: 18px;
+    width: 26px;
     height: 18px;
-    border: 3px solid currentColor;
-    border-radius: 50%;
+    border: 2.5px solid currentColor;
+    border-radius: 7px;
+    top: 57%;
   }
 
   .app-nav-icon--points::after {
-    width: 10px;
-    height: 3px;
-    background: currentColor;
-    border-radius: 999px;
-    transform: translate(-35%, 40%) rotate(-28deg);
+    width: 11px;
+    height: 11px;
+    border: 2.5px solid currentColor;
+    border-radius: 4px;
+    background: transparent;
+    left: 62%;
+    top: 43%;
+    box-shadow: -8px -1px 0 -6px currentColor;
+    clip-path: inset(0 0 0 18%);
   }
 
   .app-nav-icon--tokens::before {
-    width: 18px;
-    height: 18px;
-    border: 3px solid currentColor;
+    width: 20px;
+    height: 16px;
+    border: 2.5px solid currentColor;
     border-radius: 4px;
-    box-shadow:
-      -8px 0 0 -5px currentColor,
-      8px 0 0 -5px currentColor,
-      0 -8px 0 -5px currentColor,
-      0 8px 0 -5px currentColor;
+    top: 53%;
   }
 
-  .app-nav-icon--market::before,
-  .app-nav-icon--market::after {
-    width: 12px;
-    height: 12px;
-    border: 3px solid currentColor;
-    border-left: 0;
-    border-bottom: 0;
-    border-radius: 10px 10px 0 0;
+  .app-nav-icon--tokens::after {
+    width: 10px;
+    height: 2.5px;
+    background: currentColor;
+    border-radius: 999px;
+    top: 53%;
+    box-shadow: 0 -6px 0 0 currentColor, 0 6px 0 0 currentColor;
   }
 
   .app-nav-icon--market::before {
-    transform: translate(-68%, -46%) rotate(-45deg);
+    width: 22px;
+    height: 14px;
+    border-left: 2.5px solid currentColor;
+    border-bottom: 2.5px solid currentColor;
+    left: 48%;
+    top: 58%;
+    transform: translate(-50%, -50%);
   }
 
   .app-nav-icon--market::after {
-    transform: translate(-32%, -46%) rotate(135deg);
+    width: 18px;
+    height: 18px;
+    border-top: 2.5px solid currentColor;
+    border-right: 2.5px solid currentColor;
+    transform: translate(-2px, -7px) rotate(45deg);
+    left: 46%;
+    top: 52%;
+    box-shadow:
+      -13px 11px 0 -8px currentColor,
+      -6px 6px 0 -8px currentColor,
+      1px 1px 0 -8px currentColor;
   }
 
   .app-nav-icon--governance::before {
-    width: 20px;
-    height: 16px;
-    border: 3px solid currentColor;
-    border-bottom: 0;
-    border-radius: 10px 10px 0 0;
-    top: 44%;
+    width: 24px;
+    height: 18px;
+    border: 2.5px solid currentColor;
+    border-radius: 6px;
+    top: 58%;
   }
 
   .app-nav-icon--governance::after {
-    width: 16px;
-    height: 10px;
-    border: 3px solid currentColor;
-    border-top: 0;
-    border-radius: 0 0 10px 10px;
-    top: 62%;
+    width: 12px;
+    height: 8px;
+    border-right: 2.5px solid currentColor;
+    border-bottom: 2.5px solid currentColor;
+    background: transparent;
+    transform: translate(-50%, -65%) rotate(35deg);
+    top: 48%;
+    left: 50%;
   }
 
   .app-nav-icon--rental::before {
     width: 18px;
-    height: 18px;
-    border: 3px solid currentColor;
-    border-radius: 50% 50% 45% 45%;
-    clip-path: inset(0 0 20% 0);
-    top: 40%;
+    height: 12px;
+    border: 2.5px solid currentColor;
+    border-radius: 3px;
+    transform: translate(-20%, -70%) rotate(-12deg);
+    top: 50%;
+    left: 55%;
   }
 
   .app-nav-icon--rental::after {
-    width: 18px;
-    height: 11px;
-    border: 3px solid currentColor;
-    border-top: 0;
-    border-radius: 0 0 12px 12px;
-    top: 67%;
+    width: 22px;
+    height: 14px;
+    border-left: 2.5px solid currentColor;
+    border-bottom: 2.5px solid currentColor;
+    border-radius: 0 0 0 5px;
+    transform: translate(-50%, -50%) skewX(10deg);
+    top: 58%;
+    left: 46%;
+    box-shadow:
+      3px 12px 0 -8px currentColor,
+      15px 12px 0 -8px currentColor;
   }
 
   .app-nav-icon--students::before {
