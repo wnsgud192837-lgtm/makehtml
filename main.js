@@ -74,8 +74,6 @@ const tokenValue = document.querySelector("#token-value");
 const tokenMeta = document.querySelector("#token-meta");
 const paymentStatus = document.querySelector("#payment-status");
 const assetBalancePanel = document.querySelector("#asset-balance-panel");
-const assetBalancePoints = document.querySelector("#asset-balance-points");
-const assetBalanceToken = document.querySelector("#asset-balance-token");
 const assetHoldingsList = document.querySelector("#asset-holdings-list");
 const calendarGrid = document.querySelector("#calendar-grid");
 const calendarPrevButton = document.querySelector("#calendar-prev-button");
@@ -1284,14 +1282,6 @@ function renderStudentAssetsPanels() {
     assetBalancePanel.classList.remove("is-hidden");
   }
 
-  if (assetBalancePoints) {
-    assetBalancePoints.textContent = `${state.points.toLocaleString()}P`;
-  }
-
-  if (assetBalanceToken) {
-    assetBalanceToken.textContent = String(state.tokens);
-  }
-
   if (assetHoldingsList) {
     if (purchaseSummary.size === 0) {
       assetHoldingsList.innerHTML = `
@@ -1808,6 +1798,8 @@ function switchView(view) {
 
   renderSubnav();
   renderStudentAssetsTabSections();
+  renderPointsHistory();
+  renderTokenMarket();
 
   const isAdminNoticeView = currentRole === "admin" && view === "market";
   const isGovernanceView = view === "governance";
