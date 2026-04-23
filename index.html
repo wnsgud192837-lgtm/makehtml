@@ -141,27 +141,27 @@
       <nav class="app-nav" aria-label="주요 메뉴">
         <button type="button" class="app-nav-item is-active" data-view="dashboard">
           <span class="app-nav-icon app-nav-icon--dashboard" aria-hidden="true"></span>
-          <span class="app-nav-label">대시보드</span>
+          <span class="app-nav-label">Home</span>
         </button>
         <button type="button" class="app-nav-item" data-view="points">
           <span class="app-nav-icon app-nav-icon--points" aria-hidden="true"></span>
-          <span class="app-nav-label">포인트</span>
+          <span class="app-nav-label">Assets</span>
         </button>
         <button type="button" class="app-nav-item" data-view="tokens">
           <span class="app-nav-icon app-nav-icon--tokens" aria-hidden="true"></span>
-          <span class="app-nav-label">토큰</span>
+          <span class="app-nav-label">Token</span>
         </button>
         <button type="button" class="app-nav-item" data-view="market">
           <span class="app-nav-icon app-nav-icon--market" aria-hidden="true"></span>
-          <span class="app-nav-label">세컨더리 마켓</span>
+          <span class="app-nav-label">Market</span>
         </button>
         <button type="button" class="app-nav-item" data-view="governance">
           <span class="app-nav-icon app-nav-icon--governance" aria-hidden="true"></span>
-          <span class="app-nav-label">거버넌스</span>
+          <span class="app-nav-label">Vote</span>
         </button>
         <button type="button" class="app-nav-item" data-view="rental">
           <span class="app-nav-icon app-nav-icon--rental" aria-hidden="true"></span>
-          <span class="app-nav-label">대여사업</span>
+          <span class="app-nav-label">Rent</span>
         </button>
         <button type="button" class="app-nav-item is-hidden" data-view="students" id="student-management-nav">
           <span class="app-nav-icon app-nav-icon--students" aria-hidden="true"></span>
@@ -230,8 +230,8 @@
         <article class="board-panel points-panel">
           <header class="panel-titlebar">
             <div>
-              <p class="panel-kicker">포인트</p>
-              <h3>포인트 사용 내역</h3>
+              <p class="panel-kicker" id="points-panel-kicker">포인트</p>
+              <h3 id="points-panel-title">포인트 사용 내역</h3>
             </div>
             <div class="progress-chip" id="points-history-total">0건</div>
           </header>

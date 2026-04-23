@@ -76,6 +76,8 @@ const calendarPrevButton = document.querySelector("#calendar-prev-button");
 const calendarNextButton = document.querySelector("#calendar-next-button");
 const pointsHistoryList = document.querySelector("#points-history-list");
 const pointsHistoryTotal = document.querySelector("#points-history-total");
+const pointsPanelKicker = document.querySelector("#points-panel-kicker");
+const pointsPanelTitle = document.querySelector("#points-panel-title");
 const confirmModal = document.querySelector("#confirm-modal");
 const confirmModalMessage = document.querySelector("#confirm-modal-message");
 const confirmModalConfirmButton = document.querySelector("#confirm-modal-confirm");
@@ -189,11 +191,11 @@ const roleConfigs = {
       token: "거버넌스 토큰"
     },
     nav: {
-      points: "포인트",
-      tokens: "토큰",
-      market: "세컨더리 마켓",
-      governance: "거버넌스",
-      rental: "대여사업"
+      dashboard: "Home",
+      points: "Assets",
+      market: "Market",
+      governance: "Vote",
+      rental: "Rent"
     },
     showModeButtons: true,
     defaultMode: "payer"
@@ -1607,8 +1609,22 @@ function applyRoleLayout(role) {
     }
   });
 
+  const tokenNavItem = navItems.find((item) => item.dataset.view === "tokens");
+  if (tokenNavItem) {
+    tokenNavItem.classList.toggle("is-hidden", role === "student");
+  }
+
   if (studentManagementNavItem) {
     studentManagementNavItem.classList.toggle("is-hidden", role !== "admin");
+  }
+
+  if (pointsPanelKicker) {
+    pointsPanelKicker.textContent = role === "student" ? "Assets" : "포인트";
+  }
+
+  if (pointsPanelTitle) {
+    pointsPanelTitle.textContent =
+      role === "student" ? "Points and token purchase" : "포인트 사용 내역";
   }
 
   if (studentManagementPanel) {
@@ -1677,7 +1693,10 @@ function switchView(view) {
 
   const isDashboard = view === "dashboard";
   const isPoints = view === "points";
-  const isTokenView = currentRole === "admin" ? view === "tokens" : view === "tokens" || view === "market";
+  const isTokenView =
+    currentRole === "admin"
+      ? view === "tokens"
+      : view === "points" || view === "tokens" || view === "market";
   const isStudentManagementView = currentRole === "admin" && view === "students";
 
   if (statusGrid) statusGrid.classList.remove("is-hidden");
