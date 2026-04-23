@@ -41,6 +41,8 @@ const pointsView = document.querySelector("#points-view");
 const tokenView = document.querySelector("#token-view");
 const studentManagementView = document.querySelector("#student-management-view");
 const tokenMarketPanel = document.querySelector("#token-market-panel");
+const assetsSubnav = document.querySelector("#assets-subnav");
+const assetsSubnavItems = Array.from(document.querySelectorAll("[data-subnav-index]"));
 const placeholderView = document.querySelector("#placeholder-view");
 const placeholderPanel = document.querySelector("#placeholder-panel");
 const placeholderKicker = document.querySelector("#placeholder-kicker");
@@ -451,6 +453,15 @@ const baseState = {
 
 let currentMode = "payer";
 let currentView = "dashboard";
+const subnavCopy = {
+  dashboard: { labels: ["Notice", "Calendar", "Status"], activeIndex: 1 },
+  points: { labels: ["Balance", "History", "Token"], activeIndex: 1 },
+  tokens: { labels: ["Primary", "Purchase", "Token"], activeIndex: 1 },
+  market: { labels: ["Market", "Trade", "Activity"], activeIndex: 1 },
+  governance: { labels: ["Agenda", "Vote", "Result"], activeIndex: 1 },
+  rental: { labels: ["Browse", "Booking", "History"], activeIndex: 1 },
+  students: { labels: ["Users", "Logs", "Delete"], activeIndex: 1 }
+};
 let currentRole = "student";
 let currentUserId = "";
 let currentCalendarMonth = highlightedMonth >= 0 ? highlightedMonth : 3;
@@ -1670,6 +1681,7 @@ function applyRoleLayout(role) {
   populateOperationsForm();
   renderGovernanceList();
   renderTokenMarket();
+  renderSubnav();
 
   if (role === "admin") {
     renderStudentManagementPanel();
@@ -1759,6 +1771,8 @@ function switchView(view) {
         currentRole === "admin" && view === "market" ? "공지 사항" : "준비 중";
     }
   }
+
+  renderSubnav();
 
   const isAdminNoticeView = currentRole === "admin" && view === "market";
   const isGovernanceView = view === "governance";
@@ -2024,6 +2038,19 @@ function renderPointsHistory() {
       </li>
     `)
     .join("");
+}
+
+function renderSubnav() {
+  if (!assetsSubnav || assetsSubnavItems.length === 0) return;
+
+  const config = subnavCopy[currentView] || subnavCopy.dashboard;
+
+  assetsSubnav.classList.toggle("is-hidden", false);
+
+  assetsSubnavItems.forEach((item, index) => {
+    item.textContent = config.labels[index] || "";
+    item.classList.toggle("is-active", index === config.activeIndex);
+  });
 }
 
 function renderNoticeLists() {
