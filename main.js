@@ -1099,7 +1099,7 @@ function renderPrimaryTokenPurchasePanel() {
       <div class="progress-chip">보유 포인트 ${state.points.toLocaleString()}P</div>
     </header>
 
-    <div class="token-market-grid token-market-grid--single">
+    <div class="token-market-grid">
       <section class="token-market-card token-market-card-primary">
         <strong class="token-market-title">학생회비를 납부한 경우에만 이 탭에서 구매가 가능합니다.</strong>
 
