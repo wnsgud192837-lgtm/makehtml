@@ -510,6 +510,8 @@ input {
 .app-nav-icon--rental::before {
   mask-image: url("./nav-rent.svg");
   -webkit-mask-image: url("./nav-rent.svg");
+  transform: scale(1.1);
+  transform-origin: center;
 }
 
 .app-nav-item.is-active {
@@ -1748,6 +1750,10 @@ input {
 
   .app-nav-icon::before {
     inset: 14px;
+  }
+
+  .app-nav-icon--rental::before {
+    inset: 10px;
   }
 
   .app-nav-icon::after {
