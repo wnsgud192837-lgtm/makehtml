@@ -1686,6 +1686,10 @@ function updateModeButtons() {
 }
 
 function switchView(view) {
+  if (currentRole === "student" && view === "students") {
+    view = "dashboard";
+  }
+
   currentView = view;
   navItems.forEach((item) => {
     item.classList.toggle("is-active", item.dataset.view === view);
@@ -1703,8 +1707,18 @@ function switchView(view) {
   if (dashboardView) dashboardView.classList.toggle("is-hidden", !isDashboard);
   if (pointsView) pointsView.classList.toggle("is-hidden", !isPoints);
   if (tokenView) tokenView.classList.toggle("is-hidden", !isTokenView);
+  if (pointsView) {
+    pointsView.classList.toggle("is-student-assets-view", currentRole === "student" && isPoints);
+  }
+  if (tokenView) {
+    tokenView.classList.toggle("is-student-assets-view", currentRole === "student" && isPoints);
+    tokenView.classList.toggle("is-student-market-view", currentRole === "student" && view === "market");
+  }
   if (studentManagementView) {
-    studentManagementView.classList.toggle("is-hidden", !isStudentManagementView);
+    studentManagementView.classList.toggle(
+      "is-hidden",
+      currentRole === "student" ? true : !isStudentManagementView
+    );
   }
   if (placeholderView) {
     placeholderView.classList.toggle(
@@ -1717,7 +1731,7 @@ function switchView(view) {
     void syncEventsFromApi();
   }
 
-  if (isStudentManagementView && currentUserId) {
+  if (currentRole === "admin" && isStudentManagementView && currentUserId) {
     void syncStudentManagementUsersFromApi();
     void syncStudentManagementLogsFromApi();
   }
@@ -1790,7 +1804,10 @@ function switchView(view) {
   }
 
   if (studentManagementPanel) {
-    studentManagementPanel.classList.toggle("is-hidden", !isStudentManagementView);
+    studentManagementPanel.classList.toggle(
+      "is-hidden",
+      currentRole === "student" ? true : !isStudentManagementView
+    );
   }
 
   if (placeholderText) {

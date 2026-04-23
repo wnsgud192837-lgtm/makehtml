@@ -779,6 +779,15 @@ input {
   min-height: 0;
 }
 
+.view-section.is-student-assets-view {
+  gap: 16px;
+}
+
+.view-section.is-student-assets-view .points-panel,
+.view-section.is-student-assets-view .token-market-panel {
+  min-height: 0;
+}
+
 .calendar-panel,
 .board-panel,
 .detail-panel,
@@ -1722,6 +1731,61 @@ input {
     gap: 14px;
   }
 
+  .view-section.is-student-assets-view {
+    gap: 12px;
+  }
+
+  .view-section.is-student-assets-view .panel-titlebar {
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+  }
+
+  .view-section.is-student-assets-view .points-panel,
+  .view-section.is-student-assets-view .token-market-panel {
+    padding: 16px 14px;
+  }
+
+  .view-section.is-student-assets-view .token-market-title {
+    font-size: 1.02rem;
+    line-height: 1.45;
+  }
+
+  .view-section.is-student-assets-view .token-market-copy,
+  .view-section.is-student-market-view .token-market-copy {
+    margin-bottom: 14px;
+    font-size: 0.88rem;
+    line-height: 1.65;
+  }
+
+  .view-section.is-student-assets-view .token-trade-card,
+  .view-section.is-student-market-view .token-trade-card {
+    gap: 14px;
+    padding: 16px 0;
+  }
+
+  .view-section.is-student-assets-view .token-trade-badge,
+  .view-section.is-student-market-view .token-trade-badge {
+    white-space: normal;
+  }
+
+  .view-section.is-student-assets-view .notice-field input,
+  .view-section.is-student-market-view .notice-field input {
+    min-height: 46px;
+  }
+
+  .view-section.is-student-assets-view .login-button.notice-submit,
+  .view-section.is-student-market-view .login-button.notice-submit,
+  .view-section.is-student-market-view .token-sell-button {
+    width: 100%;
+    min-height: 46px;
+  }
+
+  .view-section.is-student-assets-view small,
+  .view-section.is-student-market-view small {
+    display: block;
+    line-height: 1.5;
+  }
+
   .panel-titlebar {
     align-items: flex-start;
     gap: 10px;
@@ -1774,6 +1838,10 @@ input {
 
   .token-market-stats {
     grid-template-columns: 1fr;
+  }
+
+  .token-market-grid {
+    gap: 14px;
   }
 
   .token-trade-actions,
