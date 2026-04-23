@@ -1727,6 +1727,10 @@ input {
     gap: 14px;
   }
 
+  .view-section.is-hidden {
+    display: none;
+  }
+
   .view-section.is-student-assets-view {
     gap: 12px;
   }
