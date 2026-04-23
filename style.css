@@ -846,6 +846,25 @@ input {
   margin-bottom: 22px;
 }
 
+.status-grid.is-home-notice {
+  margin-bottom: 18px;
+}
+
+.status-grid.is-home-notice .status-card:first-child {
+  align-content: center;
+}
+
+.status-grid.is-home-notice .status-card:first-child .status-label,
+.status-grid.is-home-notice .status-card:first-child strong,
+.status-grid.is-home-notice .status-card:first-child span:not(#payment-btn) {
+  display: none;
+}
+
+.status-grid.is-home-notice .status-card:first-child #payment-btn {
+  width: 100%;
+  margin-top: 0;
+}
+
 .status-card {
   padding: 20px 18px;
   border-radius: 22px;

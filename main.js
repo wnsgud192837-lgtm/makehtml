@@ -2087,7 +2087,8 @@ function renderHomeSubnavSections() {
   }
 
   if (statusGrid) {
-    statusGrid.classList.toggle("is-hidden", true);
+    statusGrid.classList.toggle("is-hidden", !showNotice);
+    statusGrid.classList.toggle("is-home-notice", showNotice);
   }
 }
 
