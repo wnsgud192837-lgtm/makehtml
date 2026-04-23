@@ -430,6 +430,15 @@ input {
   white-space: nowrap;
 }
 
+.app-nav-label {
+  display: inline-flex;
+  align-items: center;
+}
+
+.app-nav-icon {
+  display: none;
+}
+
 .app-nav-item.is-active {
   color: #ffe7f5;
 }
@@ -1405,7 +1414,7 @@ input {
   }
 
   .dashboard-page {
-    padding: 12px 12px calc(110px + env(safe-area-inset-bottom, 0px));
+    padding: 12px 12px 32px;
     background:
       linear-gradient(180deg, rgba(201, 15, 113, 0.08) 0%, rgba(247, 249, 252, 0) 180px),
       #f4f7fb;
@@ -1461,21 +1470,19 @@ input {
   }
 
   .app-nav {
-    position: fixed;
-    left: 12px;
-    right: 12px;
-    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-    z-index: 20;
-    min-height: 70px;
+    position: static;
+    z-index: auto;
     margin: 0;
-    padding: 10px 12px;
-    border-radius: 24px;
-    gap: 10px;
-    overflow-x: auto;
-    background: rgba(21, 34, 64, 0.92);
-    box-shadow: 0 20px 45px rgba(12, 20, 38, 0.28);
-    backdrop-filter: blur(18px);
-    scroll-snap-type: x proximity;
+    min-height: 0;
+    padding: 6px 0 2px;
+    border-radius: 0;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px 8px;
+    overflow: visible;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
   }
 
   .app-nav::-webkit-scrollbar {
@@ -1491,20 +1498,176 @@ input {
   }
 
   .app-nav-item {
-    min-width: max-content;
-    min-height: 48px;
-    padding: 0 16px;
-    border-radius: 16px;
-    color: rgba(255, 255, 255, 0.76);
-    background: rgba(255, 255, 255, 0.08);
-    font-size: 0.86rem;
-    scroll-snap-align: center;
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    border-radius: 0;
+    display: grid;
+    justify-items: center;
+    gap: 8px;
+    color: #97a0ae;
+    background: transparent;
+    font-size: 0.74rem;
+    font-weight: 700;
+    white-space: normal;
+    text-align: center;
   }
 
   .app-nav-item.is-active {
+    color: #2f7df0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .app-nav-label {
+    justify-content: center;
+    min-height: 1.2em;
+    font-size: 0.74rem;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+  }
+
+  .app-nav-icon {
+    position: relative;
+    display: block;
+    width: 60px;
+    height: 58px;
+    border-radius: 18px;
+    color: #9aa4b4;
+    background: linear-gradient(180deg, #f1f3f7 0%, #f5f6f9 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  }
+
+  .app-nav-item.is-active .app-nav-icon {
     color: #fff;
-    background: linear-gradient(135deg, rgba(201, 15, 113, 0.92), rgba(23, 63, 125, 0.92));
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+    background: linear-gradient(180deg, #5fa2ff 0%, #2f7df0 100%);
+    box-shadow: 0 12px 20px rgba(47, 125, 240, 0.28);
+  }
+
+  .app-nav-icon::before,
+  .app-nav-icon::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    box-sizing: border-box;
+  }
+
+  .app-nav-icon--dashboard::before {
+    width: 18px;
+    height: 14px;
+    border: 3px solid currentColor;
+    border-top: 0;
+    border-radius: 4px;
+    top: 54%;
+  }
+
+  .app-nav-icon--dashboard::after {
+    width: 14px;
+    height: 14px;
+    border-top: 3px solid currentColor;
+    border-left: 3px solid currentColor;
+    transform: translate(-50%, -63%) rotate(45deg);
+    border-top-left-radius: 2px;
+  }
+
+  .app-nav-icon--points::before {
+    width: 18px;
+    height: 18px;
+    border: 3px solid currentColor;
+    border-radius: 50%;
+  }
+
+  .app-nav-icon--points::after {
+    width: 10px;
+    height: 3px;
+    background: currentColor;
+    border-radius: 999px;
+    transform: translate(-35%, 40%) rotate(-28deg);
+  }
+
+  .app-nav-icon--tokens::before {
+    width: 18px;
+    height: 18px;
+    border: 3px solid currentColor;
+    border-radius: 4px;
+    box-shadow:
+      -8px 0 0 -5px currentColor,
+      8px 0 0 -5px currentColor,
+      0 -8px 0 -5px currentColor,
+      0 8px 0 -5px currentColor;
+  }
+
+  .app-nav-icon--market::before,
+  .app-nav-icon--market::after {
+    width: 12px;
+    height: 12px;
+    border: 3px solid currentColor;
+    border-left: 0;
+    border-bottom: 0;
+    border-radius: 10px 10px 0 0;
+  }
+
+  .app-nav-icon--market::before {
+    transform: translate(-68%, -46%) rotate(-45deg);
+  }
+
+  .app-nav-icon--market::after {
+    transform: translate(-32%, -46%) rotate(135deg);
+  }
+
+  .app-nav-icon--governance::before {
+    width: 20px;
+    height: 16px;
+    border: 3px solid currentColor;
+    border-bottom: 0;
+    border-radius: 10px 10px 0 0;
+    top: 44%;
+  }
+
+  .app-nav-icon--governance::after {
+    width: 16px;
+    height: 10px;
+    border: 3px solid currentColor;
+    border-top: 0;
+    border-radius: 0 0 10px 10px;
+    top: 62%;
+  }
+
+  .app-nav-icon--rental::before {
+    width: 18px;
+    height: 18px;
+    border: 3px solid currentColor;
+    border-radius: 50% 50% 45% 45%;
+    clip-path: inset(0 0 20% 0);
+    top: 40%;
+  }
+
+  .app-nav-icon--rental::after {
+    width: 18px;
+    height: 11px;
+    border: 3px solid currentColor;
+    border-top: 0;
+    border-radius: 0 0 12px 12px;
+    top: 67%;
+  }
+
+  .app-nav-icon--students::before {
+    width: 12px;
+    height: 12px;
+    border: 3px solid currentColor;
+    border-radius: 50%;
+    top: 40%;
+  }
+
+  .app-nav-icon--students::after {
+    width: 20px;
+    height: 12px;
+    border: 3px solid currentColor;
+    border-top: 0;
+    border-radius: 0 0 12px 12px;
+    top: 66%;
   }
 
   .hero-panel {

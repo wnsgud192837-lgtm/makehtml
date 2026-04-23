@@ -1602,7 +1602,8 @@ function applyRoleLayout(role) {
   navItems.forEach((item) => {
     const view = item.dataset.view;
     if (view && roleConfig.nav[view]) {
-      item.textContent = roleConfig.nav[view];
+      const label = item.querySelector(".app-nav-label");
+      if (label) label.textContent = roleConfig.nav[view];
     }
   });
 
