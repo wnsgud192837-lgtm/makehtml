@@ -453,6 +453,9 @@ const baseState = {
 
 let currentMode = "payer";
 let currentView = "dashboard";
+const currentSubnavIndexByView = {
+  dashboard: 1
+};
 const subnavCopy = {
   dashboard: { labels: ["Notice", "Calendar", "Status"], activeIndex: 1 },
   points: { labels: ["Balance", "History", "Token"], activeIndex: 1 },
@@ -1682,6 +1685,7 @@ function applyRoleLayout(role) {
   renderGovernanceList();
   renderTokenMarket();
   renderSubnav();
+  renderHomeSubnavSections();
 
   if (role === "admin") {
     renderStudentManagementPanel();
@@ -1869,6 +1873,7 @@ function switchView(view) {
     pollForm.reset();
   }
 
+  renderHomeSubnavSections();
   renderGovernanceList();
   renderTokenMarket();
   renderStudentManagementPanel();
@@ -2044,13 +2049,45 @@ function renderSubnav() {
   if (!assetsSubnav || assetsSubnavItems.length === 0) return;
 
   const config = subnavCopy[currentView] || subnavCopy.dashboard;
+  const activeIndex = currentSubnavIndexByView[currentView] ?? config.activeIndex ?? 0;
 
   assetsSubnav.classList.toggle("is-hidden", false);
 
   assetsSubnavItems.forEach((item, index) => {
     item.textContent = config.labels[index] || "";
-    item.classList.toggle("is-active", index === config.activeIndex);
+    item.classList.toggle("is-active", index === activeIndex);
   });
+}
+
+function renderHomeSubnavSections() {
+  if (currentView !== "dashboard") return;
+
+  const activeIndex = currentSubnavIndexByView.dashboard ?? 1;
+  const showNotice = activeIndex === 0;
+  const showCalendar = activeIndex === 1;
+  const showStatus = activeIndex === 2;
+
+  if (heroPanel) {
+    heroPanel.classList.toggle("is-hidden", !showNotice);
+    heroPanel.classList.toggle("is-student-split", false);
+    heroPanel.classList.toggle("is-stacked", showNotice);
+  }
+
+  if (noticeCard) {
+    noticeCard.classList.toggle("is-hidden", !showNotice);
+  }
+
+  if (operationsCard) {
+    operationsCard.classList.toggle("is-hidden", !showNotice);
+  }
+
+  if (dashboardView) {
+    dashboardView.classList.toggle("is-hidden", !showCalendar);
+  }
+
+  if (statusGrid) {
+    statusGrid.classList.toggle("is-hidden", !showStatus);
+  }
 }
 
 function renderNoticeLists() {
@@ -2310,6 +2347,20 @@ navItems.forEach((item) => {
   item.addEventListener("click", () => {
     if (item.dataset.view) {
       switchView(item.dataset.view);
+    }
+  });
+});
+
+assetsSubnavItems.forEach((item) => {
+  item.addEventListener("click", () => {
+    const index = Number(item.dataset.subnavIndex);
+    if (Number.isNaN(index)) return;
+
+    currentSubnavIndexByView[currentView] = index;
+    renderSubnav();
+
+    if (currentView === "dashboard") {
+      renderHomeSubnavSections();
     }
   });
 });
