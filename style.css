@@ -1701,10 +1701,6 @@ input {
     letter-spacing: 0.06em;
   }
 
-  .calendar-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .status-grid {
     gap: 12px;
     margin-bottom: 0;
@@ -1796,11 +1792,38 @@ input {
   }
 
   .calendar-weekdays {
-    display: none;
+    display: grid;
+    min-width: 560px;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 0.76rem;
+  }
+
+  .calendar-panel {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .calendar-grid {
+    min-width: 560px;
+    grid-template-columns: repeat(7, minmax(72px, 1fr));
+    gap: 8px;
   }
 
   .calendar-cell {
-    min-height: 96px;
+    min-height: 108px;
+    padding: 10px 8px;
+    gap: 8px;
+    border-radius: 16px;
+  }
+
+  .calendar-date {
+    font-size: 0.9rem;
+  }
+
+  .calendar-note {
+    font-size: 0.72rem;
+    line-height: 1.35;
   }
 
   .points-history-item,

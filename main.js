@@ -1612,10 +1612,12 @@ function applyRoleLayout(role) {
   const tokenNavItem = navItems.find((item) => item.dataset.view === "tokens");
   if (tokenNavItem) {
     tokenNavItem.classList.toggle("is-hidden", role === "student");
+    tokenNavItem.hidden = role === "student";
   }
 
   if (studentManagementNavItem) {
     studentManagementNavItem.classList.toggle("is-hidden", role !== "admin");
+    studentManagementNavItem.hidden = role !== "admin";
   }
 
   if (pointsPanelKicker) {
@@ -1660,7 +1662,10 @@ function applyRoleLayout(role) {
   populateOperationsForm();
   renderGovernanceList();
   renderTokenMarket();
-  renderStudentManagementPanel();
+
+  if (role === "admin") {
+    renderStudentManagementPanel();
+  }
 }
 
 function resetScenario(mode) {
