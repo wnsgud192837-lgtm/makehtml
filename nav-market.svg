@@ -1,6 +1,3 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <path d="M13 48h38" stroke="#000" stroke-width="4.2" stroke-linecap="round"/>
-  <path d="M19 48V36M29 48V31M39 48V26" stroke="#000" stroke-width="4.2" stroke-linecap="round"/>
-  <path d="M17 33 27 24l8 6 13-14" stroke="#000" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M42 16h9v9" stroke="#000" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="210 330 180 180">
+  <image href="./menu-icons-source.svg" x="0" y="0" width="1806" height="871"/>
 </svg>
