@@ -847,14 +847,54 @@ input {
   line-height: 1.75;
 }
 
-.calendar-nav-button {
-  width: 42px;
-  height: 42px;
-  border: 1px solid #d3dbe7;
-  border-radius: 999px;
-  background: #fff;
+.calendar-panel {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 248, 255, 0.98));
+}
+
+.calendar-toolbar {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 48px;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.calendar-selects {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.calendar-select {
+  height: 40px;
+  padding: 0 36px 0 14px;
+  border: 0;
+  border-radius: 14px;
+  background: #f6f7fb;
   color: #173f7d;
-  font-size: 1.1rem;
+  font: inherit;
+  font-weight: 700;
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #1f355b 50%),
+    linear-gradient(135deg, #1f355b 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) calc(50% - 2px),
+    calc(100% - 12px) calc(50% - 2px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+}
+
+.calendar-nav-button {
+  width: 48px;
+  height: 48px;
+  border: 0;
+  border-radius: 14px;
+  background: #f3f4f8;
+  color: #687892;
+  font-size: 1.6rem;
+  line-height: 1;
   cursor: pointer;
 }
 
@@ -866,62 +906,134 @@ input {
 .calendar-weekdays {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 10px;
-  margin-bottom: 10px;
-  color: #6f7e92;
-  font-size: 0.82rem;
+  gap: 12px;
+  margin-bottom: 14px;
+  color: #7686a0;
+  font-size: 0.92rem;
   font-weight: 700;
   text-align: center;
+}
+
+.calendar-weekdays span:first-child {
+  color: #ff4a4a;
+}
+
+.calendar-weekdays span:last-child {
+  color: #2563ff;
 }
 
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.calendar-cell {
-  min-height: 116px;
-  padding: 12px;
-  border: 1px solid #dce3ee;
-  border-radius: 20px;
-  background: #fbfcfe;
-  display: grid;
-  align-content: space-between;
-  justify-items: start;
   gap: 12px;
 }
 
-.calendar-cell.is-empty {
-  min-height: 0;
-  padding: 0;
+.calendar-cell {
+  min-height: 72px;
+  padding: 10px 8px;
   border: 0;
+  border-radius: 18px;
   background: transparent;
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 8px;
+  color: #173f7d;
+  font: inherit;
+  cursor: pointer;
 }
 
-.calendar-cell.is-today {
-  border-color: rgba(23, 63, 125, 0.38);
-  box-shadow: inset 0 0 0 2px rgba(23, 63, 125, 0.08);
+.calendar-cell.is-outside {
+  color: #c7cfdb;
+  cursor: default;
 }
 
-.calendar-cell.is-holiday {
-  background: linear-gradient(180deg, rgba(201, 15, 113, 0.08), #fbfcfe);
+.calendar-cell.is-selected {
+  background: linear-gradient(180deg, #3e83ff 0%, #2563ff 100%);
+  box-shadow: 0 12px 24px rgba(37, 99, 255, 0.28);
+  color: #fff;
 }
 
-.calendar-cell.is-event {
-  background: linear-gradient(180deg, rgba(23, 63, 125, 0.1), #fbfcfe);
+.calendar-cell.is-today:not(.is-selected) {
+  box-shadow: inset 0 0 0 2px rgba(37, 99, 255, 0.16);
+  background: rgba(37, 99, 255, 0.06);
+}
+
+.calendar-cell.is-sunday:not(.is-selected) .calendar-date {
+  color: #ff3f3f;
+}
+
+.calendar-cell.is-saturday:not(.is-selected) .calendar-date {
+  color: #2563ff;
 }
 
 .calendar-date {
-  color: #173f7d;
-  font-size: 1rem;
+  color: currentColor;
+  font-size: 1.7rem;
   font-weight: 700;
+  line-height: 1;
 }
 
 .calendar-note {
-  color: #46566d;
-  font-size: 0.79rem;
-  line-height: 1.4;
+  min-height: 10px;
+  color: currentColor;
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
+.calendar-note::before {
+  content: "";
+  display: block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  margin: 0 auto;
+}
+
+.calendar-note.is-empty-note::before {
+  opacity: 0;
+}
+
+.calendar-agenda {
+  margin-top: 26px;
+}
+
+.calendar-agenda-title {
+  margin: 0 0 14px;
+  color: #0f2450;
+  font-size: 1.9rem;
+  font-weight: 800;
+}
+
+.calendar-agenda-card {
+  min-height: 68px;
+  padding: 22px 24px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #a1abbb;
+  font-size: 1.02rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  box-shadow: 0 12px 30px rgba(74, 58, 104, 0.08);
+}
+
+.calendar-agenda-entry {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+}
+
+.calendar-agenda-entry strong {
+  color: #15356b;
+  font-size: 1rem;
+}
+
+.calendar-agenda-entry span {
+  color: #7d8da6;
+  font-size: 0.88rem;
 }
 
 .points-panel {
@@ -1797,37 +1909,86 @@ input {
 
   .calendar-weekdays {
     display: grid;
-    min-width: 560px;
-    gap: 8px;
-    margin-bottom: 8px;
-    font-size: 0.76rem;
+    min-width: 0;
+    gap: 6px;
+    margin-bottom: 10px;
+    font-size: 0.72rem;
   }
 
   .calendar-panel {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    overflow: hidden;
   }
 
   .calendar-grid {
-    min-width: 560px;
-    grid-template-columns: repeat(7, minmax(72px, 1fr));
-    gap: 8px;
+    min-width: 0;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 6px;
   }
 
   .calendar-cell {
-    min-height: 108px;
-    padding: 10px 8px;
-    gap: 8px;
+    min-height: 56px;
+    padding: 8px 4px;
+    gap: 6px;
     border-radius: 16px;
   }
 
   .calendar-date {
-    font-size: 0.9rem;
+    font-size: 1.2rem;
   }
 
   .calendar-note {
-    font-size: 0.72rem;
-    line-height: 1.35;
+    min-height: 8px;
+    font-size: 0.6rem;
+  }
+
+  .calendar-note::before {
+    width: 4px;
+    height: 4px;
+  }
+
+  .calendar-toolbar {
+    grid-template-columns: 42px minmax(0, 1fr) 42px;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+
+  .calendar-selects {
+    gap: 8px;
+  }
+
+  .calendar-select {
+    height: 36px;
+    min-width: 0;
+    padding: 0 28px 0 10px;
+    font-size: 0.88rem;
+    border-radius: 12px;
+    background-position:
+      calc(100% - 15px) calc(50% - 2px),
+      calc(100% - 10px) calc(50% - 2px);
+    background-size: 5px 5px, 5px 5px;
+  }
+
+  .calendar-nav-button {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    font-size: 1.35rem;
+  }
+
+  .calendar-agenda {
+    margin-top: 22px;
+  }
+
+  .calendar-agenda-title {
+    margin-bottom: 12px;
+    font-size: 1.35rem;
+  }
+
+  .calendar-agenda-card {
+    min-height: 60px;
+    padding: 18px 16px;
+    border-radius: 16px;
+    font-size: 0.92rem;
   }
 
   .points-history-item,

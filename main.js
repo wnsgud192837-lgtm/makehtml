@@ -70,10 +70,13 @@ const tokenValue = document.querySelector("#token-value");
 const tokenMeta = document.querySelector("#token-meta");
 const paymentStatus = document.querySelector("#payment-status");
 const paymentButton = document.querySelector("#payment-btn");
-const calendarMonthLabel = document.querySelector("#calendar-month-label");
 const calendarGrid = document.querySelector("#calendar-grid");
 const calendarPrevButton = document.querySelector("#calendar-prev-button");
 const calendarNextButton = document.querySelector("#calendar-next-button");
+const calendarYearSelect = document.querySelector("#calendar-year-select");
+const calendarMonthSelect = document.querySelector("#calendar-month-select");
+const calendarAgendaTitle = document.querySelector("#calendar-agenda-title");
+const calendarAgendaCard = document.querySelector("#calendar-agenda-card");
 const pointsHistoryList = document.querySelector("#points-history-list");
 const pointsHistoryTotal = document.querySelector("#points-history-total");
 const pointsPanelKicker = document.querySelector("#points-panel-kicker");
@@ -160,6 +163,8 @@ const placeholderCopy = {
 let noticeItems = [];
 let operationsItems = [];
 let operationsTitle = "";
+let currentCalendarYear = 2026;
+let currentCalendarDay = highlightedMonth >= 0 && highlightedDay >= 0 ? highlightedDay : 1;
 const NOTICE_STORAGE_KEY = "postech_notice_items";
 const POLL_STORAGE_KEY = "postech_governance_polls";
 const REMEMBER_ID_STORAGE_KEY = "postech_remembered_user_id";
@@ -1878,8 +1883,9 @@ function renderStatus() {
 function renderCalendar() {
   if (!calendarGrid) return;
 
-  const firstDay = new Date(2026, currentCalendarMonth, 1).getDay();
-  const lastDate = new Date(2026, currentCalendarMonth + 1, 0).getDate();
+  const firstDay = new Date(currentCalendarYear, currentCalendarMonth, 1).getDay();
+  const lastDate = new Date(currentCalendarYear, currentCalendarMonth + 1, 0).getDate();
+  const prevMonthLastDate = new Date(currentCalendarYear, currentCalendarMonth, 0).getDate();
   const cells = [];
   const itemsByDay = new Map(
     notableCalendarItems
@@ -1887,8 +1893,12 @@ function renderCalendar() {
       .map((item) => [item.day, item])
   );
 
-  if (calendarMonthLabel) {
-    calendarMonthLabel.textContent = `2026년 ${currentCalendarMonth + 1}월`;
+  if (calendarYearSelect) {
+    calendarYearSelect.value = String(currentCalendarYear);
+  }
+
+  if (calendarMonthSelect) {
+    calendarMonthSelect.value = String(currentCalendarMonth);
   }
 
   if (calendarPrevButton) {
@@ -1899,29 +1909,78 @@ function renderCalendar() {
     calendarNextButton.disabled = currentCalendarMonth === 11;
   }
 
+  currentCalendarDay = Math.min(currentCalendarDay, lastDate);
+
   for (let index = 0; index < firstDay; index += 1) {
-    cells.push('<div class="calendar-cell is-empty" aria-hidden="true"></div>');
+    const prevDay = prevMonthLastDate - firstDay + index + 1;
+    cells.push(`
+      <div class="calendar-cell is-outside" aria-hidden="true">
+        <span class="calendar-date">${prevDay}</span>
+      </div>
+    `);
   }
 
   for (let day = 1; day <= lastDate; day += 1) {
     const item = itemsByDay.get(day);
     const classes = ["calendar-cell"];
+    const weekday = new Date(currentCalendarYear, currentCalendarMonth, day).getDay();
+
     if (currentCalendarMonth === highlightedMonth && day === highlightedDay) {
       classes.push("is-today");
     }
     if (item) {
       classes.push(item.type === "holiday" ? "is-holiday" : "is-event");
     }
+    if (day === currentCalendarDay) {
+      classes.push("is-selected");
+    }
+    if (weekday === 0) classes.push("is-sunday");
+    if (weekday === 6) classes.push("is-saturday");
 
     cells.push(`
-      <article class="${classes.join(" ")}">
+      <button type="button" class="${classes.join(" ")}" data-calendar-day="${day}">
         <span class="calendar-date">${day}</span>
-        ${item ? `<small class="calendar-note">${item.label}</small>` : ""}
-      </article>
+        ${item ? `<small class="calendar-note">${item.label}</small>` : '<small class="calendar-note is-empty-note"></small>'}
+      </button>
+    `);
+  }
+
+  const remainingCells = 42 - (firstDay + lastDate);
+  for (let nextDay = 1; nextDay <= remainingCells; nextDay += 1) {
+    cells.push(`
+      <div class="calendar-cell is-outside" aria-hidden="true">
+        <span class="calendar-date">${nextDay}</span>
+      </div>
     `);
   }
 
   calendarGrid.innerHTML = cells.join("");
+
+  if (calendarAgendaTitle) {
+    calendarAgendaTitle.textContent = `${currentCalendarDay}일 일정`;
+  }
+
+  const selectedItem = itemsByDay.get(currentCalendarDay);
+  if (calendarAgendaCard) {
+    calendarAgendaCard.innerHTML = selectedItem
+      ? `
+        <div class="calendar-agenda-entry">
+          <strong>${escapeHtml(selectedItem.label)}</strong>
+          <span>${selectedItem.type === "holiday" ? "공휴일 일정" : "행사 일정"}</span>
+        </div>
+      `
+      : "등록된 일정이 없습니다";
+  }
+
+  calendarGrid.querySelectorAll("[data-calendar-day]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const day = Number(button.getAttribute("data-calendar-day"));
+      if (!Number.isNaN(day)) {
+        currentCalendarDay = day;
+        renderCalendar();
+      }
+    });
+  });
 }
 
 function renderPointsHistory() {
@@ -2225,6 +2284,7 @@ if (calendarPrevButton) {
   calendarPrevButton.addEventListener("click", () => {
     if (currentCalendarMonth > 0) {
       currentCalendarMonth -= 1;
+      currentCalendarDay = 1;
       renderCalendar();
     }
   });
@@ -2234,8 +2294,24 @@ if (calendarNextButton) {
   calendarNextButton.addEventListener("click", () => {
     if (currentCalendarMonth < 11) {
       currentCalendarMonth += 1;
+      currentCalendarDay = 1;
       renderCalendar();
     }
+  });
+}
+
+if (calendarYearSelect) {
+  calendarYearSelect.addEventListener("change", () => {
+    currentCalendarYear = 2026;
+    renderCalendar();
+  });
+}
+
+if (calendarMonthSelect) {
+  calendarMonthSelect.addEventListener("change", () => {
+    currentCalendarMonth = Number(calendarMonthSelect.value);
+    currentCalendarDay = 1;
+    renderCalendar();
   });
 }
 

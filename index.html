@@ -205,13 +205,30 @@
 
       <section class="view-section" id="dashboard-view">
         <article class="calendar-panel">
-          <header class="panel-titlebar">
-            <button type="button" class="calendar-nav-button" id="calendar-prev-button" aria-label="이전 달">&larr;</button>
-            <div>
-              <p class="panel-kicker">캘린더</p>
-              <h3 id="calendar-month-label">2026년 4월</h3>
+          <header class="calendar-toolbar">
+            <button type="button" class="calendar-nav-button" id="calendar-prev-button" aria-label="이전 달">&#8249;</button>
+            <div class="calendar-selects">
+              <label class="visually-hidden" for="calendar-year-select">연도 선택</label>
+              <select id="calendar-year-select" class="calendar-select" aria-label="연도 선택">
+                <option value="2026">2026년</option>
+              </select>
+              <label class="visually-hidden" for="calendar-month-select">월 선택</label>
+              <select id="calendar-month-select" class="calendar-select" aria-label="월 선택">
+                <option value="0">1월</option>
+                <option value="1">2월</option>
+                <option value="2">3월</option>
+                <option value="3">4월</option>
+                <option value="4">5월</option>
+                <option value="5">6월</option>
+                <option value="6">7월</option>
+                <option value="7">8월</option>
+                <option value="8">9월</option>
+                <option value="9">10월</option>
+                <option value="10">11월</option>
+                <option value="11">12월</option>
+              </select>
             </div>
-            <button type="button" class="calendar-nav-button" id="calendar-next-button" aria-label="다음 달">&rarr;</button>
+            <button type="button" class="calendar-nav-button" id="calendar-next-button" aria-label="다음 달">&#8250;</button>
           </header>
           <div class="calendar-weekdays" aria-hidden="true">
             <span>일</span>
@@ -223,6 +240,10 @@
             <span>토</span>
           </div>
           <div class="calendar-grid" id="calendar-grid"></div>
+          <section class="calendar-agenda" aria-labelledby="calendar-agenda-title">
+            <h3 id="calendar-agenda-title" class="calendar-agenda-title">1일 일정</h3>
+            <div class="calendar-agenda-card" id="calendar-agenda-card">등록된 일정이 없습니다</div>
+          </section>
         </article>
       </section>
 
