@@ -421,6 +421,14 @@ input {
   line-height: 1.15;
 }
 
+.asset-holdings-header {
+  margin-top: 18px;
+}
+
+.asset-holdings-list {
+  margin-top: 0;
+}
+
 .assets-subnav.is-hidden {
   display: none;
 }

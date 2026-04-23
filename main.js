@@ -76,6 +76,7 @@ const paymentStatus = document.querySelector("#payment-status");
 const assetBalancePanel = document.querySelector("#asset-balance-panel");
 const assetBalancePoints = document.querySelector("#asset-balance-points");
 const assetBalanceToken = document.querySelector("#asset-balance-token");
+const assetHoldingsList = document.querySelector("#asset-holdings-list");
 const calendarGrid = document.querySelector("#calendar-grid");
 const calendarPrevButton = document.querySelector("#calendar-prev-button");
 const calendarNextButton = document.querySelector("#calendar-next-button");
@@ -1291,35 +1292,25 @@ function renderStudentAssetsPanels() {
     assetBalanceToken.textContent = String(state.tokens);
   }
 
-  if (pointsHistoryTotal) {
-    pointsHistoryTotal.textContent = `${purchaseSummary.size}건`;
+  if (assetHoldingsList) {
+    if (purchaseSummary.size === 0) {
+      assetHoldingsList.innerHTML = `
+        <li><span>아직 구매한 행사 토큰이 없습니다.</span><strong>0건</strong></li>
+      `;
+    } else {
+      assetHoldingsList.innerHTML = Array.from(purchaseSummary.values())
+        .map((item) => {
+          const unitPrice = item.quantity > 0 ? Math.round(item.netAmount / item.quantity) : 0;
+          return `
+            <li>
+              <span>${escapeHtml(item.title)}</span>
+              <strong>${item.quantity}개 / 개당 ${unitPrice.toLocaleString()}P</strong>
+            </li>
+          `;
+        })
+        .join("");
+    }
   }
-
-  if (!pointsHistoryList) return;
-
-  if (purchaseSummary.size === 0) {
-    pointsHistoryList.innerHTML = `
-      <li class="points-history-empty">
-        <p>아직 구매한 행사 토큰이 없습니다.</p>
-        <span>Purchase 탭에서 납부자 전용 행사 토큰을 구매할 수 있습니다.</span>
-      </li>
-    `;
-    return;
-  }
-
-  pointsHistoryList.innerHTML = Array.from(purchaseSummary.values())
-    .map(
-      (item) => `
-        <li class="points-history-item">
-          <div>
-            <strong>${escapeHtml(item.title)}</strong>
-            <span>행사 토큰 보유 현황</span>
-          </div>
-          <b class="is-positive">${item.quantity}개 / 순투입 ${item.netAmount.toLocaleString()}P</b>
-        </li>
-      `
-    )
-    .join("");
 }
 
 function renderStudentAssetsTabSections() {
@@ -1754,6 +1745,10 @@ function switchView(view) {
     view = "dashboard";
   }
 
+  if (currentRole === "student" && view === "points") {
+    currentSubnavIndexByView.points = 0;
+  }
+
   currentView = view;
   navItems.forEach((item) => {
     item.classList.toggle("is-active", item.dataset.view === view);
@@ -2051,11 +2046,13 @@ function renderCalendar() {
 function renderPointsHistory() {
   if (currentRole === "student" && currentView === "points") {
     renderStudentAssetsPanels();
-    return;
   }
 
   if (assetBalancePanel) {
-    assetBalancePanel.classList.add("is-hidden");
+    assetBalancePanel.classList.toggle(
+      "is-hidden",
+      !(currentRole === "student" && currentView === "points")
+    );
   }
 
   const history = state.pointHistory;
