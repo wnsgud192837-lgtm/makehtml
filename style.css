@@ -395,13 +395,13 @@ input {
 }
 
 .ghost-button {
-  height: 38px;
-  padding: 0 16px;
+  height: 40px;
+  padding: 0 18px;
   border: 1px solid #d3dbe7;
   border-radius: 999px;
   background: #fff;
   color: #173f7d;
-  font-size: 0.88rem;
+  font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
 }
@@ -429,6 +429,10 @@ input {
   cursor: pointer;
   padding: 0;
   white-space: nowrap;
+}
+
+.app-nav-item[hidden] {
+  display: none !important;
 }
 
 .app-nav-label {
@@ -1586,9 +1590,9 @@ input {
   }
 
   .ghost-button {
-    height: 34px;
-    padding: 0 12px;
-    font-size: 0.8rem;
+    height: 36px;
+    padding: 0 14px;
+    font-size: 0.82rem;
   }
 
   .app-nav {
