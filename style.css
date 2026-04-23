@@ -1753,7 +1753,8 @@ input {
   }
 
   .app-nav-icon--rental::before {
-    inset: 4px;
+    inset: 12px;
+    transform: scale(1.2);
   }
 
   .app-nav-icon::after {
