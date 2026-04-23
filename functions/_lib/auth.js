@@ -331,11 +331,16 @@ export async function addStudentAuditLog(env, entry) {
       createdAt: new Date().toISOString()
     },
     ...logs
-  ].slice(0, 100);
+  ];
 
   await upstash(env, "/set/auth:student:logs", nextLogs);
 
   return nextLogs;
+}
+
+export async function clearStudentAuditLogs(env) {
+  await upstash(env, "/del/auth:student:logs");
+  return [];
 }
 
 export async function createStudentUser(env, userId, password) {

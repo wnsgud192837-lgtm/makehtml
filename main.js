@@ -1325,6 +1325,7 @@ function renderStudentManagementPanel() {
   }
 
   studentManagementLogList.innerHTML = studentManagementLogs
+    .slice(0, 5)
     .map(
       (log) => `
         <li class="notice-item">

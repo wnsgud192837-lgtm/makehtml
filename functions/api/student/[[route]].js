@@ -1,5 +1,6 @@
 import {
   addStudentAuditLog,
+  clearStudentAuditLogs,
   json,
   listStudentAuditLogs,
   listStudentUserIds,
@@ -9,6 +10,7 @@ import {
 } from "../../_lib/auth.js";
 
 const BASE_POINTS = 31000;
+const STUDENT_AUDIT_LOG_RESET_MARKER = "auth:student:logs:reset:2026-04-23";
 const INITIAL_TOKEN_MARKET_STATE = {
   pointReserve: 24000,
   eventTokenReserve: 12,
@@ -170,6 +172,13 @@ async function getAdminLogsResponse(request, env, session) {
     return json(request, env, { error: "forbidden" }, 403);
   }
 
+  const resetCompleted = await getJson(env, STUDENT_AUDIT_LOG_RESET_MARKER, false);
+  if (!resetCompleted) {
+    await clearStudentAuditLogs(env);
+    await setJson(env, STUDENT_AUDIT_LOG_RESET_MARKER, true);
+    return json(request, env, { logs: [] }, 200);
+  }
+
   const logs = await listStudentAuditLogs(env);
   return json(request, env, { logs }, 200);
 }
@@ -181,6 +190,15 @@ async function getAdminUsersResponse(request, env, session) {
 
   const users = await listStudentUserIds(env);
   return json(request, env, { users }, 200);
+}
+
+async function clearAdminLogsResponse(request, env, session) {
+  if (session.role !== "admin") {
+    return json(request, env, { error: "forbidden" }, 403);
+  }
+
+  await clearStudentAuditLogs(env);
+  return json(request, env, { ok: true, logs: [] }, 200);
 }
 
 async function markPaid(request, env, session) {
@@ -399,6 +417,10 @@ export async function onRequest(context) {
 
   if (request.method === "GET" && route.length === 1 && route[0] === "logs") {
     return getAdminLogsResponse(request, env, session);
+  }
+
+  if (request.method === "DELETE" && route.length === 1 && route[0] === "logs") {
+    return clearAdminLogsResponse(request, env, session);
   }
 
   if (request.method === "GET" && route.length === 1 && route[0] === "users") {
