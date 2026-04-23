@@ -416,7 +416,7 @@ input {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0;
-  color: #64748b;
+  color: #8a97aa;
   font-weight: 700;
 }
 
@@ -515,7 +515,7 @@ input {
 }
 
 .app-nav-item.is-active {
-  color: #334155;
+  color: #1f2937;
 }
 
 .student-management-grid {
