@@ -73,6 +73,9 @@ const pointsMeta = document.querySelector("#points-meta");
 const tokenValue = document.querySelector("#token-value");
 const tokenMeta = document.querySelector("#token-meta");
 const paymentStatus = document.querySelector("#payment-status");
+const assetBalancePanel = document.querySelector("#asset-balance-panel");
+const assetBalancePoints = document.querySelector("#asset-balance-points");
+const assetBalanceToken = document.querySelector("#asset-balance-token");
 const calendarGrid = document.querySelector("#calendar-grid");
 const calendarPrevButton = document.querySelector("#calendar-prev-button");
 const calendarNextButton = document.querySelector("#calendar-next-button");
@@ -1083,8 +1086,7 @@ function renderAdminEventPanel() {
 
 function renderPrimaryTokenPurchasePanel() {
   if (!tokenMarketPanel) return;
-  const purchaseSummary = getEventHoldingSummary();
-  const totalHoldingCount = Array.from(purchaseSummary.values()).reduce(
+  const totalHoldingCount = Array.from(getEventHoldingSummary().values()).reduce(
     (sum, item) => sum + item.quantity,
     0
   );
@@ -1100,17 +1102,12 @@ function renderPrimaryTokenPurchasePanel() {
 
     <div class="token-market-grid">
       <section class="token-market-card token-market-card-primary">
-        <p class="token-market-eyebrow">1차 판매</p>
         <strong class="token-market-title">행사 토큰은 기준가로 구매하고, 이후에는 세컨더리 마켓에서 거래할 수 있습니다</strong>
         <p class="detail-text token-market-copy">
           학생회비를 납부한 경우에만 이 탭에서 고정가 구매가 가능합니다.
         </p>
 
         <div class="token-market-stats">
-          <article>
-            <span>구매 가능 행사</span>
-            <strong>${availableEvents.length}개</strong>
-          </article>
           <article>
             <span>내 보유 토큰</span>
             <strong>${totalHoldingCount}개</strong>
@@ -1128,14 +1125,13 @@ function renderPrimaryTokenPurchasePanel() {
                         <div class="token-trade-header">
                           <div>
                             <strong>${escapeHtml(event.title)}</strong>
-                            <p>${event.description ? escapeHtml(event.description) : "행사 토큰 1차 판매"}</p>
+                            <p>기준가 ${event.unitPrice.toLocaleString()}P</p>
                           </div>
                           <span class="token-trade-badge">${event.unitPrice.toLocaleString()}P</span>
                         </div>
 
                         <div class="token-trade-metrics">
                           <span>기준가 ${event.unitPrice.toLocaleString()}P</span>
-                          <span>초기가 ${(event.unitPrice * SECONDARY_MARKET_MULTIPLIER).toLocaleString()}P</span>
                         </div>
 
                         <label class="notice-field">
@@ -1145,7 +1141,7 @@ function renderPrimaryTokenPurchasePanel() {
                         <button type="submit" class="login-button notice-submit" ${event.primaryRemainingQuantity < 1 || !paymentState.studentPaid ? "disabled" : ""}>
                           ${paymentState.studentPaid ? `${event.unitPrice.toLocaleString()}P에 구매` : "납부자만 구매 가능"}
                         </button>
-                        <small>1차 재고 ${event.primaryRemainingQuantity}/${event.totalQuantity}</small>
+                        <small>재고 ${event.primaryRemainingQuantity}/${event.totalQuantity}</small>
                       </form>
                     `
                   )
@@ -1153,31 +1149,6 @@ function renderPrimaryTokenPurchasePanel() {
           }
         </div>
         <p class="login-message token-market-message">${escapeHtml(getTokenMarketMessage())}</p>
-      </section>
-
-      <section class="token-market-card">
-        <div class="panel-titlebar panel-titlebar-compact">
-          <div>
-            <p class="panel-kicker">내 구매 내역</p>
-            <h3>행사 토큰 보유 현황</h3>
-          </div>
-        </div>
-        <ul class="market-list token-quote-list">
-          ${
-            purchaseSummary.size === 0
-              ? "<li><span>아직 구매한 행사 참여권이 없습니다.</span><strong>0건</strong></li>"
-              : Array.from(purchaseSummary.values())
-                  .map(
-                    (item) => `
-                      <li>
-                        <span>${escapeHtml(item.title)}</span>
-                        <strong>${item.quantity}개 / 순투입 ${item.netAmount.toLocaleString()}P</strong>
-                      </li>
-                    `
-                  )
-                  .join("")
-          }
-        </ul>
       </section>
     </div>
   `;
@@ -1301,6 +1272,69 @@ function renderTokenMarket() {
   }
 
   renderPrimaryTokenPurchasePanel();
+}
+
+function renderStudentAssetsPanels() {
+  if (currentRole !== "student" || currentView !== "points") return;
+
+  const purchaseSummary = getEventHoldingSummary();
+
+  if (assetBalancePanel) {
+    assetBalancePanel.classList.remove("is-hidden");
+  }
+
+  if (assetBalancePoints) {
+    assetBalancePoints.textContent = `${state.points.toLocaleString()}P`;
+  }
+
+  if (assetBalanceToken) {
+    assetBalanceToken.textContent = String(state.tokens);
+  }
+
+  if (pointsHistoryTotal) {
+    pointsHistoryTotal.textContent = `${purchaseSummary.size}건`;
+  }
+
+  if (!pointsHistoryList) return;
+
+  if (purchaseSummary.size === 0) {
+    pointsHistoryList.innerHTML = `
+      <li class="points-history-empty">
+        <p>아직 구매한 행사 토큰이 없습니다.</p>
+        <span>Purchase 탭에서 납부자 전용 행사 토큰을 구매할 수 있습니다.</span>
+      </li>
+    `;
+    return;
+  }
+
+  pointsHistoryList.innerHTML = Array.from(purchaseSummary.values())
+    .map(
+      (item) => `
+        <li class="points-history-item">
+          <div>
+            <strong>${escapeHtml(item.title)}</strong>
+            <span>행사 토큰 보유 현황</span>
+          </div>
+          <b class="is-positive">${item.quantity}개 / 순투입 ${item.netAmount.toLocaleString()}P</b>
+        </li>
+      `
+    )
+    .join("");
+}
+
+function renderStudentAssetsTabSections() {
+  if (currentRole !== "student" || currentView !== "points") return;
+
+  const activeIndex = currentSubnavIndexByView.points ?? subnavCopy.points.activeIndex ?? 0;
+  const showAssetsOverview = activeIndex === 0;
+
+  if (pointsView) {
+    pointsView.classList.toggle("is-hidden", !showAssetsOverview);
+  }
+
+  if (tokenView) {
+    tokenView.classList.toggle("is-hidden", showAssetsOverview);
+  }
 }
 
 function renderStudentManagementPanel() {
@@ -1566,7 +1600,7 @@ function buildStudentState() {
       ...baseState,
       points: studentTokenMarketState.pointDelta,
       tokens: studentGovernanceState.tokens,
-      tokenMeta: "",
+      tokenMeta: "잔여 토큰",
       pointHistory: marketHistory
     };
   }
@@ -1578,7 +1612,7 @@ function buildStudentState() {
     paymentStatus: "납부 완료",
     paymentMeta: "31,000포인트 지급 완료",
     pointsMeta: "학생회비 납부로 31,000P 지급",
-    tokenMeta: "",
+    tokenMeta: "잔여 토큰",
     pointHistory: [
       {
         title: "학생회비 납부 리워드 지급",
@@ -1649,7 +1683,7 @@ function applyRoleLayout(role) {
 
   if (pointsPanelTitle) {
     pointsPanelTitle.textContent =
-      role === "student" ? "Points and token purchase" : "포인트 사용 내역";
+      role === "student" ? "거래 내역" : "포인트 사용 내역";
   }
 
   if (studentManagementPanel) {
@@ -1778,6 +1812,7 @@ function switchView(view) {
   }
 
   renderSubnav();
+  renderStudentAssetsTabSections();
 
   const isAdminNoticeView = currentRole === "admin" && view === "market";
   const isGovernanceView = view === "governance";
@@ -2014,6 +2049,15 @@ function renderCalendar() {
 }
 
 function renderPointsHistory() {
+  if (currentRole === "student" && currentView === "points") {
+    renderStudentAssetsPanels();
+    return;
+  }
+
+  if (assetBalancePanel) {
+    assetBalancePanel.classList.add("is-hidden");
+  }
+
   const history = state.pointHistory;
 
   if (pointsHistoryTotal) {
@@ -2370,6 +2414,9 @@ assetsSubnavItems.forEach((item) => {
 
     currentSubnavIndexByView[currentView] = index;
     renderSubnav();
+    renderStudentAssetsTabSections();
+    renderPointsHistory();
+    renderTokenMarket();
 
     if (currentView === "dashboard") {
       renderHomeSubnavSections();
@@ -2509,7 +2556,7 @@ if (tokenMarketPanel) {
       applyStudentStateResponse({ state: data.state });
       state = buildStudentState();
       studentTokenMarketMessage = isPrimaryPurchase
-        ? `${selectedEvent.title} ${quantity}개 1차 구매가 완료되었습니다.`
+        ? `${selectedEvent.title} ${quantity}개 구매가 완료되었습니다.`
         : isMarketPurchase
         ? `${selectedEvent.title} ${quantity}개 세컨더리 매수가 완료되었습니다.`
         : `${selectedEvent.title} ${quantity}개 매도가 완료되었습니다.`;
@@ -2524,7 +2571,7 @@ if (tokenMarketPanel) {
           : error.message === "not_enough_points"
           ? "포인트가 부족합니다."
           : error.message === "insufficient_event_inventory" && isPrimaryPurchase
-            ? "1차 판매 재고가 부족합니다."
+            ? "재고가 부족합니다."
             : error.message === "insufficient_event_inventory"
             ? "현재 풀에서 해당 수량을 매수할 수 없습니다."
             : error.message === "insufficient_event_holdings"
