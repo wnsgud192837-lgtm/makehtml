@@ -1259,6 +1259,57 @@ input {
   gap: 14px;
 }
 
+.token-trade-card {
+  display: grid;
+  gap: 16px;
+  padding: 18px 0;
+  border-bottom: 1px dashed #d4dce8;
+}
+
+.token-trade-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.token-trade-header p {
+  margin: 6px 0 0;
+  color: #66768c;
+  font-size: 0.86rem;
+}
+
+.token-trade-badge {
+  align-self: flex-start;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(23, 63, 125, 0.08);
+  color: #173f7d;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.token-trade-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.token-trade-metrics span {
+  padding: 12px 14px;
+  border: 1px solid #dce3ee;
+  border-radius: 14px;
+  background: #fff;
+  color: #5f6f84;
+  font-size: 0.82rem;
+}
+
+.token-trade-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
 .token-market-message {
   min-height: 24px;
   margin-top: 14px;
@@ -1436,6 +1487,15 @@ input {
 
   .token-market-stats {
     grid-template-columns: 1fr;
+  }
+
+  .token-trade-actions,
+  .token-trade-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .token-trade-header {
+    flex-direction: column;
   }
 
   .student-management-grid {

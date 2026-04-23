@@ -4,6 +4,8 @@ import {
   updateStudentAppState
 } from "../../_lib/auth.js";
 
+const SECONDARY_MARKET_MULTIPLIER = 1.55;
+
 function formatDate(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -38,25 +40,123 @@ function createEventId() {
   return `event_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function toSafeInteger(value, fallback = 0) {
+  return Number.isFinite(value) ? Math.max(0, Math.floor(value)) : fallback;
+}
+
+function getInitialAmmPointReserve(totalQuantity, unitPrice) {
+  return Math.max(
+    1,
+    Math.round(totalQuantity * unitPrice * SECONDARY_MARKET_MULTIPLIER)
+  );
+}
+
+function getCurrentMarketPrice(event) {
+  if (!Number.isFinite(event.ammTokenReserve) || event.ammTokenReserve <= 0) {
+    return 0;
+  }
+
+  return Math.ceil(event.ammPointReserve / event.ammTokenReserve);
+}
+
+function getEventHoldingQuantity(tokenMarket, eventId) {
+  if (!Array.isArray(tokenMarket?.eventPurchases)) {
+    return 0;
+  }
+
+  return Math.max(
+    0,
+    tokenMarket.eventPurchases.reduce((sum, item) => {
+      if (!item || item.eventId !== eventId || !Number.isFinite(item.quantity)) {
+        return sum;
+      }
+
+      return sum + Math.floor(item.quantity);
+    }, 0)
+  );
+}
+
+function getBuyQuote(event, quantity) {
+  const normalizedQuantity = Math.max(1, Math.floor(quantity));
+  if (normalizedQuantity >= event.ammTokenReserve) {
+    return null;
+  }
+
+  const invariant = event.ammPointReserve * event.ammTokenReserve;
+  const nextTokenReserve = event.ammTokenReserve - normalizedQuantity;
+  const exactNextPointReserve = invariant / nextTokenReserve;
+  const cost = Math.ceil(exactNextPointReserve - event.ammPointReserve);
+
+  if (cost <= 0) {
+    return null;
+  }
+
+  return {
+    cost,
+    nextPointReserve: event.ammPointReserve + cost,
+    nextTokenReserve,
+    nextInvariant: (event.ammPointReserve + cost) * nextTokenReserve
+  };
+}
+
+function getSellQuote(event, quantity) {
+  const normalizedQuantity = Math.max(1, Math.floor(quantity));
+  const invariant = event.ammPointReserve * event.ammTokenReserve;
+  const nextTokenReserve = event.ammTokenReserve + normalizedQuantity;
+  const exactNextPointReserve = invariant / nextTokenReserve;
+  const payout = Math.floor(event.ammPointReserve - exactNextPointReserve);
+
+  if (payout <= 0 || payout > event.ammPointReserve) {
+    return null;
+  }
+
+  return {
+    payout,
+    nextPointReserve: event.ammPointReserve - payout,
+    nextTokenReserve,
+    nextInvariant: (event.ammPointReserve - payout) * nextTokenReserve
+  };
+}
+
 function normalizeEvent(event) {
   const parsed = event && typeof event === "object" ? event : {};
+  const totalQuantity = toSafeInteger(parsed.totalQuantity);
+  const unitPrice =
+    Number.isFinite(parsed.unitPrice) && parsed.unitPrice > 0
+      ? Math.floor(parsed.unitPrice)
+      : 0;
+  const fallbackTokenReserve = toSafeInteger(
+    parsed.remainingQuantity,
+    totalQuantity
+  );
+  const ammTokenReserve = toSafeInteger(parsed.ammTokenReserve, fallbackTokenReserve);
+  const fallbackPointReserve =
+    unitPrice > 0 && ammTokenReserve > 0
+      ? getInitialAmmPointReserve(ammTokenReserve, unitPrice)
+      : 0;
+  const ammPointReserve = toSafeInteger(parsed.ammPointReserve, fallbackPointReserve);
 
   return {
     id: typeof parsed.id === "string" ? parsed.id : createEventId(),
     title: typeof parsed.title === "string" ? parsed.title : "",
     description: typeof parsed.description === "string" ? parsed.description : "",
-    totalQuantity:
-      Number.isFinite(parsed.totalQuantity) && parsed.totalQuantity >= 0
-        ? Math.floor(parsed.totalQuantity)
-        : 0,
-    remainingQuantity:
-      Number.isFinite(parsed.remainingQuantity) && parsed.remainingQuantity >= 0
-        ? Math.floor(parsed.remainingQuantity)
-        : 0,
-    unitPrice:
-      Number.isFinite(parsed.unitPrice) && parsed.unitPrice > 0
-        ? Math.floor(parsed.unitPrice)
-        : 0,
+    totalQuantity,
+    remainingQuantity: ammTokenReserve,
+    unitPrice,
+    marketMultiplier:
+      Number.isFinite(parsed.marketMultiplier) && parsed.marketMultiplier > 0
+        ? parsed.marketMultiplier
+        : SECONDARY_MARKET_MULTIPLIER,
+    ammPointReserve,
+    ammTokenReserve,
+    ammInvariant:
+      Number.isFinite(parsed.ammInvariant) && parsed.ammInvariant > 0
+        ? Math.floor(parsed.ammInvariant)
+        : ammPointReserve * ammTokenReserve,
+    currentMarketPrice: getCurrentMarketPrice({
+      ammPointReserve,
+      ammTokenReserve
+    }),
     createdAt: typeof parsed.createdAt === "string" ? parsed.createdAt : new Date().toISOString()
   };
 }
@@ -116,8 +216,11 @@ async function createEventResponse(request, env, session) {
     title,
     description,
     totalQuantity,
-    remainingQuantity: totalQuantity,
     unitPrice,
+    marketMultiplier: SECONDARY_MARKET_MULTIPLIER,
+    ammPointReserve: getInitialAmmPointReserve(totalQuantity, unitPrice),
+    ammTokenReserve: totalQuantity,
+    ammInvariant: getInitialAmmPointReserve(totalQuantity, unitPrice) * totalQuantity,
     createdAt: new Date().toISOString()
   });
 
@@ -152,14 +255,21 @@ async function purchaseEventResponse(request, env, session) {
     return json(request, env, { error: "event_not_found" }, 404);
   }
 
-  if (event.remainingQuantity < quantity) {
+  const quote = getBuyQuote(event, quantity);
+  if (!quote) {
     return json(request, env, { error: "insufficient_event_inventory" }, 400);
   }
 
-  const totalPrice = event.unitPrice * quantity;
   const nextEvent = {
     ...event,
-    remainingQuantity: event.remainingQuantity - quantity
+    remainingQuantity: quote.nextTokenReserve,
+    ammPointReserve: quote.nextPointReserve,
+    ammTokenReserve: quote.nextTokenReserve,
+    ammInvariant: quote.nextInvariant,
+    currentMarketPrice: getCurrentMarketPrice({
+      ammPointReserve: quote.nextPointReserve,
+      ammTokenReserve: quote.nextTokenReserve
+    })
   };
 
   await setEvent(env, nextEvent);
@@ -167,7 +277,7 @@ async function purchaseEventResponse(request, env, session) {
   try {
     const state = await updateStudentAppState(env, session.userId, async (currentState) => {
       const currentPoints = (currentState.studentPaid ? 31000 : 0) + currentState.tokenMarket.pointDelta;
-      if (currentPoints < totalPrice) {
+      if (currentPoints < quote.cost) {
         throw new Error("not_enough_points");
       }
 
@@ -175,12 +285,12 @@ async function purchaseEventResponse(request, env, session) {
         ...currentState,
         tokenMarket: {
           ...currentState.tokenMarket,
-          pointDelta: currentState.tokenMarket.pointDelta - totalPrice,
+          pointDelta: currentState.tokenMarket.pointDelta - quote.cost,
           purchaseHistory: [
             {
-              title: `${event.title} 참여권 ${quantity}개 구매`,
+              title: `${event.title} ${quantity}토큰 매수`,
               date: formatDate(new Date()),
-              amount: -totalPrice,
+              amount: -quote.cost,
               type: "use"
             },
             ...currentState.tokenMarket.purchaseHistory
@@ -190,8 +300,8 @@ async function purchaseEventResponse(request, env, session) {
               eventId: event.id,
               title: event.title,
               quantity,
-              unitPrice: event.unitPrice,
-              totalPrice,
+              unitPrice: Math.ceil(quote.cost / quantity),
+              totalPrice: quote.cost,
               purchasedAt: new Date().toISOString()
             },
             ...(Array.isArray(currentState.tokenMarket.eventPurchases)
@@ -216,6 +326,89 @@ async function purchaseEventResponse(request, env, session) {
     await setEvent(env, event);
     return json(request, env, { error: error.message || "purchase_failed" }, 400);
   }
+}
+
+async function sellEventResponse(request, env, session) {
+  if (session.role !== "student") {
+    return json(request, env, { error: "forbidden" }, 403);
+  }
+
+  const body = await request.json();
+  const eventId = String(body?.eventId || "").trim();
+  const quantity = Math.max(1, Math.floor(Number(body?.quantity || 1)));
+
+  const event = await getEvent(env, eventId);
+  if (!event) {
+    return json(request, env, { error: "event_not_found" }, 404);
+  }
+
+  const stateUpdate = await updateStudentAppState(env, session.userId, async (currentState) => {
+    const holdingQuantity = getEventHoldingQuantity(currentState.tokenMarket, event.id);
+    if (holdingQuantity < quantity) {
+      throw new Error("insufficient_event_holdings");
+    }
+
+    const quote = getSellQuote(event, quantity);
+    if (!quote) {
+      throw new Error("cannot_sell_event_token");
+    }
+
+    const nextEvent = {
+      ...event,
+      remainingQuantity: quote.nextTokenReserve,
+      ammPointReserve: quote.nextPointReserve,
+      ammTokenReserve: quote.nextTokenReserve,
+      ammInvariant: quote.nextInvariant,
+      currentMarketPrice: getCurrentMarketPrice({
+        ammPointReserve: quote.nextPointReserve,
+        ammTokenReserve: quote.nextTokenReserve
+      })
+    };
+
+    await setEvent(env, nextEvent);
+
+    return {
+      ...currentState,
+      tokenMarket: {
+        ...currentState.tokenMarket,
+        pointDelta: currentState.tokenMarket.pointDelta + quote.payout,
+        purchaseHistory: [
+          {
+            title: `${event.title} ${quantity}토큰 매도`,
+            date: formatDate(new Date()),
+            amount: quote.payout,
+            type: "earn"
+          },
+          ...currentState.tokenMarket.purchaseHistory
+        ],
+        eventPurchases: [
+          {
+            eventId: event.id,
+            title: event.title,
+            quantity: -quantity,
+            unitPrice: Math.floor(quote.payout / quantity),
+            totalPrice: -quote.payout,
+            purchasedAt: new Date().toISOString()
+          },
+          ...(Array.isArray(currentState.tokenMarket.eventPurchases)
+            ? currentState.tokenMarket.eventPurchases
+            : [])
+        ]
+      }
+    };
+  });
+
+  const nextEvent = await getEvent(env, eventId);
+  return json(
+    request,
+    env,
+    {
+      ok: true,
+      event: nextEvent,
+      state: stateUpdate
+    },
+    200
+  );
 }
 
 export async function onRequest(context) {
@@ -249,6 +442,10 @@ export async function onRequest(context) {
 
   if (request.method === "POST" && route.length === 1 && route[0] === "purchase") {
     return purchaseEventResponse(request, env, session);
+  }
+
+  if (request.method === "POST" && route.length === 1 && route[0] === "sell") {
+    return sellEventResponse(request, env, session);
   }
 
   return json(request, env, { error: "not_found" }, 404);

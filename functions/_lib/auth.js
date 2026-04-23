@@ -8,7 +8,8 @@ const INITIAL_TOKEN_MARKET_STATE = {
   eventTokenReserve: 12,
   userEventTokens: 0,
   pointDelta: 0,
-  purchaseHistory: []
+  purchaseHistory: [],
+  eventPurchases: []
 };
 
 function toBase64Url(bytes) {

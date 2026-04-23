@@ -175,6 +175,7 @@ const INITIAL_TOKEN_MARKET_STATE = {
   purchaseHistory: [],
   eventPurchases: []
 };
+const SECONDARY_MARKET_MULTIPLIER = 1.55;
 
 const roleConfigs = {
   student: {
@@ -590,6 +591,71 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
+function getEventHoldingSummary() {
+  const purchases = Array.isArray(studentTokenMarketState.eventPurchases)
+    ? studentTokenMarketState.eventPurchases
+    : [];
+  const purchaseSummary = new Map();
+
+  purchases.forEach((purchase) => {
+    const current = purchaseSummary.get(purchase.eventId) || {
+      eventId: purchase.eventId,
+      title: purchase.title,
+      quantity: 0,
+      netAmount: 0
+    };
+    current.quantity += Math.floor(purchase.quantity);
+    current.netAmount += Math.floor(purchase.totalPrice);
+    purchaseSummary.set(purchase.eventId, current);
+  });
+
+  return new Map(
+    Array.from(purchaseSummary.entries()).filter(([, item]) => item.quantity > 0)
+  );
+}
+
+function getCurrentMarketPrice(event) {
+  if (!Number.isFinite(event?.ammTokenReserve) || event.ammTokenReserve <= 0) {
+    return 0;
+  }
+
+  return Math.ceil(event.ammPointReserve / event.ammTokenReserve);
+}
+
+function getAmmBuyQuote(event, quantity) {
+  const normalizedQuantity = Math.max(1, Math.floor(quantity));
+  const tokenReserve = Math.floor(Number(event?.ammTokenReserve || event?.remainingQuantity || 0));
+  const pointReserve = Math.floor(Number(event?.ammPointReserve || 0));
+
+  if (normalizedQuantity >= tokenReserve || tokenReserve <= 0 || pointReserve <= 0) {
+    return null;
+  }
+
+  const invariant = pointReserve * tokenReserve;
+  const nextTokenReserve = tokenReserve - normalizedQuantity;
+  const exactNextPointReserve = invariant / nextTokenReserve;
+  const cost = Math.ceil(exactNextPointReserve - pointReserve);
+
+  return cost > 0 ? { cost, nextTokenReserve, nextPointReserve: pointReserve + cost } : null;
+}
+
+function getAmmSellQuote(event, quantity) {
+  const normalizedQuantity = Math.max(1, Math.floor(quantity));
+  const tokenReserve = Math.floor(Number(event?.ammTokenReserve || event?.remainingQuantity || 0));
+  const pointReserve = Math.floor(Number(event?.ammPointReserve || 0));
+
+  if (normalizedQuantity <= 0 || tokenReserve <= 0 || pointReserve <= 0) {
+    return null;
+  }
+
+  const invariant = pointReserve * tokenReserve;
+  const nextTokenReserve = tokenReserve + normalizedQuantity;
+  const exactNextPointReserve = invariant / nextTokenReserve;
+  const payout = Math.floor(pointReserve - exactNextPointReserve);
+
+  return payout > 0 ? { payout, nextTokenReserve, nextPointReserve: pointReserve - payout } : null;
+}
+
 function buildQuickPollUrl(title, description, options) {
   const query = new URLSearchParams({
     qTitle: title,
@@ -924,28 +990,18 @@ function persistTokenMarketState() {
 
 function renderTokenMarket() {
   if (!tokenMarketPanel) return;
-  const purchases = Array.isArray(studentTokenMarketState.eventPurchases)
-    ? studentTokenMarketState.eventPurchases
-    : [];
-  const purchaseSummary = new Map();
-
-  purchases.forEach((purchase) => {
-    const current = purchaseSummary.get(purchase.eventId) || {
-      title: purchase.title,
-      quantity: 0,
-      totalPrice: 0
-    };
-    current.quantity += purchase.quantity;
-    current.totalPrice += purchase.totalPrice;
-    purchaseSummary.set(purchase.eventId, current);
-  });
+  const purchaseSummary = getEventHoldingSummary();
+  const totalHoldingCount = Array.from(purchaseSummary.values()).reduce(
+    (sum, item) => sum + item.quantity,
+    0
+  );
 
   if (currentRole === "admin") {
     tokenMarketPanel.innerHTML = `
       <header class="panel-titlebar token-market-header">
         <div>
           <p class="panel-kicker">행사 운영</p>
-          <h3>행사 판매 등록</h3>
+          <h3>행사 AMM 상장 등록</h3>
         </div>
         <div class="progress-chip">${availableEvents.length}개 행사</div>
       </header>
@@ -964,16 +1020,21 @@ function renderTokenMarket() {
             </label>
 
             <label class="notice-field">
-              <span>판매 개수</span>
+              <span>초기 토큰 수량</span>
               <input type="number" name="totalQuantity" min="1" value="10">
             </label>
 
             <label class="notice-field">
-              <span>1개당 포인트</span>
+              <span>기준 1토큰 가격</span>
               <input type="number" name="unitPrice" min="1" value="1000">
             </label>
 
-            <button type="submit" class="login-button notice-submit">행사 등록</button>
+            <p class="detail-text token-market-copy">
+              등록 즉시 세컨더리 마켓 초기 가격은 기준가의 ${(SECONDARY_MARKET_MULTIPLIER).toFixed(2)}배로 설정되고,
+              이후에는 x * y = k AMM으로 가격이 자동 변동됩니다.
+            </p>
+
+            <button type="submit" class="login-button notice-submit">행사 상장</button>
           </form>
           <p class="login-message token-market-message">${escapeHtml(getTokenMarketMessage())}</p>
         </section>
@@ -993,7 +1054,7 @@ function renderTokenMarket() {
                     .map(
                       (event) => `
                         <li>
-                          <span>${escapeHtml(event.title)} · ${event.unitPrice.toLocaleString()}P · 잔여 ${event.remainingQuantity}/${event.totalQuantity}</span>
+                          <span>${escapeHtml(event.title)} · 기준 ${event.unitPrice.toLocaleString()}P · 현재 ${getCurrentMarketPrice(event).toLocaleString()}P · 풀 ${event.ammTokenReserve}/${event.totalQuantity}</span>
                           <button type="button" class="ghost-link" data-delete-event-id="${escapeHtml(event.id)}">삭제</button>
                         </li>
                       `
@@ -1010,28 +1071,28 @@ function renderTokenMarket() {
   tokenMarketPanel.innerHTML = `
     <header class="panel-titlebar token-market-header">
       <div>
-        <p class="panel-kicker">행사 참여 토큰</p>
-        <h3>포인트로 행사 참여권 구매</h3>
+        <p class="panel-kicker">세컨더리 마켓</p>
+        <h3>행사 토큰 AMM 거래</h3>
       </div>
       <div class="progress-chip">보유 포인트 ${state.points.toLocaleString()}P</div>
     </header>
 
     <div class="token-market-grid">
       <section class="token-market-card token-market-card-primary">
-        <p class="token-market-eyebrow">구매 가능 행사</p>
-        <strong class="token-market-title">관리자가 등록한 행사만 구매할 수 있습니다</strong>
+        <p class="token-market-eyebrow">AMM 보드</p>
+        <strong class="token-market-title">등록된 행사 토큰은 모두 자동으로 세컨더리 마켓에 상장됩니다</strong>
         <p class="detail-text token-market-copy">
-          각 행사별로 관리자 설정 수량과 가격이 적용됩니다. 구매 후에는 취소할 수 없습니다.
+          초기 가격은 기준가의 ${(SECONDARY_MARKET_MULTIPLIER).toFixed(2)}배이며, 이후에는 풀의 토큰/포인트 리저브에 따라 실시간으로 가격이 변합니다.
         </p>
 
         <div class="token-market-stats">
           <article>
-            <span>구매 가능 행사</span>
+            <span>상장 행사</span>
             <strong>${availableEvents.length}개</strong>
           </article>
           <article>
-            <span>누적 구매 건수</span>
-            <strong>${purchases.reduce((sum, item) => sum + item.quantity, 0)}개</strong>
+            <span>내 보유 토큰</span>
+            <strong>${totalHoldingCount}개</strong>
           </article>
         </div>
 
@@ -1041,18 +1102,53 @@ function renderTokenMarket() {
               ? '<li><span>현재 판매 중인 행사가 없습니다.</span><strong>대기</strong></li>'
               : availableEvents
                   .map(
-                    (event) => `
-                      <form class="token-buy-form" data-event-purchase-form="true" data-event-id="${escapeHtml(event.id)}">
-                        <label class="notice-field">
-                          <span>${escapeHtml(event.title)}${event.description ? ` · ${escapeHtml(event.description)}` : ""}</span>
-                          <input type="number" name="quantity" min="1" max="${Math.max(1, event.remainingQuantity)}" value="1" ${event.remainingQuantity < 1 ? "disabled" : ""}>
-                        </label>
-                        <button type="submit" class="login-button notice-submit" ${event.remainingQuantity < 1 ? "disabled" : ""}>
-                          ${event.unitPrice.toLocaleString()}P에 구매
-                        </button>
-                        <small>잔여 ${event.remainingQuantity}/${event.totalQuantity}</small>
-                      </form>
-                    `
+                    (event) => {
+                      const owned = purchaseSummary.get(event.id)?.quantity || 0;
+                      const buyQuote = getAmmBuyQuote(event, 1);
+                      const sellQuote = owned > 0 ? getAmmSellQuote(event, 1) : null;
+
+                      return `
+                        <div class="token-trade-card">
+                          <div class="token-trade-header">
+                            <div>
+                              <strong>${escapeHtml(event.title)}</strong>
+                              <p>${event.description ? escapeHtml(event.description) : "행사 토큰 세컨더리 마켓"}</p>
+                            </div>
+                            <span class="token-trade-badge">현재가 ${getCurrentMarketPrice(event).toLocaleString()}P</span>
+                          </div>
+
+                          <div class="token-trade-metrics">
+                            <span>기준가 ${event.unitPrice.toLocaleString()}P</span>
+                            <span>초기가 ${(event.unitPrice * SECONDARY_MARKET_MULTIPLIER).toLocaleString()}P</span>
+                            <span>토큰 풀 ${event.ammTokenReserve.toLocaleString()}</span>
+                            <span>포인트 풀 ${event.ammPointReserve.toLocaleString()}P</span>
+                            <span>내 보유 ${owned}개</span>
+                          </div>
+
+                          <div class="token-trade-actions">
+                            <form class="token-buy-form" data-event-purchase-form="true" data-event-id="${escapeHtml(event.id)}">
+                              <label class="notice-field">
+                                <span>매수 수량</span>
+                                <input type="number" name="quantity" min="1" max="${Math.max(1, event.ammTokenReserve - 1)}" value="1" ${event.ammTokenReserve <= 1 ? "disabled" : ""}>
+                              </label>
+                              <button type="submit" class="login-button notice-submit" ${event.ammTokenReserve <= 1 ? "disabled" : ""}>
+                                ${buyQuote ? `예상 ${buyQuote.cost.toLocaleString()}P로 매수` : "매수 불가"}
+                              </button>
+                            </form>
+
+                            <form class="token-buy-form" data-event-sell-form="true" data-event-id="${escapeHtml(event.id)}">
+                              <label class="notice-field">
+                                <span>매도 수량</span>
+                                <input type="number" name="quantity" min="1" max="${Math.max(1, owned)}" value="1" ${owned < 1 ? "disabled" : ""}>
+                              </label>
+                              <button type="submit" class="ghost-button token-sell-button" ${owned < 1 ? "disabled" : ""}>
+                                ${sellQuote ? `예상 ${sellQuote.payout.toLocaleString()}P로 매도` : "매도 불가"}
+                              </button>
+                            </form>
+                          </div>
+                        </div>
+                      `;
+                    }
                   )
                   .join("")
           }
@@ -1076,7 +1172,7 @@ function renderTokenMarket() {
                     (item) => `
                       <li>
                         <span>${escapeHtml(item.title)}</span>
-                        <strong>${item.quantity}개 / ${item.totalPrice.toLocaleString()}P</strong>
+                        <strong>${item.quantity}개 / 순투입 ${item.netAmount.toLocaleString()}P</strong>
                       </li>
                     `
                   )
@@ -1482,7 +1578,7 @@ function switchView(view) {
 
   const isDashboard = view === "dashboard";
   const isPoints = view === "points";
-  const isTokenView = view === "tokens";
+  const isTokenView = currentRole === "admin" ? view === "tokens" : view === "market";
   const isStudentManagementView = currentRole === "admin" && view === "students";
 
   if (statusGrid) statusGrid.classList.remove("is-hidden");
@@ -2047,26 +2143,40 @@ if (tokenMarketPanel) {
     }
 
     if (currentRole !== "student") return;
-    if (target.dataset.eventPurchaseForm !== "true") return;
+    const isPurchase = target.dataset.eventPurchaseForm === "true";
+    const isSale = target.dataset.eventSellForm === "true";
+    if (!isPurchase && !isSale) return;
 
     const eventId = String(target.dataset.eventId || "");
     const quantity = Math.max(1, Math.floor(Number(formData.get("quantity") || 1)));
     const selectedEvent = availableEvents.find((item) => item.id === eventId);
     if (!selectedEvent) return;
 
-    const totalPrice = selectedEvent.unitPrice * quantity;
+    const quote = isPurchase
+      ? getAmmBuyQuote(selectedEvent, quantity)
+      : getAmmSellQuote(selectedEvent, quantity);
+    if (!quote) {
+      studentTokenMarketMessage = isPurchase
+        ? "해당 수량은 현재 매수할 수 없습니다."
+        : "해당 수량은 현재 매도할 수 없습니다.";
+      renderTokenMarket();
+      return;
+    }
+
     const confirmed = await showPurchaseConfirm(
-      `${selectedEvent.title} ${quantity}개를 ${totalPrice.toLocaleString()}P에 구매를 하시겠습니까? 취소가 불가능합니다.`
+      isPurchase
+        ? `${selectedEvent.title} ${quantity}개를 예상 ${quote.cost.toLocaleString()}P에 매수하시겠습니까? 체결 후 가격이 변합니다.`
+        : `${selectedEvent.title} ${quantity}개를 예상 ${quote.payout.toLocaleString()}P에 매도하시겠습니까? 체결 후 가격이 변합니다.`
     );
 
     if (!confirmed) {
-      studentTokenMarketMessage = "구매가 취소되었습니다.";
+      studentTokenMarketMessage = isPurchase ? "매수가 취소되었습니다." : "매도가 취소되었습니다.";
       renderTokenMarket();
       return;
     }
 
     try {
-      const data = await eventsApiRequest("/purchase", {
+      const data = await eventsApiRequest(isPurchase ? "/purchase" : "/sell", {
         method: "POST",
         body: JSON.stringify({
           eventId,
@@ -2075,7 +2185,9 @@ if (tokenMarketPanel) {
       });
       applyStudentStateResponse({ state: data.state });
       state = buildStudentState();
-      studentTokenMarketMessage = `${selectedEvent.title} ${quantity}개 구매가 완료되었습니다.`;
+      studentTokenMarketMessage = isPurchase
+        ? `${selectedEvent.title} ${quantity}개 매수가 완료되었습니다.`
+        : `${selectedEvent.title} ${quantity}개 매도가 완료되었습니다.`;
       renderStatus();
       renderPointsHistory();
       await syncEventsFromApi();
@@ -2085,8 +2197,14 @@ if (tokenMarketPanel) {
         error.message === "not_enough_points"
           ? "포인트가 부족합니다."
           : error.message === "insufficient_event_inventory"
-            ? "남은 수량이 부족합니다."
-            : "행사 구매 처리 중 오류가 발생했습니다.";
+            ? "현재 풀에서 해당 수량을 매수할 수 없습니다."
+            : error.message === "insufficient_event_holdings"
+              ? "보유 수량이 부족합니다."
+              : error.message === "cannot_sell_event_token"
+                ? "현재 조건에서는 매도할 수 없습니다."
+                : isPurchase
+                  ? "행사 토큰 매수 처리 중 오류가 발생했습니다."
+                  : "행사 토큰 매도 처리 중 오류가 발생했습니다.";
       renderTokenMarket();
     }
   });

@@ -14,7 +14,8 @@ const INITIAL_TOKEN_MARKET_STATE = {
   eventTokenReserve: 12,
   userEventTokens: 0,
   pointDelta: 0,
-  purchaseHistory: []
+  purchaseHistory: [],
+  eventPurchases: []
 };
 
 function formatDate(date) {
@@ -328,16 +329,21 @@ async function deleteStudentAccount(request, env, session) {
   });
 
   for (const [eventId, quantity] of aggregatedPurchases.entries()) {
+    if (quantity <= 0) continue;
+
     const rawEvent = await upstash(env, `/get/events:item:${eventId}`);
     if (!rawEvent) continue;
 
     const event = JSON.parse(rawEvent);
+    const nextTokenReserve = Math.min(
+      Number(event.totalQuantity) || 0,
+      (Number(event.ammTokenReserve) || Number(event.remainingQuantity) || 0) + quantity
+    );
     const nextEvent = {
       ...event,
-      remainingQuantity: Math.min(
-        Number(event.totalQuantity) || 0,
-        (Number(event.remainingQuantity) || 0) + quantity
-      )
+      ammTokenReserve: nextTokenReserve,
+      remainingQuantity: nextTokenReserve,
+      ammInvariant: ((Number(event.ammPointReserve) || 0) * nextTokenReserve) || 0
     };
     await upstash(env, `/set/events:item:${eventId}`, nextEvent);
   }
