@@ -1588,7 +1588,10 @@ function applyRoleLayout(role) {
 
   if (!roleConfig) return;
 
-  if (appRoleSubtitle) appRoleSubtitle.textContent = roleConfig.subtitle;
+  if (appRoleSubtitle) {
+    appRoleSubtitle.textContent =
+      role === "student" ? (paymentState.studentPaid ? "납부자" : "미납부자") : roleConfig.subtitle;
+  }
   if (heroKicker) heroKicker.textContent = roleConfig.heroKicker;
   if (heroTitle) heroTitle.textContent = roleConfig.heroTitle;
   if (heroDescription) heroDescription.textContent = roleConfig.heroDescription;
@@ -1858,6 +1861,10 @@ function switchView(view) {
 }
 
 function renderStatus() {
+  if (appRoleSubtitle && currentRole === "student") {
+    appRoleSubtitle.textContent = paymentState.studentPaid ? "납부자" : "미납부자";
+  }
+
   if (pointsValue) pointsValue.textContent = `${state.points.toLocaleString()}P`;
   if (pointsMeta) pointsMeta.textContent = state.pointsMeta;
   if (tokenValue) tokenValue.textContent = String(state.tokens);

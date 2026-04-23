@@ -370,7 +370,7 @@ input {
 }
 
 .app-brand-image {
-  width: 220px;
+  width: 188px;
   max-width: 100%;
   height: auto;
 }
@@ -391,16 +391,17 @@ input {
 .app-brand-subtitle {
   margin: 0;
   color: #6d7b90;
-  font-size: 0.92rem;
+  font-size: 0.82rem;
 }
 
 .ghost-button {
-  height: 42px;
-  padding: 0 18px;
+  height: 38px;
+  padding: 0 16px;
   border: 1px solid #d3dbe7;
   border-radius: 999px;
   background: #fff;
   color: #173f7d;
+  font-size: 0.88rem;
   font-weight: 700;
   cursor: pointer;
 }
@@ -1569,7 +1570,7 @@ input {
   }
 
   .app-brand-image {
-    width: 138px;
+    width: 122px;
   }
 
   .app-brand-copy {
@@ -1581,13 +1582,13 @@ input {
   }
 
   .app-brand-subtitle {
-    font-size: 0.8rem;
+    font-size: 0.74rem;
   }
 
   .ghost-button {
-    height: 38px;
-    padding: 0 14px;
-    font-size: 0.88rem;
+    height: 34px;
+    padding: 0 12px;
+    font-size: 0.8rem;
   }
 
   .app-nav {
