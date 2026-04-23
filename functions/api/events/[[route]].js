@@ -292,7 +292,7 @@ async function purchaseEventResponse(request, env, session) {
           pointDelta: currentState.tokenMarket.pointDelta - totalPrice,
           purchaseHistory: [
             {
-              title: `${event.title} ${quantity}토큰 1차 구매`,
+              title: `${event.title} 토큰 ${quantity}개 구매`,
               date: formatDate(new Date()),
               amount: -totalPrice,
               type: "use"

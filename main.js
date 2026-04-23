@@ -1094,17 +1094,14 @@ function renderPrimaryTokenPurchasePanel() {
     <header class="panel-titlebar token-market-header">
       <div>
         <p class="panel-kicker">토큰 구매</p>
-        <h3>납부자 전용 행사 토큰 구매</h3>
+        <h3>행사 토큰 구매</h3>
       </div>
       <div class="progress-chip">보유 포인트 ${state.points.toLocaleString()}P</div>
     </header>
 
-    <div class="token-market-grid">
+    <div class="token-market-grid token-market-grid--single">
       <section class="token-market-card token-market-card-primary">
-        <strong class="token-market-title">행사 토큰은 기준가로 구매하고, 이후에는 세컨더리 마켓에서 거래할 수 있습니다</strong>
-        <p class="detail-text token-market-copy">
-          학생회비를 납부한 경우에만 이 탭에서 고정가 구매가 가능합니다.
-        </p>
+        <strong class="token-market-title">학생회비를 납부한 경우에만 이 탭에서 구매가 가능합니다.</strong>
 
         <div class="token-market-stats">
           <article>
@@ -1294,7 +1291,7 @@ function renderStudentAssetsPanels() {
           return `
             <li>
               <span>${escapeHtml(item.title)}</span>
-              <strong>${item.quantity}개 / 개당 ${unitPrice.toLocaleString()}P</strong>
+              <strong>${item.quantity}개 (개당 ${unitPrice.toLocaleString()}P)</strong>
             </li>
           `;
         })
@@ -2545,7 +2542,7 @@ if (tokenMarketPanel) {
       applyStudentStateResponse({ state: data.state });
       state = buildStudentState();
       studentTokenMarketMessage = isPrimaryPurchase
-        ? `${selectedEvent.title} ${quantity}개 구매가 완료되었습니다.`
+        ? `${selectedEvent.title} 토큰 ${quantity}개 구매가 완료되었습니다.`
         : isMarketPurchase
         ? `${selectedEvent.title} ${quantity}개 세컨더리 매수가 완료되었습니다.`
         : `${selectedEvent.title} ${quantity}개 매도가 완료되었습니다.`;

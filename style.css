@@ -1509,6 +1509,10 @@ input {
   gap: 18px;
 }
 
+.token-market-grid--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .token-market-card {
   padding: 20px;
   border: 1px solid #dce3ee;
