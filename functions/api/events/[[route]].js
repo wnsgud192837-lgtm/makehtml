@@ -125,11 +125,15 @@ function normalizeEvent(event) {
     Number.isFinite(parsed.unitPrice) && parsed.unitPrice > 0
       ? Math.floor(parsed.unitPrice)
       : 0;
-  const fallbackTokenReserve = toSafeInteger(
+  const fallbackPrimaryRemainingQuantity = toSafeInteger(
     parsed.remainingQuantity,
     totalQuantity
   );
-  const ammTokenReserve = toSafeInteger(parsed.ammTokenReserve, fallbackTokenReserve);
+  const primaryRemainingQuantity = toSafeInteger(
+    parsed.primaryRemainingQuantity,
+    fallbackPrimaryRemainingQuantity
+  );
+  const ammTokenReserve = toSafeInteger(parsed.ammTokenReserve, totalQuantity);
   const fallbackPointReserve =
     unitPrice > 0 && ammTokenReserve > 0
       ? getInitialAmmPointReserve(ammTokenReserve, unitPrice)
@@ -141,7 +145,8 @@ function normalizeEvent(event) {
     title: typeof parsed.title === "string" ? parsed.title : "",
     description: typeof parsed.description === "string" ? parsed.description : "",
     totalQuantity,
-    remainingQuantity: ammTokenReserve,
+    primaryRemainingQuantity,
+    remainingQuantity: primaryRemainingQuantity,
     unitPrice,
     marketMultiplier:
       Number.isFinite(parsed.marketMultiplier) && parsed.marketMultiplier > 0
@@ -216,6 +221,7 @@ async function createEventResponse(request, env, session) {
     title,
     description,
     totalQuantity,
+    primaryRemainingQuantity: totalQuantity,
     unitPrice,
     marketMultiplier: SECONDARY_MARKET_MULTIPLIER,
     ammPointReserve: getInitialAmmPointReserve(totalQuantity, unitPrice),
@@ -255,29 +261,27 @@ async function purchaseEventResponse(request, env, session) {
     return json(request, env, { error: "event_not_found" }, 404);
   }
 
-  const quote = getBuyQuote(event, quantity);
-  if (!quote) {
+  if (event.primaryRemainingQuantity < quantity) {
     return json(request, env, { error: "insufficient_event_inventory" }, 400);
   }
 
+  const totalPrice = event.unitPrice * quantity;
   const nextEvent = {
     ...event,
-    remainingQuantity: quote.nextTokenReserve,
-    ammPointReserve: quote.nextPointReserve,
-    ammTokenReserve: quote.nextTokenReserve,
-    ammInvariant: quote.nextInvariant,
-    currentMarketPrice: getCurrentMarketPrice({
-      ammPointReserve: quote.nextPointReserve,
-      ammTokenReserve: quote.nextTokenReserve
-    })
+    primaryRemainingQuantity: event.primaryRemainingQuantity - quantity,
+    remainingQuantity: event.primaryRemainingQuantity - quantity
   };
 
   await setEvent(env, nextEvent);
 
   try {
     const state = await updateStudentAppState(env, session.userId, async (currentState) => {
+      if (!currentState.studentPaid) {
+        throw new Error("paid_membership_required");
+      }
+
       const currentPoints = (currentState.studentPaid ? 31000 : 0) + currentState.tokenMarket.pointDelta;
-      if (currentPoints < quote.cost) {
+      if (currentPoints < totalPrice) {
         throw new Error("not_enough_points");
       }
 
@@ -285,12 +289,12 @@ async function purchaseEventResponse(request, env, session) {
         ...currentState,
         tokenMarket: {
           ...currentState.tokenMarket,
-          pointDelta: currentState.tokenMarket.pointDelta - quote.cost,
+          pointDelta: currentState.tokenMarket.pointDelta - totalPrice,
           purchaseHistory: [
             {
-              title: `${event.title} ${quantity}토큰 매수`,
+              title: `${event.title} ${quantity}토큰 1차 구매`,
               date: formatDate(new Date()),
-              amount: -quote.cost,
+              amount: -totalPrice,
               type: "use"
             },
             ...currentState.tokenMarket.purchaseHistory
@@ -300,8 +304,8 @@ async function purchaseEventResponse(request, env, session) {
               eventId: event.id,
               title: event.title,
               quantity,
-              unitPrice: Math.ceil(quote.cost / quantity),
-              totalPrice: quote.cost,
+              unitPrice: event.unitPrice,
+              totalPrice,
               purchasedAt: new Date().toISOString()
             },
             ...(Array.isArray(currentState.tokenMarket.eventPurchases)
@@ -355,7 +359,6 @@ async function sellEventResponse(request, env, session) {
 
     const nextEvent = {
       ...event,
-      remainingQuantity: quote.nextTokenReserve,
       ammPointReserve: quote.nextPointReserve,
       ammTokenReserve: quote.nextTokenReserve,
       ammInvariant: quote.nextInvariant,
@@ -411,6 +414,83 @@ async function sellEventResponse(request, env, session) {
   );
 }
 
+async function marketPurchaseEventResponse(request, env, session) {
+  if (session.role !== "student") {
+    return json(request, env, { error: "forbidden" }, 403);
+  }
+
+  const body = await request.json();
+  const eventId = String(body?.eventId || "").trim();
+  const quantity = Math.max(1, Math.floor(Number(body?.quantity || 1)));
+
+  const event = await getEvent(env, eventId);
+  if (!event) {
+    return json(request, env, { error: "event_not_found" }, 404);
+  }
+
+  const quote = getBuyQuote(event, quantity);
+  if (!quote) {
+    return json(request, env, { error: "insufficient_event_inventory" }, 400);
+  }
+
+  const nextEvent = {
+    ...event,
+    ammPointReserve: quote.nextPointReserve,
+    ammTokenReserve: quote.nextTokenReserve,
+    ammInvariant: quote.nextInvariant,
+    currentMarketPrice: getCurrentMarketPrice({
+      ammPointReserve: quote.nextPointReserve,
+      ammTokenReserve: quote.nextTokenReserve
+    })
+  };
+
+  await setEvent(env, nextEvent);
+
+  try {
+    const state = await updateStudentAppState(env, session.userId, async (currentState) => {
+      const currentPoints = (currentState.studentPaid ? 31000 : 0) + currentState.tokenMarket.pointDelta;
+      if (currentPoints < quote.cost) {
+        throw new Error("not_enough_points");
+      }
+
+      return {
+        ...currentState,
+        tokenMarket: {
+          ...currentState.tokenMarket,
+          pointDelta: currentState.tokenMarket.pointDelta - quote.cost,
+          purchaseHistory: [
+            {
+              title: `${event.title} ${quantity}토큰 세컨더리 매수`,
+              date: formatDate(new Date()),
+              amount: -quote.cost,
+              type: "use"
+            },
+            ...currentState.tokenMarket.purchaseHistory
+          ],
+          eventPurchases: [
+            {
+              eventId: event.id,
+              title: event.title,
+              quantity,
+              unitPrice: Math.ceil(quote.cost / quantity),
+              totalPrice: quote.cost,
+              purchasedAt: new Date().toISOString()
+            },
+            ...(Array.isArray(currentState.tokenMarket.eventPurchases)
+              ? currentState.tokenMarket.eventPurchases
+              : [])
+          ]
+        }
+      };
+    });
+
+    return json(request, env, { ok: true, event: nextEvent, state }, 200);
+  } catch (error) {
+    await setEvent(env, event);
+    return json(request, env, { error: error.message || "market_purchase_failed" }, 400);
+  }
+}
+
 export async function onRequest(context) {
   const { request, env, params } = context;
   const route = Array.isArray(params.route)
@@ -445,6 +525,14 @@ export async function onRequest(context) {
   }
 
   if (request.method === "POST" && route.length === 1 && route[0] === "sell") {
+    return sellEventResponse(request, env, session);
+  }
+
+  if (request.method === "POST" && route.length === 2 && route[0] === "market" && route[1] === "purchase") {
+    return marketPurchaseEventResponse(request, env, session);
+  }
+
+  if (request.method === "POST" && route.length === 2 && route[0] === "market" && route[1] === "sell") {
     return sellEventResponse(request, env, session);
   }
 

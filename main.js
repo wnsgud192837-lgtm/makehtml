@@ -988,7 +988,78 @@ function persistTokenMarketState() {
   return undefined;
 }
 
-function renderTokenMarket() {
+function renderAdminEventPanel() {
+  if (!tokenMarketPanel) return;
+  tokenMarketPanel.innerHTML = `
+    <header class="panel-titlebar token-market-header">
+      <div>
+        <p class="panel-kicker">행사 운영</p>
+        <h3>행사 AMM 상장 등록</h3>
+      </div>
+      <div class="progress-chip">${availableEvents.length}개 행사</div>
+    </header>
+
+    <div class="token-market-grid">
+      <section class="token-market-card token-market-card-primary">
+        <form class="notice-form" id="event-admin-form">
+          <label class="notice-field">
+            <span>행사명</span>
+            <input type="text" name="title" placeholder="예: 해맞이 한마당 - 2026/05/03 (행사 날짜)" maxlength="80">
+          </label>
+
+          <label class="notice-field">
+            <span>행사 설명</span>
+            <textarea name="description" placeholder="학생에게 보여줄 행사 설명을 입력하세요" rows="4" maxlength="240"></textarea>
+          </label>
+
+          <label class="notice-field">
+            <span>초기 토큰 수량</span>
+            <input type="number" name="totalQuantity" min="1" value="10">
+          </label>
+
+          <label class="notice-field">
+            <span>기준 1토큰 가격</span>
+            <input type="number" name="unitPrice" min="1" value="1000">
+          </label>
+
+          <p class="detail-text token-market-copy">
+            등록 즉시 1차 판매 재고와 세컨더리 AMM 풀이 함께 생성됩니다. 세컨더리 초기가는 기준가의 ${(SECONDARY_MARKET_MULTIPLIER).toFixed(2)}배입니다.
+          </p>
+
+          <button type="submit" class="login-button notice-submit">행사 상장</button>
+        </form>
+        <p class="login-message token-market-message">${escapeHtml(getTokenMarketMessage())}</p>
+      </section>
+
+      <section class="token-market-card">
+        <div class="panel-titlebar panel-titlebar-compact">
+          <div>
+            <p class="panel-kicker">등록 행사</p>
+            <h3>학생 구매 가능 목록</h3>
+          </div>
+        </div>
+        <ul class="market-list token-quote-list">
+          ${
+            availableEvents.length === 0
+              ? "<li><span>아직 등록된 행사가 없습니다.</span><strong>대기</strong></li>"
+              : availableEvents
+                  .map(
+                    (event) => `
+                      <li>
+                        <span>${escapeHtml(event.title)} · 기준 ${event.unitPrice.toLocaleString()}P · 초기가 ${(event.unitPrice * SECONDARY_MARKET_MULTIPLIER).toLocaleString()}P · 1차 재고 ${event.primaryRemainingQuantity}/${event.totalQuantity}</span>
+                        <button type="button" class="ghost-link" data-delete-event-id="${escapeHtml(event.id)}">삭제</button>
+                      </li>
+                    `
+                  )
+                  .join("")
+          }
+        </ul>
+      </section>
+    </div>
+  `;
+}
+
+function renderPrimaryTokenPurchasePanel() {
   if (!tokenMarketPanel) return;
   const purchaseSummary = getEventHoldingSummary();
   const totalHoldingCount = Array.from(purchaseSummary.values()).reduce(
@@ -996,98 +1067,26 @@ function renderTokenMarket() {
     0
   );
 
-  if (currentRole === "admin") {
-    tokenMarketPanel.innerHTML = `
-      <header class="panel-titlebar token-market-header">
-        <div>
-          <p class="panel-kicker">행사 운영</p>
-          <h3>행사 AMM 상장 등록</h3>
-        </div>
-        <div class="progress-chip">${availableEvents.length}개 행사</div>
-      </header>
-
-      <div class="token-market-grid">
-        <section class="token-market-card token-market-card-primary">
-          <form class="notice-form" id="event-admin-form">
-            <label class="notice-field">
-              <span>행사명</span>
-              <input type="text" name="title" placeholder="예: 해맞이 한마당 - 2026/05/03 (행사 날짜)" maxlength="80">
-            </label>
-
-            <label class="notice-field">
-              <span>행사 설명</span>
-              <textarea name="description" placeholder="학생에게 보여줄 행사 설명을 입력하세요" rows="4" maxlength="240"></textarea>
-            </label>
-
-            <label class="notice-field">
-              <span>초기 토큰 수량</span>
-              <input type="number" name="totalQuantity" min="1" value="10">
-            </label>
-
-            <label class="notice-field">
-              <span>기준 1토큰 가격</span>
-              <input type="number" name="unitPrice" min="1" value="1000">
-            </label>
-
-            <p class="detail-text token-market-copy">
-              등록 즉시 세컨더리 마켓 초기 가격은 기준가의 ${(SECONDARY_MARKET_MULTIPLIER).toFixed(2)}배로 설정되고,
-              이후에는 x * y = k AMM으로 가격이 자동 변동됩니다.
-            </p>
-
-            <button type="submit" class="login-button notice-submit">행사 상장</button>
-          </form>
-          <p class="login-message token-market-message">${escapeHtml(getTokenMarketMessage())}</p>
-        </section>
-
-        <section class="token-market-card">
-          <div class="panel-titlebar panel-titlebar-compact">
-            <div>
-              <p class="panel-kicker">등록 행사</p>
-              <h3>학생 구매 가능 목록</h3>
-            </div>
-          </div>
-          <ul class="market-list token-quote-list">
-            ${
-              availableEvents.length === 0
-                ? "<li><span>아직 등록된 행사가 없습니다.</span><strong>대기</strong></li>"
-                : availableEvents
-                    .map(
-                      (event) => `
-                        <li>
-                          <span>${escapeHtml(event.title)} · 기준 ${event.unitPrice.toLocaleString()}P · 현재 ${getCurrentMarketPrice(event).toLocaleString()}P · 풀 ${event.ammTokenReserve}/${event.totalQuantity}</span>
-                          <button type="button" class="ghost-link" data-delete-event-id="${escapeHtml(event.id)}">삭제</button>
-                        </li>
-                      `
-                    )
-                    .join("")
-            }
-          </ul>
-        </section>
-      </div>
-    `;
-    return;
-  }
-
   tokenMarketPanel.innerHTML = `
     <header class="panel-titlebar token-market-header">
       <div>
-        <p class="panel-kicker">세컨더리 마켓</p>
-        <h3>행사 토큰 AMM 거래</h3>
+        <p class="panel-kicker">토큰 구매</p>
+        <h3>납부자 전용 행사 토큰 구매</h3>
       </div>
       <div class="progress-chip">보유 포인트 ${state.points.toLocaleString()}P</div>
     </header>
 
     <div class="token-market-grid">
       <section class="token-market-card token-market-card-primary">
-        <p class="token-market-eyebrow">AMM 보드</p>
-        <strong class="token-market-title">등록된 행사 토큰은 모두 자동으로 세컨더리 마켓에 상장됩니다</strong>
+        <p class="token-market-eyebrow">1차 판매</p>
+        <strong class="token-market-title">행사 토큰은 기준가로 구매하고, 이후에는 세컨더리 마켓에서 거래할 수 있습니다</strong>
         <p class="detail-text token-market-copy">
-          초기 가격은 기준가의 ${(SECONDARY_MARKET_MULTIPLIER).toFixed(2)}배이며, 이후에는 풀의 토큰/포인트 리저브에 따라 실시간으로 가격이 변합니다.
+          학생회비를 납부한 경우에만 이 탭에서 고정가 구매가 가능합니다.
         </p>
 
         <div class="token-market-stats">
           <article>
-            <span>상장 행사</span>
+            <span>구매 가능 행사</span>
             <strong>${availableEvents.length}개</strong>
           </article>
           <article>
@@ -1102,53 +1101,31 @@ function renderTokenMarket() {
               ? '<li><span>현재 판매 중인 행사가 없습니다.</span><strong>대기</strong></li>'
               : availableEvents
                   .map(
-                    (event) => {
-                      const owned = purchaseSummary.get(event.id)?.quantity || 0;
-                      const buyQuote = getAmmBuyQuote(event, 1);
-                      const sellQuote = owned > 0 ? getAmmSellQuote(event, 1) : null;
-
-                      return `
-                        <div class="token-trade-card">
-                          <div class="token-trade-header">
-                            <div>
-                              <strong>${escapeHtml(event.title)}</strong>
-                              <p>${event.description ? escapeHtml(event.description) : "행사 토큰 세컨더리 마켓"}</p>
-                            </div>
-                            <span class="token-trade-badge">현재가 ${getCurrentMarketPrice(event).toLocaleString()}P</span>
+                    (event) => `
+                      <form class="token-buy-form token-trade-card" data-primary-purchase-form="true" data-event-id="${escapeHtml(event.id)}">
+                        <div class="token-trade-header">
+                          <div>
+                            <strong>${escapeHtml(event.title)}</strong>
+                            <p>${event.description ? escapeHtml(event.description) : "행사 토큰 1차 판매"}</p>
                           </div>
-
-                          <div class="token-trade-metrics">
-                            <span>기준가 ${event.unitPrice.toLocaleString()}P</span>
-                            <span>초기가 ${(event.unitPrice * SECONDARY_MARKET_MULTIPLIER).toLocaleString()}P</span>
-                            <span>토큰 풀 ${event.ammTokenReserve.toLocaleString()}</span>
-                            <span>포인트 풀 ${event.ammPointReserve.toLocaleString()}P</span>
-                            <span>내 보유 ${owned}개</span>
-                          </div>
-
-                          <div class="token-trade-actions">
-                            <form class="token-buy-form" data-event-purchase-form="true" data-event-id="${escapeHtml(event.id)}">
-                              <label class="notice-field">
-                                <span>매수 수량</span>
-                                <input type="number" name="quantity" min="1" max="${Math.max(1, event.ammTokenReserve - 1)}" value="1" ${event.ammTokenReserve <= 1 ? "disabled" : ""}>
-                              </label>
-                              <button type="submit" class="login-button notice-submit" ${event.ammTokenReserve <= 1 ? "disabled" : ""}>
-                                ${buyQuote ? `예상 ${buyQuote.cost.toLocaleString()}P로 매수` : "매수 불가"}
-                              </button>
-                            </form>
-
-                            <form class="token-buy-form" data-event-sell-form="true" data-event-id="${escapeHtml(event.id)}">
-                              <label class="notice-field">
-                                <span>매도 수량</span>
-                                <input type="number" name="quantity" min="1" max="${Math.max(1, owned)}" value="1" ${owned < 1 ? "disabled" : ""}>
-                              </label>
-                              <button type="submit" class="ghost-button token-sell-button" ${owned < 1 ? "disabled" : ""}>
-                                ${sellQuote ? `예상 ${sellQuote.payout.toLocaleString()}P로 매도` : "매도 불가"}
-                              </button>
-                            </form>
-                          </div>
+                          <span class="token-trade-badge">${event.unitPrice.toLocaleString()}P</span>
                         </div>
-                      `;
-                    }
+
+                        <div class="token-trade-metrics">
+                          <span>기준가 ${event.unitPrice.toLocaleString()}P</span>
+                          <span>초기가 ${(event.unitPrice * SECONDARY_MARKET_MULTIPLIER).toLocaleString()}P</span>
+                        </div>
+
+                        <label class="notice-field">
+                          <span>구매 수량</span>
+                          <input type="number" name="quantity" min="1" max="${Math.max(1, event.primaryRemainingQuantity)}" value="1" ${event.primaryRemainingQuantity < 1 || !paymentState.studentPaid ? "disabled" : ""}>
+                        </label>
+                        <button type="submit" class="login-button notice-submit" ${event.primaryRemainingQuantity < 1 || !paymentState.studentPaid ? "disabled" : ""}>
+                          ${paymentState.studentPaid ? `${event.unitPrice.toLocaleString()}P에 구매` : "납부자만 구매 가능"}
+                        </button>
+                        <small>1차 재고 ${event.primaryRemainingQuantity}/${event.totalQuantity}</small>
+                      </form>
+                    `
                   )
                   .join("")
           }
@@ -1160,7 +1137,7 @@ function renderTokenMarket() {
         <div class="panel-titlebar panel-titlebar-compact">
           <div>
             <p class="panel-kicker">내 구매 내역</p>
-            <h3>행사 참여권 보유 현황</h3>
+            <h3>행사 토큰 보유 현황</h3>
           </div>
         </div>
         <ul class="market-list token-quote-list">
@@ -1182,6 +1159,126 @@ function renderTokenMarket() {
       </section>
     </div>
   `;
+}
+
+function renderSecondaryMarketPanel() {
+  if (!tokenMarketPanel) return;
+  const purchaseSummary = getEventHoldingSummary();
+
+  tokenMarketPanel.innerHTML = `
+    <header class="panel-titlebar token-market-header">
+      <div>
+        <p class="panel-kicker">세컨더리 마켓</p>
+        <h3>행사 토큰 AMM 거래</h3>
+      </div>
+      <div class="progress-chip">보유 포인트 ${state.points.toLocaleString()}P</div>
+    </header>
+
+    <div class="token-market-grid">
+      <section class="token-market-card token-market-card-primary">
+        <p class="token-market-eyebrow">AMM 보드</p>
+        <strong class="token-market-title">1차 구매와 별도로 세컨더리 마켓에서 실시간 가격으로 거래할 수 있습니다</strong>
+        <p class="detail-text token-market-copy">
+          세컨더리 초기가는 기준가의 ${(SECONDARY_MARKET_MULTIPLIER).toFixed(2)}배이며, 거래가 발생할수록 가격이 변합니다.
+        </p>
+
+        <div class="token-market-stats">
+          <article>
+            <span>상장 행사</span>
+            <strong>${availableEvents.length}개</strong>
+          </article>
+          <article>
+            <span>거래 방식</span>
+            <strong>AMM</strong>
+          </article>
+        </div>
+
+        <div class="market-list token-quote-list">
+          ${
+            availableEvents.length === 0
+              ? '<li><span>현재 판매 중인 행사가 없습니다.</span><strong>대기</strong></li>'
+              : availableEvents
+                  .map((event) => {
+                    const owned = purchaseSummary.get(event.id)?.quantity || 0;
+                    const buyQuote = getAmmBuyQuote(event, 1);
+                    const sellQuote = owned > 0 ? getAmmSellQuote(event, 1) : null;
+
+                    return `
+                      <div class="token-trade-card">
+                        <div class="token-trade-header">
+                          <div>
+                            <strong>${escapeHtml(event.title)}</strong>
+                            <p>${event.description ? escapeHtml(event.description) : "행사 토큰 세컨더리 마켓"}</p>
+                          </div>
+                          <span class="token-trade-badge">현재가 ${getCurrentMarketPrice(event).toLocaleString()}P</span>
+                        </div>
+
+                        <div class="token-trade-metrics">
+                          <span>기준가 ${event.unitPrice.toLocaleString()}P</span>
+                          <span>초기가 ${(event.unitPrice * SECONDARY_MARKET_MULTIPLIER).toLocaleString()}P</span>
+                        </div>
+
+                        <div class="token-trade-actions">
+                          <form class="token-buy-form" data-market-purchase-form="true" data-event-id="${escapeHtml(event.id)}">
+                            <label class="notice-field">
+                              <span>매수 수량</span>
+                              <input type="number" name="quantity" min="1" max="${Math.max(1, event.ammTokenReserve - 1)}" value="1" ${event.ammTokenReserve <= 1 ? "disabled" : ""}>
+                            </label>
+                            <button type="submit" class="login-button notice-submit" ${event.ammTokenReserve <= 1 ? "disabled" : ""}>
+                              ${buyQuote ? `예상 ${buyQuote.cost.toLocaleString()}P로 매수` : "매수 불가"}
+                            </button>
+                          </form>
+
+                          <form class="token-buy-form" data-event-sell-form="true" data-event-id="${escapeHtml(event.id)}">
+                            <label class="notice-field">
+                              <span>매도 수량</span>
+                              <input type="number" name="quantity" min="1" max="${Math.max(1, owned)}" value="1" ${owned < 1 ? "disabled" : ""}>
+                            </label>
+                            <button type="submit" class="ghost-button token-sell-button" ${owned < 1 ? "disabled" : ""}>
+                              ${sellQuote ? `예상 ${sellQuote.payout.toLocaleString()}P로 매도` : "매도 불가"}
+                            </button>
+                          </form>
+                        </div>
+                      </div>
+                    `;
+                  })
+                  .join("")
+          }
+        </div>
+        <p class="login-message token-market-message">${escapeHtml(getTokenMarketMessage())}</p>
+      </section>
+
+      <section class="token-market-card">
+        <div class="panel-titlebar panel-titlebar-compact">
+          <div>
+            <p class="panel-kicker">안내</p>
+            <h3>세컨더리 마켓 동작 방식</h3>
+          </div>
+        </div>
+        <ul class="market-list token-quote-list">
+          <li><span>기준가</span><strong>관리자 등록가</strong></li>
+          <li><span>초기가</span><strong>기준가의 ${(SECONDARY_MARKET_MULTIPLIER).toFixed(2)}배</strong></li>
+          <li><span>체결가</span><strong>매수/매도 시점마다 변동</strong></li>
+        </ul>
+      </section>
+    </div>
+  `;
+}
+
+function renderTokenMarket() {
+  if (!tokenMarketPanel) return;
+
+  if (currentRole === "admin") {
+    renderAdminEventPanel();
+    return;
+  }
+
+  if (currentView === "market") {
+    renderSecondaryMarketPanel();
+    return;
+  }
+
+  renderPrimaryTokenPurchasePanel();
 }
 
 function renderStudentManagementPanel() {
@@ -1578,7 +1675,7 @@ function switchView(view) {
 
   const isDashboard = view === "dashboard";
   const isPoints = view === "points";
-  const isTokenView = currentRole === "admin" ? view === "tokens" : view === "market";
+  const isTokenView = currentRole === "admin" ? view === "tokens" : view === "tokens" || view === "market";
   const isStudentManagementView = currentRole === "admin" && view === "students";
 
   if (statusGrid) statusGrid.classList.remove("is-hidden");
@@ -2143,20 +2240,23 @@ if (tokenMarketPanel) {
     }
 
     if (currentRole !== "student") return;
-    const isPurchase = target.dataset.eventPurchaseForm === "true";
+    const isPrimaryPurchase = target.dataset.primaryPurchaseForm === "true";
+    const isMarketPurchase = target.dataset.marketPurchaseForm === "true";
     const isSale = target.dataset.eventSellForm === "true";
-    if (!isPurchase && !isSale) return;
+    if (!isPrimaryPurchase && !isMarketPurchase && !isSale) return;
 
     const eventId = String(target.dataset.eventId || "");
     const quantity = Math.max(1, Math.floor(Number(formData.get("quantity") || 1)));
     const selectedEvent = availableEvents.find((item) => item.id === eventId);
     if (!selectedEvent) return;
 
-    const quote = isPurchase
+    const quote = isPrimaryPurchase
+      ? { cost: selectedEvent.unitPrice * quantity }
+      : isMarketPurchase
       ? getAmmBuyQuote(selectedEvent, quantity)
       : getAmmSellQuote(selectedEvent, quantity);
     if (!quote) {
-      studentTokenMarketMessage = isPurchase
+      studentTokenMarketMessage = isMarketPurchase
         ? "해당 수량은 현재 매수할 수 없습니다."
         : "해당 수량은 현재 매도할 수 없습니다.";
       renderTokenMarket();
@@ -2164,29 +2264,37 @@ if (tokenMarketPanel) {
     }
 
     const confirmed = await showPurchaseConfirm(
-      isPurchase
+      isPrimaryPurchase
+        ? `${selectedEvent.title} ${quantity}개를 ${quote.cost.toLocaleString()}P에 구매하시겠습니까? 납부자만 가능합니다.`
+        : isMarketPurchase
         ? `${selectedEvent.title} ${quantity}개를 예상 ${quote.cost.toLocaleString()}P에 매수하시겠습니까? 체결 후 가격이 변합니다.`
         : `${selectedEvent.title} ${quantity}개를 예상 ${quote.payout.toLocaleString()}P에 매도하시겠습니까? 체결 후 가격이 변합니다.`
     );
 
     if (!confirmed) {
-      studentTokenMarketMessage = isPurchase ? "매수가 취소되었습니다." : "매도가 취소되었습니다.";
+      studentTokenMarketMessage =
+        isPrimaryPurchase || isMarketPurchase ? "구매가 취소되었습니다." : "매도가 취소되었습니다.";
       renderTokenMarket();
       return;
     }
 
     try {
-      const data = await eventsApiRequest(isPurchase ? "/purchase" : "/sell", {
+      const data = await eventsApiRequest(
+        isPrimaryPurchase ? "/purchase" : isMarketPurchase ? "/market/purchase" : "/market/sell",
+        {
         method: "POST",
         body: JSON.stringify({
           eventId,
           quantity
         })
-      });
+        }
+      );
       applyStudentStateResponse({ state: data.state });
       state = buildStudentState();
-      studentTokenMarketMessage = isPurchase
-        ? `${selectedEvent.title} ${quantity}개 매수가 완료되었습니다.`
+      studentTokenMarketMessage = isPrimaryPurchase
+        ? `${selectedEvent.title} ${quantity}개 1차 구매가 완료되었습니다.`
+        : isMarketPurchase
+        ? `${selectedEvent.title} ${quantity}개 세컨더리 매수가 완료되었습니다.`
         : `${selectedEvent.title} ${quantity}개 매도가 완료되었습니다.`;
       renderStatus();
       renderPointsHistory();
@@ -2194,17 +2302,23 @@ if (tokenMarketPanel) {
       renderTokenMarket();
     } catch (error) {
       studentTokenMarketMessage =
-        error.message === "not_enough_points"
+        error.message === "paid_membership_required"
+          ? "학생회비를 납부한 학생만 토큰 구매가 가능합니다."
+          : error.message === "not_enough_points"
           ? "포인트가 부족합니다."
-          : error.message === "insufficient_event_inventory"
+          : error.message === "insufficient_event_inventory" && isPrimaryPurchase
+            ? "1차 판매 재고가 부족합니다."
+            : error.message === "insufficient_event_inventory"
             ? "현재 풀에서 해당 수량을 매수할 수 없습니다."
             : error.message === "insufficient_event_holdings"
               ? "보유 수량이 부족합니다."
               : error.message === "cannot_sell_event_token"
                 ? "현재 조건에서는 매도할 수 없습니다."
-                : isPurchase
-                  ? "행사 토큰 매수 처리 중 오류가 발생했습니다."
-                  : "행사 토큰 매도 처리 중 오류가 발생했습니다.";
+                : isPrimaryPurchase
+                  ? "토큰 1차 구매 처리 중 오류가 발생했습니다."
+                  : isMarketPurchase
+                    ? "세컨더리 매수 처리 중 오류가 발생했습니다."
+                    : "세컨더리 매도 처리 중 오류가 발생했습니다.";
       renderTokenMarket();
     }
   });
