@@ -63,6 +63,7 @@ const governanceList = document.querySelector("#governance-list");
 const governanceEarnButton = document.querySelector("#governance-earn-button");
 const pollForm = document.querySelector("#poll-form");
 const pollMessage = document.querySelector("#poll-message");
+const paymentCard = paymentButton?.closest(".status-card") || null;
 const paymentLabel = document.querySelector("#payment-label");
 const pointsLabel = document.querySelector("#points-label");
 const tokenLabel = document.querySelector("#token-label");
@@ -2062,11 +2063,14 @@ function renderSubnav() {
 }
 
 function renderHomeSubnavSections() {
-  if (currentView !== "dashboard") return;
-
+  const isHomeView = currentView === "dashboard";
   const activeIndex = currentSubnavIndexByView.dashboard ?? 1;
-  const showNotice = activeIndex === 0;
-  const showCalendar = activeIndex === 1;
+  const showNotice = isHomeView && activeIndex === 0;
+  const showCalendar = isHomeView && activeIndex === 1;
+
+  if (paymentCard) {
+    paymentCard.classList.toggle("is-hidden", !showNotice);
+  }
 
   if (heroPanel) {
     heroPanel.classList.toggle("is-hidden", !showNotice);
@@ -2089,6 +2093,7 @@ function renderHomeSubnavSections() {
   if (statusGrid) {
     statusGrid.classList.toggle("is-hidden", !showNotice);
     statusGrid.classList.toggle("is-home-notice", showNotice);
+    statusGrid.classList.toggle("is-without-payment", !showNotice);
   }
 }
 

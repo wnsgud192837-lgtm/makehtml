@@ -846,6 +846,10 @@ input {
   margin-bottom: 22px;
 }
 
+.status-grid.is-without-payment {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .status-grid.is-home-notice {
   margin-bottom: 18px;
 }
@@ -873,6 +877,10 @@ input {
   box-shadow: 0 18px 34px rgba(15, 40, 85, 0.08);
   display: grid;
   gap: 8px;
+}
+
+.status-card.is-hidden {
+  display: none;
 }
 
 .status-card-profile {
@@ -1907,6 +1915,10 @@ input {
   .status-grid {
     gap: 12px;
     margin-bottom: 0;
+  }
+
+  .status-grid.is-without-payment {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .status-card {
