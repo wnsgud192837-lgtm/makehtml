@@ -459,7 +459,7 @@ const currentSubnavIndexByView = {
 };
 const subnavCopy = {
   dashboard: { labels: ["Notice", "Calendar"], activeIndex: 1 },
-  points: { labels: ["Balance", "History", "Token"], activeIndex: 1 },
+  points: { labels: ["Assets", "Purchase"], activeIndex: 0 },
   tokens: { labels: ["Primary", "Purchase", "Token"], activeIndex: 1 },
   market: { labels: ["Market", "Trade", "Activity"], activeIndex: 1 },
   governance: { labels: ["Agenda", "Vote", "Result"], activeIndex: 1 },
@@ -1566,7 +1566,7 @@ function buildStudentState() {
       ...baseState,
       points: studentTokenMarketState.pointDelta,
       tokens: studentGovernanceState.tokens,
-      tokenMeta: "안건 1건당 토큰 1개로 익명 투표",
+      tokenMeta: "",
       pointHistory: marketHistory
     };
   }
@@ -1578,7 +1578,7 @@ function buildStudentState() {
     paymentStatus: "납부 완료",
     paymentMeta: "31,000포인트 지급 완료",
     pointsMeta: "학생회비 납부로 31,000P 지급",
-    tokenMeta: "안건 1건당 토큰 1개로 익명 투표",
+    tokenMeta: "",
     pointHistory: [
       {
         title: "학생회비 납부 리워드 지급",
@@ -1888,7 +1888,10 @@ function renderStatus() {
   if (pointsValue) pointsValue.textContent = `${state.points.toLocaleString()}P`;
   if (pointsMeta) pointsMeta.textContent = state.pointsMeta;
   if (tokenValue) tokenValue.textContent = String(state.tokens);
-  if (tokenMeta) tokenMeta.textContent = state.tokenMeta;
+  if (tokenMeta) {
+    tokenMeta.textContent = state.tokenMeta;
+    tokenMeta.hidden = !state.tokenMeta;
+  }
   if (paymentStatus) paymentStatus.textContent = state.paymentStatus;
   if (paymentButton) {
     paymentButton.title = state.paymentMeta;
@@ -2051,8 +2054,10 @@ function renderSubnav() {
 
   const config = subnavCopy[currentView] || subnavCopy.dashboard;
   const activeIndex = currentSubnavIndexByView[currentView] ?? config.activeIndex ?? 0;
+  const visibleCount = Math.max(1, config.labels.filter(Boolean).length);
 
   assetsSubnav.classList.toggle("is-hidden", false);
+  assetsSubnav.style.setProperty("--subnav-columns", String(visibleCount));
 
   assetsSubnavItems.forEach((item, index) => {
     const label = config.labels[index] || "";

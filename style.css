@@ -165,6 +165,7 @@ input {
 .login-button {
   height: 51px;
   border: 0;
+  border-radius: 10px;
   background: var(--magenta);
   color: var(--white);
   font-weight: 700;
@@ -363,7 +364,7 @@ input {
   background: rgba(255, 255, 255, 0.98);
   box-shadow: 0 18px 40px rgba(33, 43, 68, 0.06);
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--subnav-columns, 3), minmax(0, 1fr));
   gap: 0;
 }
 
