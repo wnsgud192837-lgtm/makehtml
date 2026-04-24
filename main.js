@@ -490,14 +490,14 @@ const baseState = {
 let currentMode = "payer";
 let currentView = "dashboard";
 const currentSubnavIndexByView = {
-  dashboard: 1
+  dashboard: 0
 };
 const currentMarketEventIndexByType = {
   secondary: 0,
   etf: 0
 };
 const subnavCopy = {
-  dashboard: { labels: ["Notice", "Calendar"], activeIndex: 1 },
+  dashboard: { labels: ["Notice", "Calendar"], activeIndex: 0 },
   points: { labels: ["Assets", "Purchase"], activeIndex: 0 },
   tokens: { labels: ["Primary", "Purchase", "Token"], activeIndex: 1 },
   market: { labels: ["Secondary Market", "ETF Market"], activeIndex: 0 },
