@@ -1633,21 +1633,20 @@ input {
 }
 
 .market-event-tab {
-  border: 1px solid #d6dfeb;
-  background: #fff;
+  border: 0;
+  background: transparent;
   color: #5f6f84;
-  border-radius: 999px;
-  min-height: 40px;
-  padding: 0 14px;
+  min-height: auto;
+  padding: 0;
   font: inherit;
   font-weight: 700;
   cursor: pointer;
 }
 
 .market-event-tab.is-active {
-  border-color: #1f7aec;
-  background: rgba(31, 122, 236, 0.1);
   color: #173f7d;
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 
 .market-event-card {
