@@ -179,6 +179,22 @@ input {
   background: #be1069;
 }
 
+.demo-button {
+  height: 45px;
+  border: 1px solid #c9cfda;
+  border-radius: 10px;
+  background: #fff;
+  color: #0f2450;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+}
+
+.demo-button:hover {
+  background: #f6f8fb;
+}
+
 .login-help {
   margin: 6px 0 0;
   color: #6d7582;

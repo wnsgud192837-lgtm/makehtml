@@ -6,6 +6,7 @@ const registerForm = document.querySelector("#register-form");
 const registerMessage = document.querySelector("#register-message");
 const openRegisterButton = document.querySelector("#open-register-button");
 const registerLink = document.querySelector("#register-link");
+const demoLoginButton = document.querySelector("#demo-login-button");
 const loginUserIdInput = loginForm?.querySelector('input[name="userId"]') || null;
 const loginPasswordInput = loginForm?.querySelector('input[name="password"]') || null;
 const rememberIdCheckbox = loginForm?.querySelector('input[name="rememberId"]') || null;
@@ -189,6 +190,37 @@ const INITIAL_TOKEN_MARKET_STATE = {
   eventPurchases: []
 };
 const SECONDARY_MARKET_MULTIPLIER = 1.55;
+const DEMO_USER_ID = "demo";
+const DEMO_EVENTS = [
+  {
+    id: "demo_event_test",
+    title: "테스트 행사",
+    description: "저장되지 않는 체험용 행사입니다.",
+    totalQuantity: 10,
+    maxPurchasePerStudent: 3,
+    primaryRemainingQuantity: 7,
+    remainingQuantity: 7,
+    unitPrice: 1000,
+    marketMultiplier: SECONDARY_MARKET_MULTIPLIER,
+    ammPointReserve: 15500,
+    ammTokenReserve: 10,
+    ammInvariant: 155000,
+    currentMarketPrice: 1550,
+    createdAt: "2026-04-24T00:00:00.000Z"
+  }
+];
+const DEMO_POLLS = [
+  {
+    id: "demo_poll_budget",
+    title: "테스트 예산 안건",
+    description: "DEMO 계정에서는 투표 결과가 저장되지 않습니다.",
+    options: ["예산안 A", "예산안 B", "예산안 C"],
+    createdAt: formatDate(new Date("2026-04-24T00:00:00.000Z")),
+    voteCount: 5,
+    optionCounts: [2, 2, 1],
+    url: ""
+  }
+];
 
 const roleConfigs = {
   student: {
@@ -502,6 +534,7 @@ let adminTokenMarketMessage = "";
 let studentTokenMarketMessage = "";
 let studentManagementStatusMessage = "";
 let pendingConfirmResolver = null;
+let isDemoSession = false;
 
 function updateDocumentTitle(isAuthenticated) {
   if (typeof document === "undefined") return;
@@ -519,6 +552,220 @@ function resetTransientUiState() {
 
 function getTokenMarketMessage() {
   return currentRole === "admin" ? adminTokenMarketMessage : studentTokenMarketMessage;
+}
+
+function createDemoEvents() {
+  return DEMO_EVENTS.map((event) => ({ ...event }));
+}
+
+function createDemoPolls() {
+  return DEMO_POLLS.map((poll) => ({
+    ...poll,
+    options: poll.options.slice(),
+    optionCounts: poll.optionCounts.slice()
+  }));
+}
+
+function enterDemoSession() {
+  isDemoSession = true;
+  currentRole = "student";
+  currentUserId = DEMO_USER_ID;
+  resetTransientUiState();
+  paymentState = loadPaymentState();
+  studentTokenMarketState = loadTokenMarketState();
+  studentGovernanceState = loadStudentGovernanceState();
+  governanceVoteSelections = {};
+  availableEvents = createDemoEvents();
+  governancePolls = createDemoPolls();
+  operationsTitle = INITIAL_OPERATIONS_TITLE;
+  operationsItems = cloneInitialOperationsItems();
+  state = buildStudentState();
+  applyRoleLayout(currentRole);
+  resetScenario(roleConfigs[currentRole].defaultMode);
+  switchView("dashboard");
+
+  if (loginPage) loginPage.classList.add("is-hidden");
+  if (dashboardPage) dashboardPage.classList.remove("is-hidden");
+  if (loginMessage) {
+    loginMessage.textContent = "";
+  }
+  if (loginPasswordInput) {
+    loginPasswordInput.value = "";
+  }
+  updateDocumentTitle(true);
+  renderStatus();
+  renderPointsHistory();
+  renderTokenMarket();
+  renderGovernanceList();
+}
+
+function applyDemoPayment() {
+  if (paymentState.studentPaid) return;
+
+  paymentState = {
+    studentPaid: true,
+    paidAt: formatDate(new Date())
+  };
+  studentGovernanceState = {
+    ...studentGovernanceState,
+    tokens: studentGovernanceState.tokens + 1
+  };
+  state = buildStudentState();
+}
+
+function applyDemoMarketTrade(selectedEvent, quantity, mode) {
+  const eventIndex = availableEvents.findIndex((item) => item.id === selectedEvent.id);
+  if (eventIndex < 0) return { ok: false, error: "event_not_found" };
+
+  const currentHolding = getEventHoldingSummary().get(selectedEvent.id)?.quantity || 0;
+  const nextEvent = { ...availableEvents[eventIndex] };
+
+  if (mode === "primary") {
+    if (!paymentState.studentPaid) return { ok: false, error: "paid_membership_required" };
+    if (currentHolding + quantity > nextEvent.maxPurchasePerStudent) {
+      return { ok: false, error: "event_purchase_limit_exceeded" };
+    }
+
+    const totalPrice = nextEvent.unitPrice * quantity;
+    if (state.points < totalPrice) return { ok: false, error: "not_enough_points" };
+    if (nextEvent.primaryRemainingQuantity < quantity) {
+      return { ok: false, error: "insufficient_event_inventory" };
+    }
+
+    nextEvent.primaryRemainingQuantity -= quantity;
+    nextEvent.remainingQuantity = nextEvent.primaryRemainingQuantity;
+    studentTokenMarketState = {
+      ...studentTokenMarketState,
+      pointDelta: studentTokenMarketState.pointDelta - totalPrice,
+      purchaseHistory: [
+        {
+          title: `${nextEvent.title} 토큰 ${quantity}개 구매`,
+          date: formatDate(new Date()),
+          amount: -totalPrice,
+          type: "use"
+        },
+        ...studentTokenMarketState.purchaseHistory
+      ],
+      eventPurchases: [
+        {
+          eventId: nextEvent.id,
+          title: nextEvent.title,
+          quantity,
+          unitPrice: nextEvent.unitPrice,
+          totalPrice,
+          purchasedAt: new Date().toISOString()
+        },
+        ...studentTokenMarketState.eventPurchases
+      ]
+    };
+    studentGovernanceState = {
+      ...studentGovernanceState,
+      tokens: studentGovernanceState.tokens + quantity
+    };
+  }
+
+  if (mode === "secondary-buy") {
+    if (currentHolding + quantity > nextEvent.maxPurchasePerStudent) {
+      return { ok: false, error: "event_purchase_limit_exceeded" };
+    }
+
+    const quote = getAmmBuyQuote(nextEvent, quantity);
+    if (!quote) return { ok: false, error: "insufficient_event_inventory" };
+    if (state.points < quote.cost) return { ok: false, error: "not_enough_points" };
+
+    nextEvent.ammPointReserve = quote.nextPointReserve;
+    nextEvent.ammTokenReserve = quote.nextTokenReserve;
+    nextEvent.ammInvariant = quote.nextPointReserve * quote.nextTokenReserve;
+    nextEvent.currentMarketPrice = getCurrentMarketPrice(nextEvent);
+    studentTokenMarketState = {
+      ...studentTokenMarketState,
+      pointDelta: studentTokenMarketState.pointDelta - quote.cost,
+      purchaseHistory: [
+        {
+          title: `${nextEvent.title} 토큰 ${quantity}개 매수`,
+          date: formatDate(new Date()),
+          amount: -quote.cost,
+          type: "use"
+        },
+        ...studentTokenMarketState.purchaseHistory
+      ],
+      eventPurchases: [
+        {
+          eventId: nextEvent.id,
+          title: nextEvent.title,
+          quantity,
+          unitPrice: Math.ceil(quote.cost / quantity),
+          totalPrice: quote.cost,
+          purchasedAt: new Date().toISOString()
+        },
+        ...studentTokenMarketState.eventPurchases
+      ]
+    };
+    studentGovernanceState = {
+      ...studentGovernanceState,
+      tokens: studentGovernanceState.tokens + quantity
+    };
+  }
+
+  if (mode === "secondary-sell") {
+    const quote = getAmmSellQuote(nextEvent, quantity);
+    if (!quote) return { ok: false, error: "cannot_sell_event_token" };
+    if (currentHolding < quantity) return { ok: false, error: "insufficient_event_holdings" };
+
+    nextEvent.ammPointReserve = quote.nextPointReserve;
+    nextEvent.ammTokenReserve = quote.nextTokenReserve;
+    nextEvent.ammInvariant = quote.nextPointReserve * quote.nextTokenReserve;
+    nextEvent.currentMarketPrice = getCurrentMarketPrice(nextEvent);
+    studentTokenMarketState = {
+      ...studentTokenMarketState,
+      pointDelta: studentTokenMarketState.pointDelta + quote.payout,
+      purchaseHistory: [
+        {
+          title: `${nextEvent.title} 토큰 ${quantity}개 매도`,
+          date: formatDate(new Date()),
+          amount: quote.payout,
+          type: "earn"
+        },
+        ...studentTokenMarketState.purchaseHistory
+      ],
+      eventPurchases: [
+        {
+          eventId: nextEvent.id,
+          title: nextEvent.title,
+          quantity: -quantity,
+          unitPrice: Math.floor(quote.payout / quantity),
+          totalPrice: -quote.payout,
+          purchasedAt: new Date().toISOString()
+        },
+        ...studentTokenMarketState.eventPurchases
+      ]
+    };
+  }
+
+  availableEvents[eventIndex] = nextEvent;
+  state = buildStudentState();
+  return { ok: true };
+}
+
+function applyDemoVote(pollId, optionIndex) {
+  const pollIndex = governancePolls.findIndex((item) => item.id === pollId);
+  if (pollIndex < 0) return false;
+
+  const poll = governancePolls[pollIndex];
+  const optionCounts = poll.optionCounts.slice();
+  optionCounts[optionIndex] = (optionCounts[optionIndex] || 0) + 1;
+  governancePolls[pollIndex] = {
+    ...poll,
+    voteCount: (poll.voteCount || 0) + 1,
+    optionCounts
+  };
+  studentGovernanceState = {
+    ...studentGovernanceState,
+    tokens: Math.max(0, studentGovernanceState.tokens - 1),
+    votedPollIds: [...studentGovernanceState.votedPollIds, pollId]
+  };
+  state = buildStudentState();
+  return true;
 }
 
 if (studentDeleteForm) {
@@ -921,7 +1168,7 @@ function applyStudentStateResponse(data) {
 }
 
 async function syncStudentStateFromApi() {
-  if (currentRole !== "student") return false;
+  if (currentRole !== "student" || isDemoSession) return false;
 
   try {
     const data = await studentApiRequest("/api/student/state", {
@@ -1030,6 +1277,7 @@ async function operationsApiRequest(path = "", options = {}) {
 }
 
 async function syncEventsFromApi() {
+  if (isDemoSession) return true;
   try {
     const data = await eventsApiRequest("", { method: "GET" });
     availableEvents = Array.isArray(data.events) ? data.events : [];
@@ -1042,7 +1290,7 @@ async function syncEventsFromApi() {
 }
 
 async function syncGovernanceFromApi() {
-  if (!governanceApiUrl) return false;
+  if (!governanceApiUrl || isDemoSession) return false;
 
   try {
     const data = await governanceApiRequest("/api/governance/polls");
@@ -1085,6 +1333,14 @@ async function syncGovernanceFromApi() {
 }
 
 async function syncOperationsFromApi() {
+  if (isDemoSession) {
+    operationsTitle = INITIAL_OPERATIONS_TITLE;
+    operationsItems = cloneInitialOperationsItems();
+    renderOperationsCard();
+    populateOperationsForm();
+    return true;
+  }
+
   try {
     const data = await operationsApiRequest("", { method: "GET" });
     operationsTitle = normalizeOperationsTitle(data?.title);
@@ -1834,11 +2090,11 @@ function switchView(view) {
     );
   }
 
-  if (isTokenView && currentUserId) {
+  if (isTokenView && currentUserId && !isDemoSession) {
     void syncEventsFromApi();
   }
 
-  if (currentRole === "admin" && isStudentManagementView && currentUserId) {
+  if (currentRole === "admin" && isStudentManagementView && currentUserId && !isDemoSession) {
     void syncStudentManagementUsersFromApi();
     void syncStudentManagementLogsFromApi();
   }
@@ -1961,7 +2217,7 @@ function switchView(view) {
 
 function renderStatus() {
   if (appRoleSubtitle && currentRole === "student") {
-    appRoleSubtitle.textContent = paymentState.studentPaid ? "납부자" : "미납부자";
+    appRoleSubtitle.textContent = isDemoSession ? "DEMO" : paymentState.studentPaid ? "납부자" : "미납부자";
   }
 
   if (pointsValue) pointsValue.textContent = `${state.points.toLocaleString()}P`;
@@ -2432,6 +2688,15 @@ async function handleStudentPayment() {
 
   if (isSettled) return;
 
+  if (isDemoSession) {
+    applyDemoPayment();
+    studentTokenMarketMessage = "DEMO 계정에서는 납부 결과가 저장되지 않습니다.";
+    renderStatus();
+    renderPointsHistory();
+    renderTokenMarket();
+    return;
+  }
+
   try {
     const data = await studentApiRequest("/api/student/pay", {
       method: "POST"
@@ -2598,6 +2863,44 @@ if (tokenMarketPanel) {
     if (!confirmed) {
       studentTokenMarketMessage =
         isPrimaryPurchase || isMarketPurchase ? "구매가 취소되었습니다." : "매도가 취소되었습니다.";
+      renderTokenMarket();
+      return;
+    }
+
+    if (isDemoSession) {
+      const result = applyDemoMarketTrade(
+        selectedEvent,
+        quantity,
+        isPrimaryPurchase ? "primary" : isMarketPurchase ? "secondary-buy" : "secondary-sell"
+      );
+
+      if (result.ok) {
+        studentTokenMarketMessage = isPrimaryPurchase
+          ? `${selectedEvent.title} 토큰 ${quantity}개 구매가 완료되었습니다. DEMO 계정이라 저장되지는 않습니다.`
+          : isMarketPurchase
+          ? `${selectedEvent.title} 토큰 ${quantity}개 매수가 완료되었습니다. DEMO 계정이라 저장되지는 않습니다.`
+          : `${selectedEvent.title} ${quantity}개 매도가 완료되었습니다. DEMO 계정이라 저장되지는 않습니다.`;
+      } else {
+        studentTokenMarketMessage =
+          result.error === "paid_membership_required"
+            ? "학생회비를 납부한 학생만 토큰 구매가 가능합니다."
+            : result.error === "not_enough_points"
+            ? "포인트가 부족합니다."
+            : result.error === "insufficient_event_inventory"
+            ? isPrimaryPurchase
+              ? "재고가 부족합니다."
+              : "현재 풀에서 해당 수량을 매수할 수 없습니다."
+            : result.error === "event_purchase_limit_exceeded"
+            ? "이 행사는 관리자 설정상 인당 구매 가능 수량을 초과했습니다."
+            : result.error === "insufficient_event_holdings"
+            ? "보유 수량이 부족합니다."
+            : result.error === "cannot_sell_event_token"
+            ? "현재 조건에서는 매도할 수 없습니다."
+            : "DEMO 거래 처리 중 오류가 발생했습니다.";
+      }
+
+      renderStatus();
+      renderPointsHistory();
       renderTokenMarket();
       return;
     }
@@ -2922,6 +3225,22 @@ if (governanceList) {
       return;
     }
 
+    if (isDemoSession) {
+      if (!applyDemoVote(pollId, optionIndex)) {
+        if (pollMessage) {
+          pollMessage.textContent = "DEMO 투표 처리 중 오류가 발생했습니다.";
+        }
+        return;
+      }
+
+      renderStatus();
+      renderGovernanceList();
+      if (pollMessage) {
+        pollMessage.textContent = "DEMO 계정에서는 투표 결과가 저장되지 않습니다.";
+      }
+      return;
+    }
+
     if (governanceApiUrl) {
       try {
         await governanceApiRequest("/api/governance/vote", {
@@ -2988,17 +3307,20 @@ if (confirmModalConfirmButton) {
 
 if (logoutButton) {
   logoutButton.addEventListener("click", async () => {
-    try {
-      await authApiRequest("/api/auth/logout", {
-        method: "POST"
-      });
-    } catch (error) {
-      console.error("Logout failed:", error);
+    if (!isDemoSession) {
+      try {
+        await authApiRequest("/api/auth/logout", {
+          method: "POST"
+        });
+      } catch (error) {
+        console.error("Logout failed:", error);
+      }
     }
 
     if (dashboardPage) dashboardPage.classList.add("is-hidden");
     if (loginPage) loginPage.classList.remove("is-hidden");
     if (loginMessage) loginMessage.textContent = "";
+    isDemoSession = false;
     currentRole = "student";
     currentUserId = "";
     availableEvents = [];
@@ -3046,6 +3368,12 @@ if (registerLink) {
   registerLink.addEventListener("click", openRegisterPanel);
 }
 
+if (demoLoginButton) {
+  demoLoginButton.addEventListener("click", () => {
+    enterDemoSession();
+  });
+}
+
 if (loginForm) {
   loginForm.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -3079,6 +3407,7 @@ if (loginForm) {
         loginMessage.textContent = "";
       }
 
+      isDemoSession = false;
       persistRememberedUserId(rememberId ? userId : "");
 
       currentUserId = data.user.userId;
@@ -3203,6 +3532,7 @@ async function initializeApp() {
       return;
     }
 
+    isDemoSession = false;
     currentUserId = data.user.userId;
     currentRole = data.user.role;
     resetTransientUiState();
