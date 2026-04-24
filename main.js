@@ -84,6 +84,7 @@ const calendarAgendaTitle = document.querySelector("#calendar-agenda-title");
 const calendarAgendaCard = document.querySelector("#calendar-agenda-card");
 const pointsHistoryList = document.querySelector("#points-history-list");
 const pointsHistoryTotal = document.querySelector("#points-history-total");
+const pointsPanel = document.querySelector(".points-panel");
 const pointsPanelKicker = document.querySelector("#points-panel-kicker");
 const pointsPanelTitle = document.querySelector("#points-panel-title");
 const confirmModal = document.querySelector("#confirm-modal");
@@ -1273,10 +1274,20 @@ function renderTokenMarket() {
 function renderStudentAssetsPanels() {
   if (currentRole !== "student" || currentView !== "points") return;
 
+  const activeIndex = currentSubnavIndexByView.points ?? subnavCopy.points.activeIndex ?? 0;
+  const showAssetsOverview = activeIndex === 0;
   const purchaseSummary = getEventHoldingSummary();
 
   if (assetBalancePanel) {
-    assetBalancePanel.classList.remove("is-hidden");
+    assetBalancePanel.classList.toggle("is-hidden", !showAssetsOverview);
+  }
+
+  if (pointsPanel) {
+    pointsPanel.classList.toggle("is-hidden", !showAssetsOverview);
+  }
+
+  if (pointsHistoryTotal) {
+    pointsHistoryTotal.classList.toggle("is-hidden", !showAssetsOverview);
   }
 
   if (assetHoldingsList) {
@@ -2037,11 +2048,20 @@ function renderPointsHistory() {
     renderStudentAssetsPanels();
   }
 
+  const isStudentAssetsView = currentRole === "student" && currentView === "points";
+  const activeIndex = currentSubnavIndexByView.points ?? subnavCopy.points.activeIndex ?? 0;
+  const showStudentAssetsOverview = !isStudentAssetsView || activeIndex === 0;
+
   if (assetBalancePanel) {
-    assetBalancePanel.classList.toggle(
-      "is-hidden",
-      !(currentRole === "student" && currentView === "points")
-    );
+    assetBalancePanel.classList.toggle("is-hidden", !(isStudentAssetsView && showStudentAssetsOverview));
+  }
+
+  if (pointsPanel) {
+    pointsPanel.classList.toggle("is-hidden", isStudentAssetsView && !showStudentAssetsOverview);
+  }
+
+  if (pointsHistoryTotal) {
+    pointsHistoryTotal.classList.toggle("is-hidden", isStudentAssetsView && !showStudentAssetsOverview);
   }
 
   const history = state.pointHistory;

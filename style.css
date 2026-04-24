@@ -390,6 +390,8 @@ input {
 
 .asset-balance-panel {
   margin-bottom: 14px;
+  width: 100%;
+  min-width: 0;
 }
 
 .asset-balance-grid {
@@ -427,6 +429,20 @@ input {
 
 .asset-holdings-list {
   margin-top: 0;
+}
+
+.asset-holdings-list li {
+  align-items: flex-start;
+}
+
+.asset-holdings-list span,
+.asset-holdings-list strong {
+  min-width: 0;
+}
+
+.asset-holdings-list strong {
+  text-align: right;
+  line-height: 1.45;
 }
 
 .assets-subnav.is-hidden {
@@ -1222,6 +1238,8 @@ input {
 
 .points-panel {
   min-height: 420px;
+  width: 100%;
+  min-width: 0;
 }
 
 .points-history-list {
@@ -1242,6 +1260,11 @@ input {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+}
+
+.points-history-item > div,
+.points-history-empty > div {
+  min-width: 0;
 }
 
 .points-history-item strong,
@@ -1972,6 +1995,19 @@ input {
   .view-section.is-student-assets-view .points-panel,
   .view-section.is-student-assets-view .token-market-panel {
     padding: 16px 14px;
+  }
+
+  .asset-holdings-list li,
+  .points-history-item,
+  .points-history-empty {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .asset-holdings-list strong,
+  .points-history-item b {
+    width: 100%;
+    text-align: left;
   }
 
   .view-section.is-student-assets-view .token-market-title {
