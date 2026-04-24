@@ -689,6 +689,28 @@ function getDisplayedMarketBasePrice(event) {
   return Math.round(Number(event?.unitPrice || 0) * SECONDARY_MARKET_MULTIPLIER);
 }
 
+function getMarketPriceDelta(event) {
+  const displayedBasePrice = getDisplayedMarketBasePrice(event);
+  const currentPrice = Math.max(getCurrentMarketPrice(event), displayedBasePrice);
+
+  if (displayedBasePrice <= 0 || currentPrice <= 0) {
+    return {
+      percentText: "0%",
+      amountText: "0P",
+      tone: "is-flat"
+    };
+  }
+
+  const delta = currentPrice - displayedBasePrice;
+  const percent = Math.round((delta / displayedBasePrice) * 1000) / 10;
+
+  return {
+    percentText: `${delta >= 0 ? "+" : ""}${percent}%`,
+    amountText: `${delta >= 0 ? "+" : ""}${delta.toLocaleString()}P`,
+    tone: delta > 0 ? "is-positive" : delta < 0 ? "is-negative" : "is-flat"
+  };
+}
+
 function getActiveMarketType() {
   const activeIndex = currentSubnavIndexByView.market ?? subnavCopy.market.activeIndex ?? 0;
   return activeIndex === 1 ? "etf" : "secondary";
@@ -718,6 +740,7 @@ function renderMarketEventCards(marketType = "secondary") {
   const owned = purchaseSummary.get(selectedEvent.id)?.quantity || 0;
   const buyQuote = getAmmBuyQuote(selectedEvent, 1);
   const sellQuote = owned > 0 ? getAmmSellQuote(selectedEvent, 1) : null;
+  const delta = getMarketPriceDelta(selectedEvent);
 
   return `
     <section class="token-market-card token-market-card-primary">
@@ -745,20 +768,23 @@ function renderMarketEventCards(marketType = "secondary") {
           <div class="market-event-card-top">
             <div>
               <strong class="market-event-title">${escapeHtml(selectedEvent.title)}</strong>
-              <p class="market-event-meta">재고 ${Math.max(0, selectedEvent.ammTokenReserve - 1)}장 · 기준가 ${displayedBasePrice.toLocaleString()}P</p>
             </div>
           </div>
 
           <div class="market-event-price">${currentPrice.toLocaleString()}P</div>
 
-          <div class="market-event-actions market-event-actions-compact">
+          <div class="market-event-footer">
+            <p class="market-event-change ${delta.tone}">${delta.percentText} ${delta.amountText}</p>
+
+            <div class="market-event-actions market-event-actions-compact">
             <form class="token-buy-form market-inline-form" data-market-purchase-form="true" data-event-id="${escapeHtml(selectedEvent.id)}">
-              <button type="submit" class="market-action-button is-buy" ${buyQuote ? "" : "disabled"}>매수</button>
+              <button type="submit" class="market-action-button is-buy" ${buyQuote ? "" : "disabled"}>${buyQuote ? `${buyQuote.cost.toLocaleString()}P 매수` : "매수"}</button>
             </form>
 
             <form class="token-buy-form market-inline-form" data-event-sell-form="true" data-event-id="${escapeHtml(selectedEvent.id)}">
-              <button type="submit" class="market-action-button is-sell" ${sellQuote ? "" : "disabled"}>매도</button>
+              <button type="submit" class="market-action-button is-sell" ${sellQuote ? "" : "disabled"}>${sellQuote ? `${sellQuote.payout.toLocaleString()}P 매도` : "매도"}</button>
             </form>
+          </div>
           </div>
         </div>
       </div>
