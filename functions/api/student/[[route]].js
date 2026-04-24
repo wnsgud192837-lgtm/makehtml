@@ -209,7 +209,9 @@ async function markPaid(request, env, session) {
   const state = await updateStudentAppState(env, session.userId, async (currentState) => ({
     ...currentState,
     studentPaid: true,
-    paidAt: currentState.paidAt || formatDate(new Date())
+    paidAt: currentState.paidAt || formatDate(new Date()),
+    governanceTokens:
+      currentState.governanceTokens + (currentState.studentPaid ? 0 : 1)
   }));
 
   return json(request, env, createStudentResponse(state), 200);
@@ -220,12 +222,7 @@ async function earnGovernanceToken(request, env, session) {
     return json(request, env, { error: "forbidden" }, 403);
   }
 
-  const state = await updateStudentAppState(env, session.userId, async (currentState) => ({
-    ...currentState,
-    governanceTokens: currentState.governanceTokens + 1
-  }));
-
-  return json(request, env, createStudentResponse(state), 200);
+  return json(request, env, { error: "manual_governance_earn_disabled" }, 400);
 }
 
 async function updateMarketState(request, env, session) {

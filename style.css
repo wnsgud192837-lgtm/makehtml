@@ -1654,6 +1654,12 @@ input {
   font-size: 1.1rem;
 }
 
+.market-event-holdings {
+  margin: 6px 0 0;
+  color: #6b7b92;
+  font-size: 0.86rem;
+}
+
 .market-event-meta {
   margin: 8px 0 0;
   color: #6b7b92;

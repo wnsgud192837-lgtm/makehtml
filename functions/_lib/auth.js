@@ -138,7 +138,7 @@ function createDefaultStudentAppState() {
   return {
     studentPaid: false,
     paidAt: "",
-    governanceTokens: 1,
+    governanceTokens: 0,
     tokenMarket: {
       pointReserve: INITIAL_TOKEN_MARKET_STATE.pointReserve,
       eventTokenReserve: INITIAL_TOKEN_MARKET_STATE.eventTokenReserve,
@@ -205,7 +205,7 @@ function normalizeStudentAppState(state) {
     governanceTokens:
       Number.isFinite(parsed.governanceTokens) && parsed.governanceTokens >= 0
         ? Math.floor(parsed.governanceTokens)
-        : 1,
+        : 0,
     tokenMarket: {
       pointReserve:
         Number.isFinite(tokenMarket.pointReserve) && tokenMarket.pointReserve > 0

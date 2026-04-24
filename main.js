@@ -468,7 +468,7 @@ const subnavCopy = {
   dashboard: { labels: ["Notice", "Calendar"], activeIndex: 1 },
   points: { labels: ["Assets", "Purchase"], activeIndex: 0 },
   tokens: { labels: ["Primary", "Purchase", "Token"], activeIndex: 1 },
-  market: { labels: ["Secondary", "ETF"], activeIndex: 0 },
+  market: { labels: ["Secondary Market", "ETF Market"], activeIndex: 0 },
   governance: { labels: ["Agenda", "Vote", "Result"], activeIndex: 1 },
   rental: { labels: ["Browse", "Booking", "History"], activeIndex: 1 },
   students: { labels: ["Users", "Logs", "Delete"], activeIndex: 1 }
@@ -494,7 +494,7 @@ let studentManagementLogs = [];
 let studentManagementUsers = [];
 let studentTokenMarketState = cloneInitialTokenMarketState();
 let studentGovernanceState = {
-  tokens: 1,
+  tokens: 0,
   votedPollIds: []
 };
 let governanceVoteSelections = {};
@@ -635,12 +635,24 @@ function getEventHoldingSummary() {
     };
     current.quantity += Math.floor(purchase.quantity);
     current.netAmount += Math.floor(purchase.totalPrice);
+    current.averageUnitPrice =
+      current.quantity > 0 ? Math.round(current.netAmount / current.quantity) : 0;
     purchaseSummary.set(purchase.eventId, current);
   });
 
   return new Map(
     Array.from(purchaseSummary.entries()).filter(([, item]) => item.quantity > 0)
   );
+}
+
+function getHoldingMetaText(eventId) {
+  const holding = getEventHoldingSummary().get(eventId);
+
+  if (!holding || holding.quantity <= 0) {
+    return "0개, 0P";
+  }
+
+  return `${holding.quantity}개, 개당 ${holding.averageUnitPrice.toLocaleString()}P`;
 }
 
 function getCurrentMarketPrice(event) {
@@ -739,7 +751,8 @@ function renderMarketEventCards(marketType = "secondary") {
   const displayedBasePrice = getDisplayedMarketBasePrice(selectedEvent);
   const currentPrice = getCurrentMarketPrice(selectedEvent);
   const owned = purchaseSummary.get(selectedEvent.id)?.quantity || 0;
-  const buyQuote = getAmmBuyQuote(selectedEvent, 1);
+  const hasReachedPurchaseLimit = owned >= selectedEvent.maxPurchasePerStudent;
+  const buyQuote = hasReachedPurchaseLimit ? null : getAmmBuyQuote(selectedEvent, 1);
   const sellQuote = owned > 0 ? getAmmSellQuote(selectedEvent, 1) : null;
   const delta = getMarketPriceDelta(selectedEvent);
 
@@ -750,6 +763,7 @@ function renderMarketEventCards(marketType = "secondary") {
           <div class="market-event-card-top">
             <div>
               <strong class="market-event-title">${escapeHtml(selectedEvent.title)}</strong>
+              <p class="market-event-holdings">보유 ${escapeHtml(getHoldingMetaText(selectedEvent.id))}</p>
             </div>
           </div>
 
@@ -901,7 +915,7 @@ function applyStudentStateResponse(data) {
     tokens:
       Number.isFinite(appState.governanceTokens) && appState.governanceTokens >= 0
         ? Math.floor(appState.governanceTokens)
-        : 1,
+        : 0,
     votedPollIds: studentGovernanceState.votedPollIds || []
   };
 }
@@ -1141,6 +1155,11 @@ function renderAdminEventPanel() {
             <input type="number" name="unitPrice" min="1" value="1000">
           </label>
 
+          <label class="notice-field">
+            <span>인당 구매 가능 수량</span>
+            <input type="number" name="maxPurchasePerStudent" min="1" value="1">
+          </label>
+
           <p class="detail-text token-market-copy">
             등록 즉시 1차 판매 재고와 세컨더리 AMM 풀이 함께 생성됩니다. 세컨더리 초기가는 기준가의 ${(SECONDARY_MARKET_MULTIPLIER).toFixed(2)}배입니다.
           </p>
@@ -1165,7 +1184,7 @@ function renderAdminEventPanel() {
                   .map(
                     (event) => `
                       <li>
-                        <span>${escapeHtml(event.title)} · 기준 ${event.unitPrice.toLocaleString()}P · 초기가 ${(event.unitPrice * SECONDARY_MARKET_MULTIPLIER).toLocaleString()}P · 1차 재고 ${event.primaryRemainingQuantity}/${event.totalQuantity}</span>
+                        <span>${escapeHtml(event.title)} · 기준 ${event.unitPrice.toLocaleString()}P · 초기가 ${(event.unitPrice * SECONDARY_MARKET_MULTIPLIER).toLocaleString()}P · 1차 재고 ${event.primaryRemainingQuantity}/${event.totalQuantity} · 인당 ${event.maxPurchasePerStudent}개</span>
                         <button type="button" class="ghost-link" data-delete-event-id="${escapeHtml(event.id)}">삭제</button>
                       </li>
                     `
@@ -1180,10 +1199,7 @@ function renderAdminEventPanel() {
 
 function renderPrimaryTokenPurchasePanel() {
   if (!tokenMarketPanel) return;
-  const totalHoldingCount = Array.from(getEventHoldingSummary().values()).reduce(
-    (sum, item) => sum + item.quantity,
-    0
-  );
+  const purchaseSummary = getEventHoldingSummary();
 
   tokenMarketPanel.innerHTML = `
     <header class="panel-titlebar token-market-header">
@@ -1198,44 +1214,46 @@ function renderPrimaryTokenPurchasePanel() {
       <section class="token-market-card token-market-card-primary">
         <strong class="token-market-title">학생회비를 납부한 경우에만 이 탭에서 구매가 가능합니다.</strong>
 
-        <div class="token-market-stats">
-          <article>
-            <span>내 보유 토큰</span>
-            <strong>${totalHoldingCount}개</strong>
-          </article>
-        </div>
-
         <div class="market-list token-quote-list">
           ${
             availableEvents.length === 0
               ? '<li><span>현재 판매 중인 행사가 없습니다.</span><strong>대기</strong></li>'
               : availableEvents
-                  .map(
-                    (event) => `
+                  .map((event) => {
+                    const ownedQuantity = purchaseSummary.get(event.id)?.quantity || 0;
+                    const remainingPersonalLimit = Math.max(0, event.maxPurchasePerStudent - ownedQuantity);
+                    const maxQuantity = Math.max(
+                      0,
+                      Math.min(event.primaryRemainingQuantity, remainingPersonalLimit)
+                    );
+
+                    return `
                       <form class="token-buy-form token-trade-card" data-primary-purchase-form="true" data-event-id="${escapeHtml(event.id)}">
                         <div class="token-trade-header">
                           <div>
                             <strong>${escapeHtml(event.title)}</strong>
                             <p>기준가 ${event.unitPrice.toLocaleString()}P</p>
+                            <small>내 보유 토큰 ${escapeHtml(getHoldingMetaText(event.id))}</small>
                           </div>
                           <span class="token-trade-badge">${event.unitPrice.toLocaleString()}P</span>
                         </div>
 
                         <div class="token-trade-metrics">
                           <span>기준가 ${event.unitPrice.toLocaleString()}P</span>
+                          <span>인당 최대 ${event.maxPurchasePerStudent}개</span>
                         </div>
 
                         <label class="notice-field">
                           <span>구매 수량</span>
-                          <input type="number" name="quantity" min="1" max="${Math.max(1, event.primaryRemainingQuantity)}" value="1" ${event.primaryRemainingQuantity < 1 || !paymentState.studentPaid ? "disabled" : ""}>
+                          <input type="number" name="quantity" min="1" max="${Math.max(1, maxQuantity)}" value="1" ${maxQuantity < 1 || !paymentState.studentPaid ? "disabled" : ""}>
                         </label>
-                        <button type="submit" class="login-button notice-submit" ${event.primaryRemainingQuantity < 1 || !paymentState.studentPaid ? "disabled" : ""}>
+                        <button type="submit" class="login-button notice-submit" ${maxQuantity < 1 || !paymentState.studentPaid ? "disabled" : ""}>
                           ${paymentState.studentPaid ? `${event.unitPrice.toLocaleString()}P에 구매` : "납부자만 구매 가능"}
                         </button>
-                        <small>재고 ${event.primaryRemainingQuantity}/${event.totalQuantity}</small>
+                        <small>재고 ${event.primaryRemainingQuantity}/${event.totalQuantity} · 추가 구매 가능 ${remainingPersonalLimit}개</small>
                       </form>
-                    `
-                  )
+                    `;
+                  })
                   .join("")
           }
         </div>
@@ -1254,7 +1272,7 @@ function renderSecondaryMarketPanel() {
     <header class="panel-titlebar token-market-header">
       <div>
         <p class="panel-kicker">Market</p>
-        <h3>${isEtfTab ? "ETF" : "Secondary"} 거래 보드</h3>
+        <h3>${isEtfTab ? "ETF Market" : "Secondary Market"}</h3>
       </div>
       <div class="progress-chip">보유 포인트 ${state.points.toLocaleString()}P</div>
     </header>
@@ -1505,7 +1523,7 @@ function persistGovernancePolls() {
 }
 
 function loadStudentGovernanceState() {
-  return { tokens: 1, votedPollIds: [] };
+  return { tokens: 0, votedPollIds: [] };
 }
 
 function persistStudentGovernanceState() {
@@ -1613,7 +1631,7 @@ function buildStudentState() {
       ...baseState,
       points: studentTokenMarketState.pointDelta,
       tokens: studentGovernanceState.tokens,
-      tokenMeta: "잔여 토큰",
+      tokenMeta: "행사 토큰 구매 시 추가 지급",
       pointHistory: marketHistory
     };
   }
@@ -1625,7 +1643,7 @@ function buildStudentState() {
     paymentStatus: "납부 완료",
     paymentMeta: "31,000포인트 지급 완료",
     pointsMeta: "학생회비 납부로 31,000P 지급",
-    tokenMeta: "잔여 토큰",
+    tokenMeta: "행사 토큰 구매 시 추가 지급",
     pointHistory: [
       {
         title: "학생회비 납부 리워드 지급",
@@ -1696,7 +1714,7 @@ function applyRoleLayout(role) {
 
   if (pointsPanelTitle) {
     pointsPanelTitle.textContent =
-      role === "student" ? "거래 내역" : "포인트 사용 내역";
+      role === "student" ? "거래내역" : "포인트 사용 내역";
   }
 
   if (studentManagementPanel) {
@@ -2515,6 +2533,10 @@ if (tokenMarketPanel) {
       const description = String(formData.get("description") || "").trim();
       const totalQuantity = Math.max(1, Math.floor(Number(formData.get("totalQuantity") || 1)));
       const unitPrice = Math.max(1, Math.floor(Number(formData.get("unitPrice") || 1)));
+      const maxPurchasePerStudent = Math.max(
+        1,
+        Math.floor(Number(formData.get("maxPurchasePerStudent") || 1))
+      );
 
       try {
         await eventsApiRequest("", {
@@ -2523,7 +2545,8 @@ if (tokenMarketPanel) {
             title,
             description,
             totalQuantity,
-            unitPrice
+            unitPrice,
+            maxPurchasePerStudent
           })
         });
         adminTokenMarketMessage = "행사가 등록되었습니다.";
@@ -2533,7 +2556,7 @@ if (tokenMarketPanel) {
       } catch (error) {
         adminTokenMarketMessage =
           error.message === "invalid_event_payload"
-            ? "행사명, 수량, 가격을 올바르게 입력해야 합니다."
+            ? "행사명, 수량, 가격, 인당 구매 제한을 올바르게 입력해야 합니다."
             : "행사 등록 중 오류가 발생했습니다.";
         renderTokenMarket();
       }
@@ -2595,7 +2618,7 @@ if (tokenMarketPanel) {
       studentTokenMarketMessage = isPrimaryPurchase
         ? `${selectedEvent.title} 토큰 ${quantity}개 구매가 완료되었습니다.`
         : isMarketPurchase
-        ? `${selectedEvent.title} ${quantity}개 세컨더리 매수가 완료되었습니다.`
+        ? `${selectedEvent.title} 토큰 ${quantity}개 매수가 완료되었습니다.`
         : `${selectedEvent.title} ${quantity}개 매도가 완료되었습니다.`;
       renderStatus();
       renderPointsHistory();
@@ -2611,6 +2634,8 @@ if (tokenMarketPanel) {
             ? "재고가 부족합니다."
             : error.message === "insufficient_event_inventory"
             ? "현재 풀에서 해당 수량을 매수할 수 없습니다."
+            : error.message === "event_purchase_limit_exceeded"
+            ? "이 행사는 관리자 설정상 인당 구매 가능 수량을 초과했습니다."
             : error.message === "insufficient_event_holdings"
               ? "보유 수량이 부족합니다."
               : error.message === "cannot_sell_event_token"
@@ -2913,7 +2938,7 @@ if (governanceList) {
         if (pollMessage) {
           pollMessage.textContent =
             error.message === "not_enough_tokens"
-              ? "거버넌스 코인이 부족합니다."
+              ? "거버넌스 토큰이 부족합니다."
               : "투표 저장 중 오류가 발생했습니다.";
         }
         renderGovernanceList();
@@ -2933,21 +2958,8 @@ if (governanceList) {
 if (governanceEarnButton) {
   governanceEarnButton.addEventListener("click", async () => {
     if (currentRole !== "student") return;
-
-    try {
-      const data = await studentApiRequest("/api/student/governance/earn", {
-        method: "POST"
-      });
-      applyStudentStateResponse(data);
-      state = buildStudentState();
-      renderStatus();
-      renderGovernanceList();
-
-      if (pollMessage) {
-        pollMessage.textContent = "거버넌스 코인 1개를 지급했습니다.";
-      }
-    } catch (error) {
-      console.error("Governance token earn failed:", error);
+    if (pollMessage) {
+      pollMessage.textContent = "거버넌스 토큰은 납부 및 행사 토큰 구매 시 자동 지급됩니다.";
     }
   });
 }

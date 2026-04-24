@@ -5,8 +5,6 @@ import {
 } from "../../_lib/auth.js";
 
 const SECONDARY_MARKET_MULTIPLIER = 1.55;
-const MARKET_BUY_FEE_RATE = 0.02;
-const MARKET_SELL_FEE_RATE = 0.02;
 
 function formatDate(date) {
   const year = date.getFullYear();
@@ -87,13 +85,12 @@ function getEventHoldingQuantity(tokenMarket, eventId) {
 
 function getBuyQuote(event, quantity) {
   const normalizedQuantity = Math.max(1, Math.floor(quantity));
-  if (normalizedQuantity !== 1 || event.ammTokenReserve <= 1) {
+  if (normalizedQuantity !== 1 || event.ammTokenReserve <= 2) {
     return null;
   }
 
-  const tradePrice = Math.max(getCurrentMarketPrice(event), getDisplayedMarketBasePrice(event));
+  const cost = Math.ceil(event.ammPointReserve / (event.ammTokenReserve - 2));
   const nextTokenReserve = event.ammTokenReserve - normalizedQuantity;
-  const cost = Math.ceil(tradePrice * (1 + MARKET_BUY_FEE_RATE));
   const nextPointReserve = event.ammPointReserve + cost;
 
   if (cost <= 0) {
@@ -114,9 +111,8 @@ function getSellQuote(event, quantity) {
     return null;
   }
 
-  const tradePrice = Math.max(getCurrentMarketPrice(event), getDisplayedMarketBasePrice(event));
-  const payout = Math.floor(tradePrice * (1 - MARKET_SELL_FEE_RATE));
-  if (tradePrice <= 0 || payout > event.ammPointReserve) {
+  const payout = Math.floor(event.ammPointReserve / (event.ammTokenReserve + 2));
+  if (payout <= 0 || payout > event.ammPointReserve) {
     return null;
   }
 
@@ -156,12 +152,14 @@ function normalizeEvent(event) {
       ? getInitialAmmPointReserve(ammTokenReserve, unitPrice)
       : 0;
   const ammPointReserve = toSafeInteger(parsed.ammPointReserve, fallbackPointReserve);
+  const maxPurchasePerStudent = toSafeInteger(parsed.maxPurchasePerStudent, totalQuantity);
 
   return {
     id: typeof parsed.id === "string" ? parsed.id : createEventId(),
     title: typeof parsed.title === "string" ? parsed.title : "",
     description: typeof parsed.description === "string" ? parsed.description : "",
     totalQuantity,
+    maxPurchasePerStudent,
     primaryRemainingQuantity,
     remainingQuantity: primaryRemainingQuantity,
     unitPrice,
@@ -228,8 +226,12 @@ async function createEventResponse(request, env, session) {
   const description = String(body?.description || "").trim();
   const totalQuantity = Math.max(0, Math.floor(Number(body?.totalQuantity || 0)));
   const unitPrice = Math.max(0, Math.floor(Number(body?.unitPrice || 0)));
+  const maxPurchasePerStudent = Math.max(
+    1,
+    Math.floor(Number(body?.maxPurchasePerStudent || totalQuantity || 1))
+  );
 
-  if (!title || totalQuantity < 1 || unitPrice < 1) {
+  if (!title || totalQuantity < 1 || unitPrice < 1 || maxPurchasePerStudent < 1) {
     return json(request, env, { error: "invalid_event_payload" }, 400);
   }
 
@@ -238,6 +240,7 @@ async function createEventResponse(request, env, session) {
     title,
     description,
     totalQuantity,
+    maxPurchasePerStudent,
     primaryRemainingQuantity: totalQuantity,
     unitPrice,
     marketMultiplier: SECONDARY_MARKET_MULTIPLIER,
@@ -297,6 +300,11 @@ async function purchaseEventResponse(request, env, session) {
         throw new Error("paid_membership_required");
       }
 
+      const currentHoldingQuantity = getEventHoldingQuantity(currentState.tokenMarket, event.id);
+      if (currentHoldingQuantity + quantity > event.maxPurchasePerStudent) {
+        throw new Error("event_purchase_limit_exceeded");
+      }
+
       const currentPoints = (currentState.studentPaid ? 31000 : 0) + currentState.tokenMarket.pointDelta;
       if (currentPoints < totalPrice) {
         throw new Error("not_enough_points");
@@ -304,6 +312,7 @@ async function purchaseEventResponse(request, env, session) {
 
       return {
         ...currentState,
+        governanceTokens: currentState.governanceTokens + quantity,
         tokenMarket: {
           ...currentState.tokenMarket,
           pointDelta: currentState.tokenMarket.pointDelta - totalPrice,
@@ -465,6 +474,11 @@ async function marketPurchaseEventResponse(request, env, session) {
 
   try {
     const state = await updateStudentAppState(env, session.userId, async (currentState) => {
+      const currentHoldingQuantity = getEventHoldingQuantity(currentState.tokenMarket, event.id);
+      if (currentHoldingQuantity + quantity > event.maxPurchasePerStudent) {
+        throw new Error("event_purchase_limit_exceeded");
+      }
+
       const currentPoints = (currentState.studentPaid ? 31000 : 0) + currentState.tokenMarket.pointDelta;
       if (currentPoints < quote.cost) {
         throw new Error("not_enough_points");
@@ -472,12 +486,13 @@ async function marketPurchaseEventResponse(request, env, session) {
 
       return {
         ...currentState,
+        governanceTokens: currentState.governanceTokens + quantity,
         tokenMarket: {
           ...currentState.tokenMarket,
           pointDelta: currentState.tokenMarket.pointDelta - quote.cost,
           purchaseHistory: [
             {
-              title: `${event.title} ${quantity}토큰 세컨더리 매수`,
+              title: `${event.title} 토큰 ${quantity}개 매수`,
               date: formatDate(new Date()),
               amount: -quote.cost,
               type: "use"
