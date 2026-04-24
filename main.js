@@ -651,21 +651,17 @@ function getCurrentMarketPrice(event) {
   return Math.ceil(event.ammPointReserve / event.ammTokenReserve);
 }
 
-const MARKET_BUY_FEE_RATE = 0.02;
-const MARKET_SELL_FEE_RATE = 0.02;
-
 function getAmmBuyQuote(event, quantity) {
   const normalizedQuantity = Math.max(1, Math.floor(quantity));
   const tokenReserve = Math.floor(Number(event?.ammTokenReserve || event?.remainingQuantity || 0));
   const pointReserve = Math.floor(Number(event?.ammPointReserve || 0));
-  const tradePrice = Math.max(getCurrentMarketPrice(event), getDisplayedMarketBasePrice(event));
 
-  if (normalizedQuantity !== 1 || tokenReserve <= 1 || pointReserve <= 0 || tradePrice <= 0) {
+  if (normalizedQuantity !== 1 || tokenReserve <= 2 || pointReserve <= 0) {
     return null;
   }
 
+  const cost = Math.ceil(pointReserve / (tokenReserve - 2));
   const nextTokenReserve = tokenReserve - normalizedQuantity;
-  const cost = Math.ceil(tradePrice * (1 + MARKET_BUY_FEE_RATE));
   const nextPointReserve = pointReserve + cost;
 
   return cost > 0 ? { cost, nextTokenReserve, nextPointReserve } : null;
@@ -675,11 +671,12 @@ function getAmmSellQuote(event, quantity) {
   const normalizedQuantity = Math.max(1, Math.floor(quantity));
   const tokenReserve = Math.floor(Number(event?.ammTokenReserve || event?.remainingQuantity || 0));
   const pointReserve = Math.floor(Number(event?.ammPointReserve || 0));
-  const tradePrice = Math.max(getCurrentMarketPrice(event), getDisplayedMarketBasePrice(event));
+  if (normalizedQuantity !== 1 || tokenReserve <= 0 || pointReserve <= 0) {
+    return null;
+  }
 
-  const payout = Math.floor(tradePrice * (1 - MARKET_SELL_FEE_RATE));
-
-  if (normalizedQuantity !== 1 || tokenReserve <= 0 || pointReserve <= payout || tradePrice <= 0) {
+  const payout = Math.floor(pointReserve / (tokenReserve + 2));
+  if (payout <= 0 || pointReserve <= payout) {
     return null;
   }
 
@@ -695,7 +692,7 @@ function getDisplayedMarketBasePrice(event) {
 
 function getMarketPriceDelta(event) {
   const displayedBasePrice = getDisplayedMarketBasePrice(event);
-  const currentPrice = Math.max(getCurrentMarketPrice(event), displayedBasePrice);
+  const currentPrice = getCurrentMarketPrice(event);
 
   if (displayedBasePrice <= 0 || currentPrice <= 0) {
     return {
@@ -740,7 +737,7 @@ function renderMarketEventCards(marketType = "secondary") {
   }
 
   const displayedBasePrice = getDisplayedMarketBasePrice(selectedEvent);
-  const currentPrice = Math.max(getCurrentMarketPrice(selectedEvent), displayedBasePrice);
+  const currentPrice = getCurrentMarketPrice(selectedEvent);
   const owned = purchaseSummary.get(selectedEvent.id)?.quantity || 0;
   const buyQuote = getAmmBuyQuote(selectedEvent, 1);
   const sellQuote = owned > 0 ? getAmmSellQuote(selectedEvent, 1) : null;
@@ -748,25 +745,6 @@ function renderMarketEventCards(marketType = "secondary") {
 
   return `
     <section class="token-market-card token-market-card-primary">
-      <div class="market-event-tabs" role="tablist" aria-label="${marketType === "etf" ? "ETF 행사 탭" : "세컨더리 행사 탭"}">
-        ${availableEvents
-          .map(
-            (event, index) => `
-              <button
-                type="button"
-                class="market-event-tab ${index === safeIndex ? "is-active" : ""}"
-                data-market-event-tab="${marketType}"
-                data-market-event-index="${index}"
-                role="tab"
-                aria-selected="${index === safeIndex ? "true" : "false"}"
-              >
-                ${escapeHtml(event.title)}
-              </button>
-            `
-          )
-          .join("")}
-      </div>
-
       <div class="market-event-list">
         <div class="market-event-card">
           <div class="market-event-card-top">
@@ -2650,17 +2628,6 @@ if (tokenMarketPanel) {
     const target = event.target;
 
     if (!(target instanceof HTMLElement)) return;
-    const marketTabButton = target.closest("[data-market-event-tab]");
-    if (marketTabButton instanceof HTMLButtonElement) {
-      const marketType = String(marketTabButton.dataset.marketEventTab || "");
-      const nextIndex = Number(marketTabButton.dataset.marketEventIndex);
-      if ((marketType === "secondary" || marketType === "etf") && Number.isFinite(nextIndex)) {
-        currentMarketEventIndexByType[marketType] = Math.max(0, nextIndex);
-        renderTokenMarket();
-      }
-      return;
-    }
-
     const eventId = target.dataset.deleteEventId;
     if (!eventId || currentRole !== "admin") return;
 

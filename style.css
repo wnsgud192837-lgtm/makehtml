@@ -1625,30 +1625,6 @@ input {
   gap: 14px;
 }
 
-.market-event-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 18px;
-}
-
-.market-event-tab {
-  border: 0;
-  background: transparent;
-  color: #5f6f84;
-  min-height: auto;
-  padding: 0;
-  font: inherit;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.market-event-tab.is-active {
-  color: #173f7d;
-  text-decoration: underline;
-  text-underline-offset: 4px;
-}
-
 .market-event-card {
   padding: 20px 18px;
   border-radius: 22px;
@@ -2227,10 +2203,6 @@ input {
 
   .market-event-card {
     padding: 18px 16px;
-  }
-
-  .market-event-tabs {
-    gap: 8px;
   }
 
   .market-event-price {
