@@ -991,6 +991,13 @@ input {
   transform: none;
 }
 
+.payment-note {
+  margin: -2px 0 0;
+  color: #6f7e92;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
 .view-section {
   min-height: 0;
 }
