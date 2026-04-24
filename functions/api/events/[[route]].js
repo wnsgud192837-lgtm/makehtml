@@ -59,6 +59,13 @@ function getCurrentMarketPrice(event) {
   return Math.ceil(event.ammPointReserve / event.ammTokenReserve);
 }
 
+function getDisplayedMarketBasePrice(event) {
+  return Math.max(
+    1,
+    Math.round(Number(event?.unitPrice || 0) * Number(event?.marketMultiplier || SECONDARY_MARKET_MULTIPLIER))
+  );
+}
+
 function getEventHoldingQuantity(tokenMarket, eventId) {
   if (!Array.isArray(tokenMarket?.eventPurchases)) {
     return 0;
@@ -78,14 +85,14 @@ function getEventHoldingQuantity(tokenMarket, eventId) {
 
 function getBuyQuote(event, quantity) {
   const normalizedQuantity = Math.max(1, Math.floor(quantity));
-  if (normalizedQuantity >= event.ammTokenReserve) {
+  if (normalizedQuantity !== 1 || event.ammTokenReserve <= 1) {
     return null;
   }
 
-  const invariant = event.ammPointReserve * event.ammTokenReserve;
+  const tradePrice = Math.max(getCurrentMarketPrice(event), getDisplayedMarketBasePrice(event));
   const nextTokenReserve = event.ammTokenReserve - normalizedQuantity;
-  const exactNextPointReserve = invariant / nextTokenReserve;
-  const cost = Math.ceil(exactNextPointReserve - event.ammPointReserve);
+  const nextPointReserve = event.ammPointReserve + tradePrice;
+  const cost = tradePrice;
 
   if (cost <= 0) {
     return null;
@@ -93,28 +100,36 @@ function getBuyQuote(event, quantity) {
 
   return {
     cost,
-    nextPointReserve: event.ammPointReserve + cost,
+    nextPointReserve,
     nextTokenReserve,
-    nextInvariant: (event.ammPointReserve + cost) * nextTokenReserve
+    nextInvariant: nextPointReserve * nextTokenReserve
   };
 }
 
 function getSellQuote(event, quantity) {
   const normalizedQuantity = Math.max(1, Math.floor(quantity));
-  const invariant = event.ammPointReserve * event.ammTokenReserve;
-  const nextTokenReserve = event.ammTokenReserve + normalizedQuantity;
-  const exactNextPointReserve = invariant / nextTokenReserve;
-  const payout = Math.floor(event.ammPointReserve - exactNextPointReserve);
+  if (normalizedQuantity !== 1) {
+    return null;
+  }
 
-  if (payout <= 0 || payout > event.ammPointReserve) {
+  const tradePrice = Math.max(getCurrentMarketPrice(event), getDisplayedMarketBasePrice(event));
+  if (tradePrice <= 0 || tradePrice > event.ammPointReserve) {
+    return null;
+  }
+
+  const nextTokenReserve = event.ammTokenReserve + normalizedQuantity;
+  const nextPointReserve = event.ammPointReserve - tradePrice;
+  const payout = tradePrice;
+
+  if (payout <= 0 || nextPointReserve < 1) {
     return null;
   }
 
   return {
     payout,
-    nextPointReserve: event.ammPointReserve - payout,
+    nextPointReserve,
     nextTokenReserve,
-    nextInvariant: (event.ammPointReserve - payout) * nextTokenReserve
+    nextInvariant: nextPointReserve * nextTokenReserve
   };
 }
 
@@ -339,7 +354,7 @@ async function sellEventResponse(request, env, session) {
 
   const body = await request.json();
   const eventId = String(body?.eventId || "").trim();
-  const quantity = Math.max(1, Math.floor(Number(body?.quantity || 1)));
+  const quantity = 1;
 
   const event = await getEvent(env, eventId);
   if (!event) {
@@ -421,7 +436,7 @@ async function marketPurchaseEventResponse(request, env, session) {
 
   const body = await request.json();
   const eventId = String(body?.eventId || "").trim();
-  const quantity = Math.max(1, Math.floor(Number(body?.quantity || 1)));
+  const quantity = 1;
 
   const event = await getEvent(env, eventId);
   if (!event) {

@@ -460,6 +460,10 @@ let currentView = "dashboard";
 const currentSubnavIndexByView = {
   dashboard: 1
 };
+const currentMarketEventIndexByType = {
+  secondary: 0,
+  etf: 0
+};
 const subnavCopy = {
   dashboard: { labels: ["Notice", "Calendar"], activeIndex: 1 },
   points: { labels: ["Assets", "Purchase"], activeIndex: 0 },
@@ -651,139 +655,112 @@ function getAmmBuyQuote(event, quantity) {
   const normalizedQuantity = Math.max(1, Math.floor(quantity));
   const tokenReserve = Math.floor(Number(event?.ammTokenReserve || event?.remainingQuantity || 0));
   const pointReserve = Math.floor(Number(event?.ammPointReserve || 0));
+  const tradePrice = Math.max(getCurrentMarketPrice(event), getDisplayedMarketBasePrice(event));
 
-  if (normalizedQuantity >= tokenReserve || tokenReserve <= 0 || pointReserve <= 0) {
+  if (normalizedQuantity !== 1 || tokenReserve <= 1 || pointReserve <= 0 || tradePrice <= 0) {
     return null;
   }
 
-  const invariant = pointReserve * tokenReserve;
   const nextTokenReserve = tokenReserve - normalizedQuantity;
-  const exactNextPointReserve = invariant / nextTokenReserve;
-  const cost = Math.ceil(exactNextPointReserve - pointReserve);
+  const nextPointReserve = pointReserve + tradePrice;
+  const cost = tradePrice;
 
-  return cost > 0 ? { cost, nextTokenReserve, nextPointReserve: pointReserve + cost } : null;
+  return cost > 0 ? { cost, nextTokenReserve, nextPointReserve } : null;
 }
 
 function getAmmSellQuote(event, quantity) {
   const normalizedQuantity = Math.max(1, Math.floor(quantity));
   const tokenReserve = Math.floor(Number(event?.ammTokenReserve || event?.remainingQuantity || 0));
   const pointReserve = Math.floor(Number(event?.ammPointReserve || 0));
+  const tradePrice = Math.max(getCurrentMarketPrice(event), getDisplayedMarketBasePrice(event));
 
-  if (normalizedQuantity <= 0 || tokenReserve <= 0 || pointReserve <= 0) {
+  if (normalizedQuantity !== 1 || tokenReserve <= 0 || pointReserve <= tradePrice || tradePrice <= 0) {
     return null;
   }
 
-  const invariant = pointReserve * tokenReserve;
   const nextTokenReserve = tokenReserve + normalizedQuantity;
-  const exactNextPointReserve = invariant / nextTokenReserve;
-  const payout = Math.floor(pointReserve - exactNextPointReserve);
+  const nextPointReserve = pointReserve - tradePrice;
+  const payout = tradePrice;
 
-  return payout > 0 ? { payout, nextTokenReserve, nextPointReserve: pointReserve - payout } : null;
+  return payout > 0 ? { payout, nextTokenReserve, nextPointReserve } : null;
 }
 
 function getDisplayedMarketBasePrice(event) {
   return Math.round(Number(event?.unitPrice || 0) * SECONDARY_MARKET_MULTIPLIER);
 }
 
-function getMarketPriceDelta(event) {
-  const displayedBasePrice = getDisplayedMarketBasePrice(event);
-  const currentPrice = getCurrentMarketPrice(event);
-
-  if (displayedBasePrice <= 0 || currentPrice <= 0) {
-    return { percentText: "0%", amountText: "0P", isPositive: true };
-  }
-
-  const delta = currentPrice - displayedBasePrice;
-  const percent = Math.round((delta / displayedBasePrice) * 1000) / 10;
-
-  return {
-    percentText: `${delta >= 0 ? "+" : ""}${percent}%`,
-    amountText: `${delta >= 0 ? "+" : ""}${delta.toLocaleString()}P`,
-    isPositive: delta >= 0
-  };
+function getActiveMarketType() {
+  const activeIndex = currentSubnavIndexByView.market ?? subnavCopy.market.activeIndex ?? 0;
+  return activeIndex === 1 ? "etf" : "secondary";
 }
 
 function renderMarketEventCards(marketType = "secondary") {
   const purchaseSummary = getEventHoldingSummary();
-  const boardLabel = marketType === "etf" ? "ETF 보드" : "Secondary 보드";
-  const boardTitle =
-    marketType === "etf"
-      ? "ETF 탭도 우선 동일한 행사 풀 구조로 표시합니다"
-      : "등록된 행사 토큰이 세컨더리 마켓 카드로 표시됩니다";
-  const boardCopy =
-    marketType === "etf"
-      ? `ETF 상품은 추후 별도 로직으로 분리하고, 현재는 등록 행사 기준으로 동일한 거래 카드를 노출합니다. 기준가는 등록가의 ${(SECONDARY_MARKET_MULTIPLIER).toFixed(2)}배로 표시됩니다.`
-      : `토큰에 등록된 행사가 그대로 세컨더리 카드에 기록됩니다. 기준가는 등록가의 ${(SECONDARY_MARKET_MULTIPLIER).toFixed(2)}배로 표시되며, 현재가는 AMM 체결에 따라 변동됩니다.`;
+  const tabIndex = currentMarketEventIndexByType[marketType] ?? 0;
+  const safeIndex = Math.min(Math.max(0, tabIndex), Math.max(availableEvents.length - 1, 0));
+  currentMarketEventIndexByType[marketType] = safeIndex;
+  const selectedEvent = availableEvents[safeIndex] || null;
+
+  if (!selectedEvent) {
+    return `
+      <section class="token-market-card token-market-card-primary">
+        <div class="market-event-card market-event-card-empty">
+          <strong>현재 등록된 행사가 없습니다.</strong>
+          <p>관리자 계정에서 행사를 등록하면 여기 표시됩니다.</p>
+        </div>
+        <p class="login-message token-market-message">${escapeHtml(getTokenMarketMessage())}</p>
+      </section>
+    `;
+  }
+
+  const displayedBasePrice = getDisplayedMarketBasePrice(selectedEvent);
+  const currentPrice = Math.max(getCurrentMarketPrice(selectedEvent), displayedBasePrice);
+  const owned = purchaseSummary.get(selectedEvent.id)?.quantity || 0;
+  const buyQuote = getAmmBuyQuote(selectedEvent, 1);
+  const sellQuote = owned > 0 ? getAmmSellQuote(selectedEvent, 1) : null;
 
   return `
     <section class="token-market-card token-market-card-primary">
-      <p class="token-market-eyebrow">${boardLabel}</p>
-      <strong class="token-market-title">${boardTitle}</strong>
-      <p class="detail-text token-market-copy">${boardCopy}</p>
-
-      <div class="token-market-stats">
-        <article>
-          <span>표시 행사</span>
-          <strong>${availableEvents.length}개</strong>
-        </article>
-        <article>
-          <span>기준가 표시</span>
-          <strong>${SECONDARY_MARKET_MULTIPLIER.toFixed(2)}x</strong>
-        </article>
+      <div class="market-event-tabs" role="tablist" aria-label="${marketType === "etf" ? "ETF 행사 탭" : "세컨더리 행사 탭"}">
+        ${availableEvents
+          .map(
+            (event, index) => `
+              <button
+                type="button"
+                class="market-event-tab ${index === safeIndex ? "is-active" : ""}"
+                data-market-event-tab="${marketType}"
+                data-market-event-index="${index}"
+                role="tab"
+                aria-selected="${index === safeIndex ? "true" : "false"}"
+              >
+                ${escapeHtml(event.title)}
+              </button>
+            `
+          )
+          .join("")}
       </div>
 
       <div class="market-event-list">
-        ${
-          availableEvents.length === 0
-            ? '<div class="market-event-card market-event-card-empty"><strong>현재 등록된 행사가 없습니다.</strong><p>관리자 계정에서 행사를 등록하면 여기 표시됩니다.</p></div>'
-            : availableEvents
-                .map((event) => {
-                  const owned = purchaseSummary.get(event.id)?.quantity || 0;
-                  const buyQuote = getAmmBuyQuote(event, 1);
-                  const sellQuote = owned > 0 ? getAmmSellQuote(event, 1) : null;
-                  const displayedBasePrice = getDisplayedMarketBasePrice(event);
-                  const currentPrice = getCurrentMarketPrice(event);
-                  const delta = getMarketPriceDelta(event);
+        <div class="market-event-card">
+          <div class="market-event-card-top">
+            <div>
+              <strong class="market-event-title">${escapeHtml(selectedEvent.title)}</strong>
+              <p class="market-event-meta">재고 ${Math.max(0, selectedEvent.ammTokenReserve - 1)}장 · 기준가 ${displayedBasePrice.toLocaleString()}P</p>
+            </div>
+          </div>
 
-                  return `
-                    <div class="market-event-card">
-                      <div class="market-event-card-top">
-                        <div>
-                          <strong class="market-event-title">${escapeHtml(event.title)}</strong>
-                          <p class="market-event-meta">재고 ${Math.max(0, event.ammTokenReserve - 1)}장 · 기준가 ${displayedBasePrice.toLocaleString()}P</p>
-                        </div>
-                        <button type="button" class="market-event-toggle" aria-label="${escapeHtml(event.title)} 카드 펼침 상태">
-                          <span></span>
-                        </button>
-                      </div>
+          <div class="market-event-price">${currentPrice.toLocaleString()}P</div>
 
-                      <div class="market-event-price">${currentPrice.toLocaleString()}P</div>
-                      <p class="market-event-change ${delta.isPositive ? "is-positive" : "is-negative"}">${delta.percentText} ${delta.amountText}</p>
+          <div class="market-event-actions market-event-actions-compact">
+            <form class="token-buy-form market-inline-form" data-market-purchase-form="true" data-event-id="${escapeHtml(selectedEvent.id)}">
+              <button type="submit" class="market-action-button is-buy" ${buyQuote ? "" : "disabled"}>매수</button>
+            </form>
 
-                      <div class="market-event-actions">
-                        <form class="token-buy-form market-inline-form" data-market-purchase-form="true" data-event-id="${escapeHtml(event.id)}">
-                          <label class="sr-only" for="market-buy-${escapeHtml(event.id)}">매수 수량</label>
-                          <input id="market-buy-${escapeHtml(event.id)}" type="number" name="quantity" min="1" max="${Math.max(1, event.ammTokenReserve - 1)}" value="1" ${event.ammTokenReserve <= 1 ? "disabled" : ""}>
-                          <button type="submit" class="market-action-button is-buy" ${event.ammTokenReserve <= 1 ? "disabled" : ""}>매수</button>
-                        </form>
-
-                        <form class="token-buy-form market-inline-form" data-event-sell-form="true" data-event-id="${escapeHtml(event.id)}">
-                          <label class="sr-only" for="market-sell-${escapeHtml(event.id)}">매도 수량</label>
-                          <input id="market-sell-${escapeHtml(event.id)}" type="number" name="quantity" min="1" max="${Math.max(1, owned)}" value="1" ${owned < 1 ? "disabled" : ""}>
-                          <button type="submit" class="market-action-button is-sell" ${owned < 1 ? "disabled" : ""}>매도</button>
-                        </form>
-                      </div>
-
-                      <div class="token-trade-metrics market-event-metrics">
-                        <span>현재가 ${currentPrice.toLocaleString()}P</span>
-                        <span>예상 매수 ${buyQuote ? `${buyQuote.cost.toLocaleString()}P` : "불가"}</span>
-                        <span>예상 매도 ${sellQuote ? `${sellQuote.payout.toLocaleString()}P` : "불가"}</span>
-                      </div>
-                    </div>
-                  `;
-                })
-                .join("")
-        }
+            <form class="token-buy-form market-inline-form" data-event-sell-form="true" data-event-id="${escapeHtml(selectedEvent.id)}">
+              <button type="submit" class="market-action-button is-sell" ${sellQuote ? "" : "disabled"}>매도</button>
+            </form>
+          </div>
+        </div>
       </div>
       <p class="login-message token-market-message">${escapeHtml(getTokenMarketMessage())}</p>
     </section>
@@ -1262,8 +1239,8 @@ function renderPrimaryTokenPurchasePanel() {
 
 function renderSecondaryMarketPanel() {
   if (!tokenMarketPanel) return;
-  const activeIndex = currentSubnavIndexByView.market ?? subnavCopy.market.activeIndex ?? 0;
-  const isEtfTab = activeIndex === 1;
+  const marketType = getActiveMarketType();
+  const isEtfTab = marketType === "etf";
 
   tokenMarketPanel.innerHTML = `
     <header class="panel-titlebar token-market-header">
@@ -1275,7 +1252,7 @@ function renderSecondaryMarketPanel() {
     </header>
 
     <div class="token-market-grid">
-      ${renderMarketEventCards(isEtfTab ? "etf" : "secondary")}
+      ${renderMarketEventCards(marketType)}
 
       <section class="token-market-card">
         <div class="panel-titlebar panel-titlebar-compact">
@@ -1287,7 +1264,7 @@ function renderSecondaryMarketPanel() {
         <ul class="market-list token-quote-list">
           <li><span>노출 기준가</span><strong>등록가의 ${(SECONDARY_MARKET_MULTIPLIER).toFixed(2)}배</strong></li>
           <li><span>행사 소스</span><strong>토큰 등록 행사 목록과 동일</strong></li>
-          <li><span>체결가</span><strong>매수/매도 시점마다 변동</strong></li>
+          <li><span>거래 단위</span><strong>1회 1개 고정</strong></li>
         </ul>
       </section>
     </div>
@@ -2643,6 +2620,17 @@ if (tokenMarketPanel) {
     const target = event.target;
 
     if (!(target instanceof HTMLElement)) return;
+    const marketTabButton = target.closest("[data-market-event-tab]");
+    if (marketTabButton instanceof HTMLButtonElement) {
+      const marketType = String(marketTabButton.dataset.marketEventTab || "");
+      const nextIndex = Number(marketTabButton.dataset.marketEventIndex);
+      if ((marketType === "secondary" || marketType === "etf") && Number.isFinite(nextIndex)) {
+        currentMarketEventIndexByType[marketType] = Math.max(0, nextIndex);
+        renderTokenMarket();
+      }
+      return;
+    }
+
     const eventId = target.dataset.deleteEventId;
     if (!eventId || currentRole !== "admin") return;
 
