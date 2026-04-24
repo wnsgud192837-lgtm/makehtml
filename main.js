@@ -651,6 +651,9 @@ function getCurrentMarketPrice(event) {
   return Math.ceil(event.ammPointReserve / event.ammTokenReserve);
 }
 
+const MARKET_BUY_FEE_RATE = 0.02;
+const MARKET_SELL_FEE_RATE = 0.02;
+
 function getAmmBuyQuote(event, quantity) {
   const normalizedQuantity = Math.max(1, Math.floor(quantity));
   const tokenReserve = Math.floor(Number(event?.ammTokenReserve || event?.remainingQuantity || 0));
@@ -662,8 +665,8 @@ function getAmmBuyQuote(event, quantity) {
   }
 
   const nextTokenReserve = tokenReserve - normalizedQuantity;
-  const nextPointReserve = pointReserve + tradePrice;
-  const cost = tradePrice;
+  const cost = Math.ceil(tradePrice * (1 + MARKET_BUY_FEE_RATE));
+  const nextPointReserve = pointReserve + cost;
 
   return cost > 0 ? { cost, nextTokenReserve, nextPointReserve } : null;
 }
@@ -674,13 +677,14 @@ function getAmmSellQuote(event, quantity) {
   const pointReserve = Math.floor(Number(event?.ammPointReserve || 0));
   const tradePrice = Math.max(getCurrentMarketPrice(event), getDisplayedMarketBasePrice(event));
 
-  if (normalizedQuantity !== 1 || tokenReserve <= 0 || pointReserve <= tradePrice || tradePrice <= 0) {
+  const payout = Math.floor(tradePrice * (1 - MARKET_SELL_FEE_RATE));
+
+  if (normalizedQuantity !== 1 || tokenReserve <= 0 || pointReserve <= payout || tradePrice <= 0) {
     return null;
   }
 
   const nextTokenReserve = tokenReserve + normalizedQuantity;
-  const nextPointReserve = pointReserve - tradePrice;
-  const payout = tradePrice;
+  const nextPointReserve = pointReserve - payout;
 
   return payout > 0 ? { payout, nextTokenReserve, nextPointReserve } : null;
 }

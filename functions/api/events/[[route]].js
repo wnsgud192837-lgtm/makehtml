@@ -5,6 +5,8 @@ import {
 } from "../../_lib/auth.js";
 
 const SECONDARY_MARKET_MULTIPLIER = 1.55;
+const MARKET_BUY_FEE_RATE = 0.02;
+const MARKET_SELL_FEE_RATE = 0.02;
 
 function formatDate(date) {
   const year = date.getFullYear();
@@ -91,8 +93,8 @@ function getBuyQuote(event, quantity) {
 
   const tradePrice = Math.max(getCurrentMarketPrice(event), getDisplayedMarketBasePrice(event));
   const nextTokenReserve = event.ammTokenReserve - normalizedQuantity;
-  const nextPointReserve = event.ammPointReserve + tradePrice;
-  const cost = tradePrice;
+  const cost = Math.ceil(tradePrice * (1 + MARKET_BUY_FEE_RATE));
+  const nextPointReserve = event.ammPointReserve + cost;
 
   if (cost <= 0) {
     return null;
@@ -113,13 +115,13 @@ function getSellQuote(event, quantity) {
   }
 
   const tradePrice = Math.max(getCurrentMarketPrice(event), getDisplayedMarketBasePrice(event));
-  if (tradePrice <= 0 || tradePrice > event.ammPointReserve) {
+  const payout = Math.floor(tradePrice * (1 - MARKET_SELL_FEE_RATE));
+  if (tradePrice <= 0 || payout > event.ammPointReserve) {
     return null;
   }
 
   const nextTokenReserve = event.ammTokenReserve + normalizedQuantity;
-  const nextPointReserve = event.ammPointReserve - tradePrice;
-  const payout = tradePrice;
+  const nextPointReserve = event.ammPointReserve - payout;
 
   if (payout <= 0 || nextPointReserve < 1) {
     return null;
