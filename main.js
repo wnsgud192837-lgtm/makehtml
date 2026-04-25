@@ -2329,6 +2329,14 @@ function formatCalendarItemDate(dateKey) {
   return `${date.getMonth() + 1}월 ${date.getDate()}일`;
 }
 
+function formatCalendarItemWeekday(dateKey) {
+  const date = parseDateKey(dateKey);
+  const weekdays = ["일", "월", "화", "수", "목", "금", "토"];
+  if (!date) return "";
+
+  return `${date.getMonth() + 1}월 ${date.getDate()}일 (${weekdays[date.getDay()]})`;
+}
+
 function getStaticCalendarItems() {
   return notableCalendarItems.map((item) => ({
     id: `static-${item.year}-${item.month}-${item.day}-${item.label}`,
@@ -2381,18 +2389,22 @@ function getSelectedWeekCalendarItems(selectedDateKey) {
   });
 }
 
-function renderCalendarEntries(items, emptyText) {
+function renderCalendarEntries(items, emptyText, options = {}) {
   if (items.length === 0) {
     return `<p class="calendar-empty-text">${escapeHtml(emptyText)}</p>`;
   }
 
   return items
-    .map((item) => `
+    .map((item) => {
+      const metaText = options.showWeekdayMeta ? formatCalendarItemWeekday(item.date) : item.description;
+
+      return `
       <div class="calendar-agenda-entry">
         <strong>${escapeHtml(item.title)}</strong>
-        <span>${escapeHtml(item.description || (item.type === "holiday" ? "공휴일 일정" : "행사 일정"))}</span>
+        ${metaText ? `<span>${escapeHtml(metaText)}</span>` : ""}
       </div>
-    `)
+    `;
+    })
     .join("");
 }
 
@@ -2520,12 +2532,12 @@ function renderCalendar() {
   if (calendarAgendaCard) {
     calendarAgendaCard.innerHTML = `
       <section class="calendar-agenda-section">
-        <h4>${currentCalendarDay}일 일정</h4>
+        <h4>${currentCalendarMonth + 1}월 ${currentCalendarDay}일</h4>
         ${renderCalendarEntries(selectedItems, "등록된 일정이 없습니다")}
       </section>
       <section class="calendar-agenda-section">
-        <h4>이번주 일정</h4>
-        ${renderCalendarEntries(weekItems, "이번주 등록된 일정이 없습니다")}
+        <h4>주간 일정</h4>
+        ${renderCalendarEntries(weekItems, "이번주 등록된 일정이 없습니다", { showWeekdayMeta: true })}
       </section>
     `;
   }
