@@ -602,6 +602,7 @@ function enterDemoSession() {
   renderPointsHistory();
   renderTokenMarket();
   renderGovernanceList();
+  void syncCalendarFromApi();
 }
 
 function applyDemoPayment() {
@@ -1312,11 +1313,6 @@ async function syncEventsFromApi() {
 }
 
 async function syncCalendarFromApi() {
-  if (isDemoSession) {
-    renderCalendar();
-    return true;
-  }
-
   try {
     const data = await calendarApiRequest("", { method: "GET" });
     calendarItems = Array.isArray(data.items) ? data.items : [];

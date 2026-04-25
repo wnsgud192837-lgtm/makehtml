@@ -97,7 +97,7 @@ async function listCatalogItems(env, catalogKey) {
 async function listCalendarItems(env, session) {
   const globalItems = await listCatalogItems(env, CALENDAR_CATALOG_KEY);
   const privateItems =
-    session.role === "student"
+    session?.role === "student"
       ? await listCatalogItems(env, getPrivateCalendarCatalogKey(session.userId))
       : [];
 
@@ -123,6 +123,11 @@ export async function onRequest(context) {
   try {
     const session = await requireSession(request, env);
     if (!session) {
+      if (request.method === "GET" && route.length === 0) {
+        const items = await listCalendarItems(env, null);
+        return json(request, env, { items }, 200);
+      }
+
       return json(request, env, { error: "unauthorized" }, 401);
     }
 
