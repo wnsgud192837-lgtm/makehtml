@@ -50,6 +50,10 @@ const placeholderKicker = document.querySelector("#placeholder-kicker");
 const placeholderTitle = document.querySelector("#placeholder-title");
 const placeholderText = document.querySelector("#placeholder-text");
 const noticeAdminPanel = document.querySelector("#notice-admin-panel");
+const calendarAdminEditor = document.querySelector("#calendar-admin-editor");
+const calendarForm = document.querySelector("#calendar-form");
+const calendarMessage = document.querySelector("#calendar-message");
+const adminCalendarList = document.querySelector("#admin-calendar-list");
 const noticeAdminEditor = document.querySelector("#notice-admin-editor");
 const noticeForm = document.querySelector("#notice-form");
 const noticeMessage = document.querySelector("#notice-message");
@@ -96,32 +100,33 @@ const governanceApiUrl =
   window.APP_GOVERNANCE_API_URL ||
   (window.location.hostname.endsWith(".pages.dev") ? window.location.origin : "");
 const today = new Date();
-const highlightedMonth = today.getFullYear() === 2026 ? today.getMonth() : -1;
-const highlightedDay = today.getFullYear() === 2026 ? today.getDate() : -1;
+const highlightedYear = today.getFullYear();
+const highlightedMonth = today.getMonth();
+const highlightedDay = today.getDate();
 const notableCalendarItems = [
-  { month: 0, day: 1, label: "신정", type: "holiday" },
-  { month: 1, day: 16, label: "설날 연휴", type: "holiday" },
-  { month: 1, day: 17, label: "설날", type: "holiday" },
-  { month: 1, day: 18, label: "설날 연휴", type: "holiday" },
-  { month: 2, day: 1, label: "삼일절", type: "holiday" },
-  { month: 2, day: 2, label: "삼일절 대체공휴일", type: "holiday" },
-  { month: 4, day: 5, label: "어린이날", type: "holiday" },
-  { month: 4, day: 7, label: "해맞이 한마당", type: "event" },
-  { month: 4, day: 8, label: "해맞이 한마당", type: "event" },
-  { month: 4, day: 24, label: "부처님오신날", type: "holiday" },
-  { month: 4, day: 25, label: "대체공휴일", type: "holiday" },
-  { month: 5, day: 6, label: "현충일", type: "holiday" },
-  { month: 7, day: 15, label: "광복절", type: "holiday" },
-  { month: 7, day: 17, label: "광복절 대체공휴일", type: "holiday" },
-  { month: 8, day: 18, label: "포카전", type: "event" },
-  { month: 8, day: 19, label: "포카전", type: "event" },
-  { month: 8, day: 24, label: "추석 연휴", type: "holiday" },
-  { month: 8, day: 25, label: "추석", type: "holiday" },
-  { month: 8, day: 26, label: "추석 연휴", type: "holiday" },
-  { month: 9, day: 3, label: "개천절", type: "holiday" },
-  { month: 9, day: 5, label: "개천절 대체공휴일", type: "holiday" },
-  { month: 9, day: 9, label: "한글날", type: "holiday" },
-  { month: 11, day: 25, label: "크리스마스", type: "holiday" }
+  { year: 2026, month: 0, day: 1, label: "신정", type: "holiday" },
+  { year: 2026, month: 1, day: 16, label: "설날 연휴", type: "holiday" },
+  { year: 2026, month: 1, day: 17, label: "설날", type: "holiday" },
+  { year: 2026, month: 1, day: 18, label: "설날 연휴", type: "holiday" },
+  { year: 2026, month: 2, day: 1, label: "삼일절", type: "holiday" },
+  { year: 2026, month: 2, day: 2, label: "삼일절 대체공휴일", type: "holiday" },
+  { year: 2026, month: 4, day: 5, label: "어린이날", type: "holiday" },
+  { year: 2026, month: 4, day: 7, label: "해맞이 한마당", type: "event" },
+  { year: 2026, month: 4, day: 8, label: "해맞이 한마당", type: "event" },
+  { year: 2026, month: 4, day: 24, label: "부처님오신날", type: "holiday" },
+  { year: 2026, month: 4, day: 25, label: "대체공휴일", type: "holiday" },
+  { year: 2026, month: 5, day: 6, label: "현충일", type: "holiday" },
+  { year: 2026, month: 7, day: 15, label: "광복절", type: "holiday" },
+  { year: 2026, month: 7, day: 17, label: "광복절 대체공휴일", type: "holiday" },
+  { year: 2026, month: 8, day: 18, label: "포카전", type: "event" },
+  { year: 2026, month: 8, day: 19, label: "포카전", type: "event" },
+  { year: 2026, month: 8, day: 24, label: "추석 연휴", type: "holiday" },
+  { year: 2026, month: 8, day: 25, label: "추석", type: "holiday" },
+  { year: 2026, month: 8, day: 26, label: "추석 연휴", type: "holiday" },
+  { year: 2026, month: 9, day: 3, label: "개천절", type: "holiday" },
+  { year: 2026, month: 9, day: 5, label: "개천절 대체공휴일", type: "holiday" },
+  { year: 2026, month: 9, day: 9, label: "한글날", type: "holiday" },
+  { year: 2026, month: 11, day: 25, label: "크리스마스", type: "holiday" }
 ];
 
 const placeholderCopy = {
@@ -170,8 +175,6 @@ const placeholderCopy = {
 let noticeItems = [];
 let operationsItems = [];
 let operationsTitle = "";
-let currentCalendarYear = 2026;
-let currentCalendarDay = highlightedMonth >= 0 && highlightedDay >= 0 ? highlightedDay : 1;
 const NOTICE_STORAGE_KEY = "postech_notice_items";
 const POLL_STORAGE_KEY = "postech_governance_polls";
 const REMEMBER_ID_STORAGE_KEY = "postech_remembered_user_id";
@@ -507,7 +510,9 @@ const subnavCopy = {
 };
 let currentRole = "student";
 let currentUserId = "";
-let currentCalendarMonth = highlightedMonth >= 0 ? highlightedMonth : 3;
+let currentCalendarYear = highlightedYear;
+let currentCalendarMonth = highlightedMonth;
+let currentCalendarDay = highlightedDay;
 let activeStepIndex = 0;
 let completedSteps = new Set();
 let state = { ...baseState };
@@ -522,6 +527,7 @@ let adminStudentStats = {
 };
 let governancePolls = [];
 let availableEvents = [];
+let calendarItems = [];
 let studentManagementLogs = [];
 let studentManagementUsers = [];
 let studentTokenMarketState = cloneInitialTokenMarketState();
@@ -576,6 +582,7 @@ function enterDemoSession() {
   studentGovernanceState = loadStudentGovernanceState();
   governanceVoteSelections = {};
   availableEvents = createDemoEvents();
+  calendarItems = [];
   governancePolls = createDemoPolls();
   operationsTitle = INITIAL_OPERATIONS_TITLE;
   operationsItems = cloneInitialOperationsItems();
@@ -1276,6 +1283,23 @@ async function operationsApiRequest(path = "", options = {}) {
   return data;
 }
 
+async function calendarApiRequest(path = "", options = {}) {
+  const response = await fetch(`/api/calendar${path}`, {
+    ...options,
+    headers: {
+      "content-type": "application/json",
+      ...(options.headers || {})
+    }
+  });
+
+  const data = await response.json();
+  if (!response.ok || data.error) {
+    throw new Error(data.error || `calendar_api_${response.status}`);
+  }
+
+  return data;
+}
+
 async function syncEventsFromApi() {
   if (isDemoSession) return true;
   try {
@@ -1285,6 +1309,29 @@ async function syncEventsFromApi() {
     return true;
   } catch (error) {
     console.error("Event sync failed:", error);
+    return false;
+  }
+}
+
+async function syncCalendarFromApi() {
+  if (isDemoSession) {
+    calendarItems = [];
+    renderCalendar();
+    renderAdminCalendarList();
+    return true;
+  }
+
+  try {
+    const data = await calendarApiRequest("", { method: "GET" });
+    calendarItems = Array.isArray(data.items) ? data.items : [];
+    renderCalendar();
+    renderAdminCalendarList();
+    return true;
+  } catch (error) {
+    console.error("Calendar sync failed:", error);
+    calendarItems = [];
+    renderCalendar();
+    renderAdminCalendarList();
     return false;
   }
 }
@@ -1981,6 +2028,10 @@ function applyRoleLayout(role) {
     noticeAdminPanel.classList.toggle("is-hidden", !isAdminNoticeView);
   }
 
+  if (calendarAdminEditor) {
+    calendarAdminEditor.classList.toggle("is-hidden", !isAdminNoticeView);
+  }
+
   if (noticeAdminEditor) {
     noticeAdminEditor.classList.toggle("is-hidden", !isAdminNoticeView);
   }
@@ -2189,8 +2240,16 @@ function switchView(view) {
     noticeMessage.textContent = "";
   }
 
+  if (calendarMessage && !isAdminNoticeView) {
+    calendarMessage.textContent = "";
+  }
+
   if (operationsMessage && !isAdminNoticeView) {
     operationsMessage.textContent = "";
+  }
+
+  if (calendarForm && !isAdminNoticeView) {
+    calendarForm.reset();
   }
 
   if (noticeForm && !isAdminNoticeView) {
@@ -2210,6 +2269,7 @@ function switchView(view) {
   }
 
   renderHomeSubnavSections();
+  renderAdminCalendarList();
   renderGovernanceList();
   renderTokenMarket();
   renderStudentManagementPanel();
@@ -2245,6 +2305,127 @@ function renderStatus() {
   }
 }
 
+function formatDateKey(year, month, day) {
+  return [
+    String(year),
+    String(month + 1).padStart(2, "0"),
+    String(day).padStart(2, "0")
+  ].join("-");
+}
+
+function parseDateKey(dateKey) {
+  const [year, month, day] = String(dateKey || "").split("-").map(Number);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    return null;
+  }
+
+  return new Date(year, month - 1, day);
+}
+
+function formatCalendarItemDate(dateKey) {
+  const date = parseDateKey(dateKey);
+  if (!date) return "";
+
+  return `${date.getMonth() + 1}월 ${date.getDate()}일`;
+}
+
+function getStaticCalendarItems() {
+  return notableCalendarItems.map((item) => ({
+    id: `static-${item.year}-${item.month}-${item.day}-${item.label}`,
+    date: formatDateKey(item.year, item.month, item.day),
+    title: item.label,
+    description: "",
+    type: item.type,
+    isStatic: true
+  }));
+}
+
+function getAllCalendarItems() {
+  return [
+    ...getStaticCalendarItems(),
+    ...calendarItems.map((item) => ({
+      ...item,
+      type: "event",
+      isStatic: false
+    }))
+  ];
+}
+
+function getCalendarItemsByDate() {
+  return getAllCalendarItems().reduce((itemsByDate, item) => {
+    if (!item.date) return itemsByDate;
+
+    const items = itemsByDate.get(item.date) || [];
+    items.push(item);
+    itemsByDate.set(item.date, items);
+
+    return itemsByDate;
+  }, new Map());
+}
+
+function getSelectedWeekCalendarItems(selectedDateKey) {
+  const selectedDate = parseDateKey(selectedDateKey);
+  if (!selectedDate) return [];
+
+  const weekStart = new Date(selectedDate);
+  weekStart.setDate(selectedDate.getDate() - selectedDate.getDay());
+  weekStart.setHours(0, 0, 0, 0);
+
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  weekEnd.setHours(23, 59, 59, 999);
+
+  return getAllCalendarItems().filter((item) => {
+    const itemDate = parseDateKey(item.date);
+    return itemDate && itemDate >= weekStart && itemDate <= weekEnd;
+  });
+}
+
+function renderCalendarEntries(items, emptyText) {
+  if (items.length === 0) {
+    return `<p class="calendar-empty-text">${escapeHtml(emptyText)}</p>`;
+  }
+
+  return items
+    .map((item) => `
+      <div class="calendar-agenda-entry">
+        <strong>${escapeHtml(item.title)}</strong>
+        <span>${escapeHtml(item.description || (item.type === "holiday" ? "공휴일 일정" : "행사 일정"))}</span>
+      </div>
+    `)
+    .join("");
+}
+
+function renderAdminCalendarList() {
+  if (!adminCalendarList) return;
+
+  if (currentRole !== "admin" || currentView !== "market") {
+    adminCalendarList.innerHTML = "";
+    return;
+  }
+
+  adminCalendarList.innerHTML =
+    calendarItems.length === 0
+      ? `
+        <li class="notice-item notice-empty">
+          <strong>등록된 일정이 없습니다.</strong>
+          <p>위 폼에서 날짜와 제목을 입력해 첫 일정을 등록하세요.</p>
+        </li>
+      `
+      : calendarItems
+          .map((item) => `
+            <li class="notice-item notice-item-admin">
+              <div class="notice-meta">
+                <strong>${escapeHtml(item.title)}</strong>
+                <span>${escapeHtml(formatCalendarItemDate(item.date))}</span>
+              </div>
+              <p>${escapeHtml(item.description || "일정 내용 없음")}</p>
+              <button type="button" class="notice-delete-button" data-calendar-item-id="${escapeHtml(item.id)}">삭제</button>
+            </li>
+          `)
+          .join("");
+}
+
 function renderCalendar() {
   if (!calendarGrid) return;
 
@@ -2252,13 +2433,15 @@ function renderCalendar() {
   const lastDate = new Date(currentCalendarYear, currentCalendarMonth + 1, 0).getDate();
   const prevMonthLastDate = new Date(currentCalendarYear, currentCalendarMonth, 0).getDate();
   const cells = [];
-  const itemsByDay = new Map(
-    notableCalendarItems
-      .filter((item) => item.month === currentCalendarMonth)
-      .map((item) => [item.day, item])
-  );
+  const itemsByDate = getCalendarItemsByDate();
 
   if (calendarYearSelect) {
+    if (!Array.from(calendarYearSelect.options).some((option) => option.value === String(currentCalendarYear))) {
+      const option = document.createElement("option");
+      option.value = String(currentCalendarYear);
+      option.textContent = `${currentCalendarYear}년`;
+      calendarYearSelect.append(option);
+    }
     calendarYearSelect.value = String(currentCalendarYear);
   }
 
@@ -2267,11 +2450,11 @@ function renderCalendar() {
   }
 
   if (calendarPrevButton) {
-    calendarPrevButton.disabled = currentCalendarMonth === 0;
+    calendarPrevButton.disabled = false;
   }
 
   if (calendarNextButton) {
-    calendarNextButton.disabled = currentCalendarMonth === 11;
+    calendarNextButton.disabled = false;
   }
 
   currentCalendarDay = Math.min(currentCalendarDay, lastDate);
@@ -2286,15 +2469,21 @@ function renderCalendar() {
   }
 
   for (let day = 1; day <= lastDate; day += 1) {
-    const item = itemsByDay.get(day);
+    const dateKey = formatDateKey(currentCalendarYear, currentCalendarMonth, day);
+    const dayItems = itemsByDate.get(dateKey) || [];
+    const primaryItem = dayItems[0] || null;
     const classes = ["calendar-cell"];
     const weekday = new Date(currentCalendarYear, currentCalendarMonth, day).getDay();
 
-    if (currentCalendarMonth === highlightedMonth && day === highlightedDay) {
+    if (
+      currentCalendarYear === highlightedYear &&
+      currentCalendarMonth === highlightedMonth &&
+      day === highlightedDay
+    ) {
       classes.push("is-today");
     }
-    if (item) {
-      classes.push(item.type === "holiday" ? "is-holiday" : "is-event");
+    if (primaryItem) {
+      classes.push(primaryItem.type === "holiday" ? "is-holiday" : "is-event");
     }
     if (day === currentCalendarDay) {
       classes.push("is-selected");
@@ -2305,7 +2494,7 @@ function renderCalendar() {
     cells.push(`
       <button type="button" class="${classes.join(" ")}" data-calendar-day="${day}">
         <span class="calendar-date">${day}</span>
-        ${item ? `<small class="calendar-note">${item.label}</small>` : '<small class="calendar-note is-empty-note"></small>'}
+        ${primaryItem ? `<small class="calendar-note">${escapeHtml(primaryItem.title)}</small>` : '<small class="calendar-note is-empty-note"></small>'}
       </button>
     `);
   }
@@ -2322,19 +2511,23 @@ function renderCalendar() {
   calendarGrid.innerHTML = cells.join("");
 
   if (calendarAgendaTitle) {
-    calendarAgendaTitle.textContent = `${currentCalendarDay}일 일정`;
+    calendarAgendaTitle.textContent = "일정";
   }
 
-  const selectedItem = itemsByDay.get(currentCalendarDay);
+  const selectedDateKey = formatDateKey(currentCalendarYear, currentCalendarMonth, currentCalendarDay);
+  const selectedItems = itemsByDate.get(selectedDateKey) || [];
+  const weekItems = getSelectedWeekCalendarItems(selectedDateKey);
   if (calendarAgendaCard) {
-    calendarAgendaCard.innerHTML = selectedItem
-      ? `
-        <div class="calendar-agenda-entry">
-          <strong>${escapeHtml(selectedItem.label)}</strong>
-          <span>${selectedItem.type === "holiday" ? "공휴일 일정" : "행사 일정"}</span>
-        </div>
-      `
-      : "등록된 일정이 없습니다";
+    calendarAgendaCard.innerHTML = `
+      <section class="calendar-agenda-section">
+        <h4>${currentCalendarDay}일 일정</h4>
+        ${renderCalendarEntries(selectedItems, "등록된 일정이 없습니다")}
+      </section>
+      <section class="calendar-agenda-section">
+        <h4>이번주 일정</h4>
+        ${renderCalendarEntries(weekItems, "이번주 등록된 일정이 없습니다")}
+      </section>
+    `;
   }
 
   calendarGrid.querySelectorAll("[data-calendar-day]").forEach((button) => {
@@ -2746,27 +2939,33 @@ assetsSubnavItems.forEach((item) => {
 
 if (calendarPrevButton) {
   calendarPrevButton.addEventListener("click", () => {
-    if (currentCalendarMonth > 0) {
+    if (currentCalendarMonth === 0) {
+      currentCalendarYear -= 1;
+      currentCalendarMonth = 11;
+    } else {
       currentCalendarMonth -= 1;
-      currentCalendarDay = 1;
-      renderCalendar();
     }
+    currentCalendarDay = 1;
+    renderCalendar();
   });
 }
 
 if (calendarNextButton) {
   calendarNextButton.addEventListener("click", () => {
-    if (currentCalendarMonth < 11) {
+    if (currentCalendarMonth === 11) {
+      currentCalendarYear += 1;
+      currentCalendarMonth = 0;
+    } else {
       currentCalendarMonth += 1;
-      currentCalendarDay = 1;
-      renderCalendar();
     }
+    currentCalendarDay = 1;
+    renderCalendar();
   });
 }
 
 if (calendarYearSelect) {
   calendarYearSelect.addEventListener("change", () => {
-    currentCalendarYear = 2026;
+    currentCalendarYear = Number(calendarYearSelect.value);
     renderCalendar();
   });
 }
@@ -3006,6 +3205,69 @@ if (noticeForm) {
     noticeForm.reset();
     persistNoticeItems();
     renderNoticeLists();
+  });
+}
+
+if (calendarForm) {
+  calendarForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    if (currentRole !== "admin") return;
+
+    const formData = new FormData(calendarForm);
+    const date = String(formData.get("date") || "").trim();
+    const title = String(formData.get("title") || "").trim();
+    const description = String(formData.get("description") || "").trim();
+
+    if (!date || !title) {
+      if (calendarMessage) {
+        calendarMessage.textContent = "날짜와 일정 제목을 모두 입력해야 합니다.";
+      }
+      return;
+    }
+
+    try {
+      await calendarApiRequest("", {
+        method: "POST",
+        body: JSON.stringify({ date, title, description })
+      });
+      if (calendarMessage) {
+        calendarMessage.textContent = "일정이 등록되었습니다.";
+      }
+      calendarForm.reset();
+      await syncCalendarFromApi();
+    } catch (error) {
+      if (calendarMessage) {
+        calendarMessage.textContent =
+          error.message === "invalid_calendar_payload"
+            ? "날짜와 일정 제목을 올바르게 입력해야 합니다."
+            : "일정 등록 중 오류가 발생했습니다.";
+      }
+    }
+  });
+}
+
+if (adminCalendarList) {
+  adminCalendarList.addEventListener("click", async (event) => {
+    const target = event.target;
+
+    if (!(target instanceof HTMLElement)) return;
+    const calendarItemId = target.dataset.calendarItemId;
+    if (!calendarItemId || currentRole !== "admin") return;
+
+    try {
+      await calendarApiRequest(`/${encodeURIComponent(calendarItemId)}`, {
+        method: "DELETE"
+      });
+      if (calendarMessage) {
+        calendarMessage.textContent = "일정이 삭제되었습니다.";
+      }
+      await syncCalendarFromApi();
+    } catch (error) {
+      if (calendarMessage) {
+        calendarMessage.textContent = "일정 삭제 중 오류가 발생했습니다.";
+      }
+    }
   });
 }
 
@@ -3418,6 +3680,7 @@ if (loginForm) {
       resetScenario(roleConfigs[currentRole].defaultMode);
       switchView("dashboard");
       await syncOperationsFromApi();
+      await syncCalendarFromApi();
 
       if (loginPage) loginPage.classList.add("is-hidden");
       if (dashboardPage) dashboardPage.classList.remove("is-hidden");
@@ -3541,6 +3804,7 @@ async function initializeApp() {
     resetScenario(roleConfigs[currentRole].defaultMode);
     switchView("dashboard");
     await syncOperationsFromApi();
+    await syncCalendarFromApi();
 
     if (loginPage) loginPage.classList.add("is-hidden");
     if (dashboardPage) dashboardPage.classList.remove("is-hidden");

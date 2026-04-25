@@ -1236,17 +1236,37 @@ input {
   background: rgba(255, 255, 255, 0.95);
   color: #a1abbb;
   font-size: 1.02rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
+  display: grid;
+  gap: 22px;
+  text-align: left;
   box-shadow: 0 12px 30px rgba(74, 58, 104, 0.08);
+}
+
+.calendar-agenda-section {
+  display: grid;
+  gap: 12px;
+}
+
+.calendar-agenda-section h4 {
+  margin: 0;
+  color: #173f7d;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.calendar-empty-text {
+  margin: 0;
+  color: #a1abbb;
+  text-align: center;
 }
 
 .calendar-agenda-entry {
   display: grid;
   gap: 6px;
-  justify-items: center;
+  justify-items: start;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f6f8fc;
 }
 
 .calendar-agenda-entry strong {
