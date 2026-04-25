@@ -43,18 +43,31 @@ function isValidDateKey(value) {
 
 function normalizeCalendarItem(item) {
   const parsed = item && typeof item === "object" ? item : {};
+  const scope = parsed.scope === "private" ? "private" : "global";
 
   return {
     id: typeof parsed.id === "string" ? parsed.id : createCalendarItemId(),
     date: typeof parsed.date === "string" && isValidDateKey(parsed.date) ? parsed.date : "",
     title: typeof parsed.title === "string" ? parsed.title : "",
     description: typeof parsed.description === "string" ? parsed.description : "",
+    scope,
+    ownerUserId: typeof parsed.ownerUserId === "string" ? parsed.ownerUserId : "",
     createdAt: typeof parsed.createdAt === "string" ? parsed.createdAt : new Date().toISOString()
   };
 }
 
-async function getCalendarItemIds(env) {
-  return (await upstash(env, `/smembers/${CALENDAR_CATALOG_KEY}`)) || [];
+function getPrivateCalendarCatalogKey(userId) {
+  return `calendar:user:${userId}:items`;
+}
+
+function getCalendarItemCatalogKey(item) {
+  return item?.scope === "private"
+    ? getPrivateCalendarCatalogKey(item.ownerUserId)
+    : CALENDAR_CATALOG_KEY;
+}
+
+async function getCalendarItemIds(env, catalogKey) {
+  return (await upstash(env, `/smembers/${catalogKey}`)) || [];
 }
 
 async function getCalendarItem(env, itemId) {
@@ -65,21 +78,30 @@ async function getCalendarItem(env, itemId) {
 async function setCalendarItem(env, item) {
   const normalized = normalizeCalendarItem(item);
   await upstash(env, `/set/calendar:item:${normalized.id}`, normalized);
-  await upstash(env, `/sadd/${CALENDAR_CATALOG_KEY}/${normalized.id}`);
+  await upstash(env, `/sadd/${getCalendarItemCatalogKey(normalized)}/${normalized.id}`);
   return normalized;
 }
 
-async function deleteCalendarItem(env, itemId) {
+async function deleteCalendarItem(env, itemId, item) {
   await upstash(env, `/del/calendar:item:${itemId}`);
-  await upstash(env, `/srem/${CALENDAR_CATALOG_KEY}/${itemId}`);
+  await upstash(env, `/srem/${getCalendarItemCatalogKey(item)}/${itemId}`);
 }
 
-async function listCalendarItems(env) {
-  const itemIds = await getCalendarItemIds(env);
+async function listCatalogItems(env, catalogKey) {
+  const itemIds = await getCalendarItemIds(env, catalogKey);
   const items = await Promise.all(itemIds.map((itemId) => getCalendarItem(env, itemId)));
 
-  return items
-    .filter((item) => item && item.date && item.title)
+  return items.filter((item) => item && item.date && item.title);
+}
+
+async function listCalendarItems(env, session) {
+  const globalItems = await listCatalogItems(env, CALENDAR_CATALOG_KEY);
+  const privateItems =
+    session.role === "student"
+      ? await listCatalogItems(env, getPrivateCalendarCatalogKey(session.userId))
+      : [];
+
+  return [...globalItems, ...privateItems]
     .sort((a, b) => {
       if (a.date !== b.date) return a.date < b.date ? -1 : 1;
       return a.createdAt < b.createdAt ? -1 : 1;
@@ -105,15 +127,11 @@ export async function onRequest(context) {
     }
 
     if (request.method === "GET" && route.length === 0) {
-      const items = await listCalendarItems(env);
+      const items = await listCalendarItems(env, session);
       return json(request, env, { items }, 200);
     }
 
     if (request.method === "POST" && route.length === 0) {
-      if (session.role !== "admin") {
-        return json(request, env, { error: "forbidden" }, 403);
-      }
-
       const body = await request.json();
       const date = String(body?.date || "").trim();
       const title = String(body?.title || "").trim();
@@ -128,6 +146,8 @@ export async function onRequest(context) {
         date,
         title,
         description,
+        scope: session.role === "admin" ? "global" : "private",
+        ownerUserId: session.role === "student" ? session.userId : "",
         createdAt: new Date().toISOString()
       });
 
@@ -135,16 +155,21 @@ export async function onRequest(context) {
     }
 
     if (request.method === "DELETE" && route.length === 1) {
-      if (session.role !== "admin") {
-        return json(request, env, { error: "forbidden" }, 403);
-      }
-
       const item = await getCalendarItem(env, route[0]);
       if (!item) {
         return json(request, env, { error: "calendar_item_not_found" }, 404);
       }
 
-      await deleteCalendarItem(env, route[0]);
+      const canDelete =
+        session.role === "admin"
+          ? item.scope === "global"
+          : item.scope === "private" && item.ownerUserId === session.userId;
+
+      if (!canDelete) {
+        return json(request, env, { error: "forbidden" }, 403);
+      }
+
+      await deleteCalendarItem(env, route[0], item);
       return json(request, env, { ok: true }, 200);
     }
 

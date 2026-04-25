@@ -253,6 +253,29 @@
           <section class="calendar-agenda" aria-labelledby="calendar-agenda-title">
             <h3 id="calendar-agenda-title" class="calendar-agenda-title">1일 일정</h3>
             <div class="calendar-agenda-card" id="calendar-agenda-card">등록된 일정이 없습니다</div>
+            <form class="calendar-create-form" id="calendar-form">
+              <label class="calendar-create-field">
+                <span class="calendar-create-label">
+                  <span class="calendar-create-icon calendar-create-icon-title" aria-hidden="true"></span>
+                  <span>일정 제목</span>
+                </span>
+                <input type="text" name="title" placeholder="일정 이름을 입력하세요" maxlength="80">
+              </label>
+
+              <label class="calendar-create-field">
+                <span class="calendar-create-label">
+                  <span class="calendar-create-icon calendar-create-icon-date" aria-hidden="true"></span>
+                  <span>날짜</span>
+                </span>
+                <input type="date" name="date">
+              </label>
+
+              <div class="calendar-create-actions">
+                <button type="submit" class="calendar-save-button">저장하기</button>
+                <button type="reset" class="calendar-cancel-button">취소</button>
+              </div>
+              <p class="login-message calendar-create-message" id="calendar-message" aria-live="polite"></p>
+            </form>
           </section>
         </article>
       </section>
@@ -295,36 +318,6 @@
           <p class="detail-text" id="placeholder-text">이 메뉴는 다음 단계에서 구체적인 상호작용을 설계할 예정입니다.</p>
 
           <section class="notice-admin is-hidden" id="notice-admin-panel">
-            <section class="notice-admin-card" id="calendar-admin-editor">
-              <div class="panel-titlebar panel-titlebar-compact">
-                <div>
-                  <p class="panel-kicker">일정 등록</p>
-                  <h3>캘린더 일정 관리</h3>
-                </div>
-              </div>
-              <form class="notice-form" id="calendar-form">
-                <label class="notice-field">
-                  <span>날짜</span>
-                  <input type="date" name="date">
-                </label>
-
-                <label class="notice-field">
-                  <span>일정 제목</span>
-                  <input type="text" name="title" placeholder="예: 학생총회" maxlength="80">
-                </label>
-
-                <label class="notice-field">
-                  <span>일정 내용</span>
-                  <textarea name="description" placeholder="학생에게 보여줄 일정 내용을 입력하세요" rows="3" maxlength="240"></textarea>
-                </label>
-
-                <button type="submit" class="login-button notice-submit">일정 등록</button>
-              </form>
-
-              <p class="login-message" id="calendar-message" aria-live="polite"></p>
-              <ul class="notice-list notice-list-admin" id="admin-calendar-list"></ul>
-            </section>
-
             <section class="notice-admin-card" id="notice-admin-editor">
               <div class="panel-titlebar panel-titlebar-compact">
                 <div>

@@ -50,10 +50,8 @@ const placeholderKicker = document.querySelector("#placeholder-kicker");
 const placeholderTitle = document.querySelector("#placeholder-title");
 const placeholderText = document.querySelector("#placeholder-text");
 const noticeAdminPanel = document.querySelector("#notice-admin-panel");
-const calendarAdminEditor = document.querySelector("#calendar-admin-editor");
 const calendarForm = document.querySelector("#calendar-form");
 const calendarMessage = document.querySelector("#calendar-message");
-const adminCalendarList = document.querySelector("#admin-calendar-list");
 const noticeAdminEditor = document.querySelector("#notice-admin-editor");
 const noticeForm = document.querySelector("#notice-form");
 const noticeMessage = document.querySelector("#notice-message");
@@ -1315,9 +1313,7 @@ async function syncEventsFromApi() {
 
 async function syncCalendarFromApi() {
   if (isDemoSession) {
-    calendarItems = [];
     renderCalendar();
-    renderAdminCalendarList();
     return true;
   }
 
@@ -1325,13 +1321,11 @@ async function syncCalendarFromApi() {
     const data = await calendarApiRequest("", { method: "GET" });
     calendarItems = Array.isArray(data.items) ? data.items : [];
     renderCalendar();
-    renderAdminCalendarList();
     return true;
   } catch (error) {
     console.error("Calendar sync failed:", error);
     calendarItems = [];
     renderCalendar();
-    renderAdminCalendarList();
     return false;
   }
 }
@@ -2028,10 +2022,6 @@ function applyRoleLayout(role) {
     noticeAdminPanel.classList.toggle("is-hidden", !isAdminNoticeView);
   }
 
-  if (calendarAdminEditor) {
-    calendarAdminEditor.classList.toggle("is-hidden", !isAdminNoticeView);
-  }
-
   if (noticeAdminEditor) {
     noticeAdminEditor.classList.toggle("is-hidden", !isAdminNoticeView);
   }
@@ -2240,16 +2230,8 @@ function switchView(view) {
     noticeMessage.textContent = "";
   }
 
-  if (calendarMessage && !isAdminNoticeView) {
-    calendarMessage.textContent = "";
-  }
-
   if (operationsMessage && !isAdminNoticeView) {
     operationsMessage.textContent = "";
-  }
-
-  if (calendarForm && !isAdminNoticeView) {
-    calendarForm.reset();
   }
 
   if (noticeForm && !isAdminNoticeView) {
@@ -2269,7 +2251,6 @@ function switchView(view) {
   }
 
   renderHomeSubnavSections();
-  renderAdminCalendarList();
   renderGovernanceList();
   renderTokenMarket();
   renderStudentManagementPanel();
@@ -2408,34 +2389,11 @@ function renderCalendarEntries(items, emptyText, options = {}) {
     .join("");
 }
 
-function renderAdminCalendarList() {
-  if (!adminCalendarList) return;
-
-  if (currentRole !== "admin" || currentView !== "market") {
-    adminCalendarList.innerHTML = "";
-    return;
+function setCalendarFormDate(dateKey) {
+  const dateInput = calendarForm?.elements.namedItem("date");
+  if (dateInput instanceof HTMLInputElement) {
+    dateInput.value = dateKey;
   }
-
-  adminCalendarList.innerHTML =
-    calendarItems.length === 0
-      ? `
-        <li class="notice-item notice-empty">
-          <strong>등록된 일정이 없습니다.</strong>
-          <p>위 폼에서 날짜와 제목을 입력해 첫 일정을 등록하세요.</p>
-        </li>
-      `
-      : calendarItems
-          .map((item) => `
-            <li class="notice-item notice-item-admin">
-              <div class="notice-meta">
-                <strong>${escapeHtml(item.title)}</strong>
-                <span>${escapeHtml(formatCalendarItemDate(item.date))}</span>
-              </div>
-              <p>${escapeHtml(item.description || "일정 내용 없음")}</p>
-              <button type="button" class="notice-delete-button" data-calendar-item-id="${escapeHtml(item.id)}">삭제</button>
-            </li>
-          `)
-          .join("");
 }
 
 function renderCalendar() {
@@ -2529,6 +2487,8 @@ function renderCalendar() {
   const selectedDateKey = formatDateKey(currentCalendarYear, currentCalendarMonth, currentCalendarDay);
   const selectedItems = itemsByDate.get(selectedDateKey) || [];
   const weekItems = getSelectedWeekCalendarItems(selectedDateKey);
+  setCalendarFormDate(selectedDateKey);
+
   if (calendarAgendaCard) {
     calendarAgendaCard.innerHTML = `
       <section class="calendar-agenda-section">
@@ -3224,12 +3184,9 @@ if (calendarForm) {
   calendarForm.addEventListener("submit", async (event) => {
     event.preventDefault();
 
-    if (currentRole !== "admin") return;
-
     const formData = new FormData(calendarForm);
     const date = String(formData.get("date") || "").trim();
     const title = String(formData.get("title") || "").trim();
-    const description = String(formData.get("description") || "").trim();
 
     if (!date || !title) {
       if (calendarMessage) {
@@ -3238,15 +3195,41 @@ if (calendarForm) {
       return;
     }
 
+    if (isDemoSession) {
+      calendarItems = [
+        ...calendarItems,
+        {
+          id: `calendar_demo_${Date.now()}`,
+          date,
+          title,
+          description: "",
+          scope: "private",
+          ownerUserId: currentUserId,
+          createdAt: new Date().toISOString()
+        }
+      ];
+      if (calendarMessage) {
+        calendarMessage.textContent = "DEMO 계정에서는 이 브라우저에서만 일정이 보입니다.";
+      }
+      calendarForm.reset();
+      setCalendarFormDate(formatDateKey(currentCalendarYear, currentCalendarMonth, currentCalendarDay));
+      renderCalendar();
+      return;
+    }
+
     try {
       await calendarApiRequest("", {
         method: "POST",
-        body: JSON.stringify({ date, title, description })
+        body: JSON.stringify({ date, title, description: "" })
       });
       if (calendarMessage) {
-        calendarMessage.textContent = "일정이 등록되었습니다.";
+        calendarMessage.textContent =
+          currentRole === "admin"
+            ? "모든 캘린더에 일정이 등록되었습니다."
+            : "내 캘린더에 일정이 등록되었습니다.";
       }
       calendarForm.reset();
+      setCalendarFormDate(formatDateKey(currentCalendarYear, currentCalendarMonth, currentCalendarDay));
       await syncCalendarFromApi();
     } catch (error) {
       if (calendarMessage) {
@@ -3257,29 +3240,14 @@ if (calendarForm) {
       }
     }
   });
-}
 
-if (adminCalendarList) {
-  adminCalendarList.addEventListener("click", async (event) => {
-    const target = event.target;
-
-    if (!(target instanceof HTMLElement)) return;
-    const calendarItemId = target.dataset.calendarItemId;
-    if (!calendarItemId || currentRole !== "admin") return;
-
-    try {
-      await calendarApiRequest(`/${encodeURIComponent(calendarItemId)}`, {
-        method: "DELETE"
-      });
-      if (calendarMessage) {
-        calendarMessage.textContent = "일정이 삭제되었습니다.";
-      }
-      await syncCalendarFromApi();
-    } catch (error) {
-      if (calendarMessage) {
-        calendarMessage.textContent = "일정 삭제 중 오류가 발생했습니다.";
-      }
+  calendarForm.addEventListener("reset", () => {
+    if (calendarMessage) {
+      calendarMessage.textContent = "";
     }
+    window.setTimeout(() => {
+      setCalendarFormDate(formatDateKey(currentCalendarYear, currentCalendarMonth, currentCalendarDay));
+    }, 0);
   });
 }
 

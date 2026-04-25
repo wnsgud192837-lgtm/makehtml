@@ -1205,13 +1205,7 @@ input {
 }
 
 .calendar-note::before {
-  content: "";
-  display: block;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: currentColor;
-  margin: 0 auto;
+  content: none;
 }
 
 .calendar-note.is-empty-note::before {
@@ -1277,6 +1271,137 @@ input {
 .calendar-agenda-entry span {
   color: #7d8da6;
   font-size: 0.88rem;
+}
+
+.calendar-create-form {
+  margin-top: 18px;
+  padding: 22px;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 12px 30px rgba(74, 58, 104, 0.08);
+  display: grid;
+  gap: 16px;
+}
+
+.calendar-create-field {
+  display: grid;
+  gap: 12px;
+}
+
+.calendar-create-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #1f355b;
+  font-weight: 800;
+}
+
+.calendar-create-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.calendar-create-icon-title {
+  background: #e7f0ff;
+}
+
+.calendar-create-icon-date {
+  background: #f3e8ff;
+}
+
+.calendar-create-icon-title::before {
+  content: "";
+  position: absolute;
+  left: 13px;
+  top: 10px;
+  width: 13px;
+  height: 17px;
+  border: 2px solid #2466ff;
+  border-radius: 2px;
+}
+
+.calendar-create-icon-title::after {
+  content: "";
+  position: absolute;
+  left: 17px;
+  top: 15px;
+  width: 8px;
+  height: 2px;
+  background: #2466ff;
+  box-shadow: 0 5px 0 #2466ff;
+}
+
+.calendar-create-icon-date::before {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 12px;
+  width: 18px;
+  height: 16px;
+  border: 2px solid #8a2cff;
+  border-radius: 4px;
+}
+
+.calendar-create-icon-date::after {
+  content: "";
+  position: absolute;
+  left: 15px;
+  top: 9px;
+  width: 10px;
+  height: 6px;
+  border-left: 2px solid #8a2cff;
+  border-right: 2px solid #8a2cff;
+}
+
+.calendar-create-field input {
+  width: 100%;
+  height: 58px;
+  border: 1px solid #dce3ee;
+  border-radius: 14px;
+  background: #fbfcfe;
+  color: #0f2450;
+  font: inherit;
+  padding: 0 18px;
+}
+
+.calendar-create-field input:focus {
+  outline: 3px solid rgba(37, 99, 255, 0.16);
+  border-color: #7aa7ff;
+}
+
+.calendar-create-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 76px;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.calendar-save-button,
+.calendar-cancel-button {
+  height: 56px;
+  border: 0;
+  border-radius: 14px;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.calendar-save-button {
+  background: linear-gradient(180deg, #347dff 0%, #1e5bff 100%);
+  color: #ffffff;
+  box-shadow: 0 12px 22px rgba(37, 99, 255, 0.24);
+}
+
+.calendar-cancel-button {
+  background: #f0f2f6;
+  color: #30384a;
+}
+
+.calendar-create-message {
+  margin: 0;
 }
 
 .points-panel {
