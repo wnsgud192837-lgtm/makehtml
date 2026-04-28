@@ -18,6 +18,7 @@ const registerConfirmPasswordInput =
 const registerSubmitButton = registerForm?.querySelector('button[type="submit"]') || null;
 const logoutButton = document.querySelector("#logout-button");
 const modeButtons = Array.from(document.querySelectorAll("[data-mode]"));
+const appNav = document.querySelector(".app-nav");
 const navItems = Array.from(document.querySelectorAll(".app-nav-item"));
 const studentManagementNavItem = document.querySelector("#student-management-nav");
 const studentDeleteForm = document.querySelector("#student-delete-form");
@@ -1960,6 +1961,10 @@ function applyRoleLayout(role) {
   const isStudentGovernanceView = role === "student" && isGovernanceView;
 
   if (!roleConfig) return;
+
+  if (appNav) {
+    appNav.classList.toggle("is-admin-text-nav", role === "admin");
+  }
 
   if (appRoleSubtitle) {
     appRoleSubtitle.textContent =
