@@ -1478,6 +1478,118 @@ input {
   color: var(--magenta);
 }
 
+.rental-panel {
+  min-height: 420px;
+}
+
+.rental-header {
+  align-items: center;
+}
+
+.rental-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.rental-card {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid #dce3ee;
+  border-radius: 18px;
+  background: #fbfcfe;
+}
+
+.rental-card-primary {
+  display: grid;
+  grid-template-columns: 164px minmax(0, 1fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.rental-card-copy {
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+}
+
+.rental-card strong {
+  color: #173f7d;
+  font-size: 1.05rem;
+}
+
+.rental-card p {
+  margin: 0;
+  color: #5f6e82;
+  font-size: 0.9rem;
+  line-height: 1.65;
+}
+
+.rental-bike-visual {
+  position: relative;
+  min-height: 220px;
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(52, 125, 255, 0.14), rgba(23, 63, 125, 0.08)),
+    #eef4ff;
+  overflow: hidden;
+}
+
+.rental-bike-visual::before,
+.rental-bike-visual::after {
+  content: "";
+  position: absolute;
+  bottom: 42px;
+  width: 46px;
+  height: 46px;
+  border: 8px solid #173f7d;
+  border-radius: 50%;
+}
+
+.rental-bike-visual::before {
+  left: 28px;
+}
+
+.rental-bike-visual::after {
+  right: 28px;
+}
+
+.rental-bike-visual span {
+  position: absolute;
+  left: 48px;
+  right: 48px;
+  bottom: 74px;
+  height: 38px;
+  border-left: 7px solid #2563ff;
+  border-bottom: 7px solid #2563ff;
+  transform: skewX(-22deg);
+}
+
+.rental-metrics {
+  margin: 0;
+}
+
+.rental-action {
+  width: fit-content;
+  min-width: 160px;
+  margin-top: 0;
+}
+
+.rental-action:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.2);
+  opacity: 0.64;
+}
+
+.rental-message {
+  margin: 0;
+}
+
+.rental-history-list {
+  margin-top: 14px;
+}
+
 .placeholder-panel {
   min-height: 260px;
 }
@@ -2068,7 +2180,8 @@ input {
 }
 
 @media (max-width: 1100px) {
-  .token-market-grid {
+  .token-market-grid,
+  .rental-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -2574,6 +2687,18 @@ input {
 
   .token-market-grid {
     gap: 14px;
+  }
+
+  .rental-card-primary {
+    grid-template-columns: 1fr;
+  }
+
+  .rental-bike-visual {
+    min-height: 150px;
+  }
+
+  .rental-action {
+    width: 100%;
   }
 
   .token-trade-actions,

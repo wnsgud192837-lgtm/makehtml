@@ -139,6 +139,7 @@ function createDefaultStudentAppState() {
     studentPaid: false,
     paidAt: "",
     governanceTokens: 0,
+    rentals: [],
     tokenMarket: {
       pointReserve: INITIAL_TOKEN_MARKET_STATE.pointReserve,
       eventTokenReserve: INITIAL_TOKEN_MARKET_STATE.eventTokenReserve,
@@ -192,6 +193,21 @@ function normalizeEventPurchases(entries) {
   );
 }
 
+function normalizeRentals(entries) {
+  if (!Array.isArray(entries)) return [];
+
+  return entries.filter(
+    (item) =>
+      item &&
+      typeof item.id === "string" &&
+      typeof item.assetType === "string" &&
+      typeof item.assetName === "string" &&
+      Number.isFinite(item.cost) &&
+      typeof item.status === "string" &&
+      typeof item.rentedAt === "string"
+  );
+}
+
 function normalizeStudentAppState(state) {
   const parsed = state && typeof state === "object" ? state : {};
   const tokenMarket =
@@ -206,6 +222,7 @@ function normalizeStudentAppState(state) {
       Number.isFinite(parsed.governanceTokens) && parsed.governanceTokens >= 0
         ? Math.floor(parsed.governanceTokens)
         : 0,
+    rentals: normalizeRentals(parsed.rentals),
     tokenMarket: {
       pointReserve:
         Number.isFinite(tokenMarket.pointReserve) && tokenMarket.pointReserve > 0

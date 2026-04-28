@@ -41,8 +41,10 @@ const statusGrid = document.querySelector("#status-grid");
 const dashboardView = document.querySelector("#dashboard-view");
 const pointsView = document.querySelector("#points-view");
 const tokenView = document.querySelector("#token-view");
+const rentalView = document.querySelector("#rental-view");
 const studentManagementView = document.querySelector("#student-management-view");
 const tokenMarketPanel = document.querySelector("#token-market-panel");
+const rentalPanel = document.querySelector("#rental-panel");
 const assetsSubnav = document.querySelector("#assets-subnav");
 const assetsSubnavItems = Array.from(document.querySelectorAll("[data-subnav-index]"));
 const placeholderView = document.querySelector("#placeholder-view");
@@ -191,6 +193,7 @@ const INITIAL_TOKEN_MARKET_STATE = {
   purchaseHistory: [],
   eventPurchases: []
 };
+const BIKE_RENTAL_COST = 1000;
 const SECONDARY_MARKET_MULTIPLIER = 1.55;
 const DEMO_USER_ID = "demo";
 const DEMO_EVENTS = [
@@ -482,6 +485,7 @@ const baseState = {
   paymentMeta: "전환 전 안내 배너 노출",
   market: "1.55x",
   rental: "잠김",
+  rentals: [],
   vote: "불가",
   carry: "대기",
   pointsMeta: "잔여 포인트",
@@ -528,6 +532,8 @@ let governancePolls = [];
 let availableEvents = [];
 let calendarItems = [];
 let studentManagementLogs = [];
+let studentRentals = [];
+let rentalMessage = "";
 let studentManagementUsers = [];
 let studentTokenMarketState = cloneInitialTokenMarketState();
 let studentGovernanceState = {
@@ -551,6 +557,8 @@ function resetTransientUiState() {
   adminTokenMarketMessage = "";
   studentTokenMarketMessage = "";
   studentManagementStatusMessage = "";
+  rentalMessage = "";
+  studentRentals = [];
   studentManagementLogs = [];
   studentManagementUsers = [];
 }
@@ -751,6 +759,42 @@ function applyDemoMarketTrade(selectedEvent, quantity, mode) {
 
   availableEvents[eventIndex] = nextEvent;
   state = buildStudentState();
+  return { ok: true };
+}
+
+function applyDemoBikeRental() {
+  if (state.points < BIKE_RENTAL_COST) return { ok: false, error: "not_enough_points" };
+  if (studentRentals.some((item) => item.assetType === "bike" && item.status === "active")) {
+    return { ok: false, error: "active_rental_exists" };
+  }
+
+  const rentedAt = new Date();
+  studentRentals = [
+    {
+      id: `demo-bike-${rentedAt.getTime()}`,
+      assetType: "bike",
+      assetName: "공유 자전거",
+      cost: BIKE_RENTAL_COST,
+      status: "active",
+      rentedAt: rentedAt.toISOString()
+    },
+    ...studentRentals
+  ];
+  studentTokenMarketState = {
+    ...studentTokenMarketState,
+    pointDelta: studentTokenMarketState.pointDelta - BIKE_RENTAL_COST,
+    purchaseHistory: [
+      {
+        title: "공유 자전거 대여",
+        date: formatDate(rentedAt),
+        amount: -BIKE_RENTAL_COST,
+        type: "use"
+      },
+      ...studentTokenMarketState.purchaseHistory
+    ]
+  };
+  state = buildStudentState();
+
   return { ok: true };
 }
 
@@ -1165,6 +1209,16 @@ function applyStudentStateResponse(data) {
         )
       : []
   };
+  const rentals = Array.isArray(appState.rentals) ? appState.rentals : [];
+  studentRentals = rentals.filter(
+    (item) =>
+      item &&
+      typeof item.id === "string" &&
+      typeof item.assetName === "string" &&
+      Number.isFinite(item.cost) &&
+      typeof item.status === "string" &&
+      typeof item.rentedAt === "string"
+  );
   studentGovernanceState = {
     tokens:
       Number.isFinite(appState.governanceTokens) && appState.governanceTokens >= 0
@@ -1186,6 +1240,7 @@ async function syncStudentStateFromApi() {
     renderStatus();
     renderPointsHistory();
     renderTokenMarket();
+    renderRentalPanel();
     renderGovernanceList();
     return true;
   } catch (error) {
@@ -1607,6 +1662,115 @@ function renderTokenMarket() {
   renderPrimaryTokenPurchasePanel();
 }
 
+function getRentalStatusText(status) {
+  return status === "active" ? "이용 중" : "반납 완료";
+}
+
+function getRentalDateText(rentedAt) {
+  const date = new Date(rentedAt);
+  if (Number.isNaN(date.getTime())) return rentedAt;
+
+  return formatDate(date);
+}
+
+function renderRentalPanel() {
+  if (!rentalPanel) return;
+
+  if (currentRole === "admin") {
+    rentalPanel.innerHTML = `
+      <header class="panel-titlebar rental-header">
+        <div>
+          <p class="panel-kicker">Rent</p>
+          <h3>대여사업 운영</h3>
+        </div>
+        <div class="progress-chip">자전거 12대</div>
+      </header>
+
+      <div class="rental-grid">
+        <section class="rental-card">
+          <strong>공유 자전거</strong>
+          <p>학생은 1회 1,000P로 자전거를 대여할 수 있습니다.</p>
+          <ul class="market-list token-quote-list rental-metrics">
+            <li><span>대여 단가</span><strong>${BIKE_RENTAL_COST.toLocaleString()}P</strong></li>
+            <li><span>운영 상태</span><strong>운영 중</strong></li>
+            <li><span>반납 방식</span><strong>수동 확인</strong></li>
+          </ul>
+        </section>
+      </div>
+    `;
+    return;
+  }
+
+  const rentals = Array.isArray(state.rentals) ? state.rentals : [];
+  const activeRental = rentals.find((item) => item.status === "active");
+  const canRent = state.points >= BIKE_RENTAL_COST;
+
+  rentalPanel.innerHTML = `
+    <header class="panel-titlebar rental-header">
+      <div>
+        <p class="panel-kicker">Rent</p>
+        <h3>자전거 대여</h3>
+      </div>
+      <div class="progress-chip">보유 포인트 ${state.points.toLocaleString()}P</div>
+    </header>
+
+    <div class="rental-grid">
+      <section class="rental-card rental-card-primary">
+        <div class="rental-bike-visual" aria-hidden="true">
+          <span></span>
+        </div>
+        <div class="rental-card-copy">
+          <strong>공유 자전거</strong>
+          <p>캠퍼스 이동용 자전거를 1회 ${BIKE_RENTAL_COST.toLocaleString()}P로 대여합니다.</p>
+          <ul class="market-list token-quote-list rental-metrics">
+            <li><span>대여 비용</span><strong>${BIKE_RENTAL_COST.toLocaleString()}P</strong></li>
+            <li><span>예약 상태</span><strong>${activeRental ? "이용 중" : "대여 가능"}</strong></li>
+            <li><span>차감 방식</span><strong>즉시 포인트 차감</strong></li>
+          </ul>
+          <button type="button" class="login-button rental-action" id="bike-rental-button" ${activeRental || !canRent ? "disabled" : ""}>
+            ${activeRental ? "이용 중" : canRent ? "1,000P로 대여하기" : "포인트 부족"}
+          </button>
+          <p class="login-message rental-message">${escapeHtml(rentalMessage)}</p>
+        </div>
+      </section>
+
+      <section class="rental-card">
+        <div class="panel-titlebar panel-titlebar-compact">
+          <div>
+            <p class="panel-kicker">History</p>
+            <h3>대여 내역</h3>
+          </div>
+          <div class="progress-chip">${rentals.length}건</div>
+        </div>
+        <ul class="points-history-list rental-history-list">
+          ${
+            rentals.length === 0
+              ? `
+                <li class="points-history-empty">
+                  <p>아직 대여한 자전거가 없습니다.</p>
+                  <span>대여 완료 후 1,000P 차감 내역이 Assets에도 표시됩니다.</span>
+                </li>
+              `
+              : rentals
+                  .map(
+                    (item) => `
+                      <li class="points-history-item">
+                        <div>
+                          <strong>${escapeHtml(item.assetName)}</strong>
+                          <span>${escapeHtml(getRentalDateText(item.rentedAt))} · ${escapeHtml(getRentalStatusText(item.status))}</span>
+                        </div>
+                        <b class="is-negative">-${Number(item.cost).toLocaleString()}P</b>
+                      </li>
+                    `
+                  )
+                  .join("")
+          }
+        </ul>
+      </section>
+    </div>
+  `;
+}
+
 function renderStudentAssetsPanels() {
   if (currentRole !== "student" || currentView !== "points") return;
 
@@ -1926,6 +2090,7 @@ function buildStudentState() {
       points: studentTokenMarketState.pointDelta,
       tokens: studentGovernanceState.tokens,
       tokenMeta: "행사 토큰 구매 시 추가 지급",
+      rentals: studentRentals,
       pointHistory: marketHistory
     };
   }
@@ -1938,6 +2103,8 @@ function buildStudentState() {
     paymentMeta: "31,000포인트 지급 완료",
     pointsMeta: "학생회비 납부로 31,000P 지급",
     tokenMeta: "행사 토큰 구매 시 추가 지급",
+    rental: studentRentals.some((item) => item.status === "active") ? "이용 중" : "이용 가능",
+    rentals: studentRentals,
     pointHistory: [
       {
         title: "학생회비 납부 리워드 지급",
@@ -2069,6 +2236,7 @@ function resetScenario(mode) {
   renderCalendar();
   renderPointsHistory();
   renderTokenMarket();
+  renderRentalPanel();
 }
 
 function updateModeButtons() {
@@ -2101,6 +2269,7 @@ function switchView(view) {
 
   const isDashboard = view === "dashboard";
   const isPoints = view === "points";
+  const isRental = view === "rental";
   const isTokenView =
     currentRole === "admin"
       ? view === "tokens"
@@ -2112,6 +2281,7 @@ function switchView(view) {
   if (dashboardView) dashboardView.classList.toggle("is-hidden", !isDashboard);
   if (pointsView) pointsView.classList.toggle("is-hidden", !isPoints);
   if (tokenView) tokenView.classList.toggle("is-hidden", !isTokenView);
+  if (rentalView) rentalView.classList.toggle("is-hidden", !isRental);
   if (pointsView) {
     pointsView.classList.toggle("is-student-assets-view", currentRole === "student" && isPoints);
   }
@@ -2128,7 +2298,7 @@ function switchView(view) {
   if (placeholderView) {
     placeholderView.classList.toggle(
       "is-hidden",
-      isDashboard || isPoints || isTokenView || isStudentManagementView ? true : false
+      isDashboard || isPoints || isTokenView || isRental || isStudentManagementView ? true : false
     );
   }
 
@@ -2141,7 +2311,7 @@ function switchView(view) {
     void syncStudentManagementLogsFromApi();
   }
 
-  if (!isDashboard && !isPoints && !isTokenView) {
+  if (!isDashboard && !isPoints && !isTokenView && !isRental) {
     const copy = placeholderCopy[currentRole]?.[view];
     if (placeholderTitle && copy) placeholderTitle.textContent = copy.title;
     if (placeholderText && copy) placeholderText.textContent = copy.text;
@@ -2155,6 +2325,7 @@ function switchView(view) {
   renderStudentAssetsTabSections();
   renderPointsHistory();
   renderTokenMarket();
+  renderRentalPanel();
 
   const isAdminNoticeView = currentRole === "admin" && view === "market";
   const isGovernanceView = view === "governance";
@@ -2860,6 +3031,7 @@ async function handleStudentPayment() {
     renderStatus();
     renderPointsHistory();
     renderTokenMarket();
+    renderRentalPanel();
     return;
   }
 
@@ -2872,8 +3044,55 @@ async function handleStudentPayment() {
     renderStatus();
     renderPointsHistory();
     renderTokenMarket();
+    renderRentalPanel();
   } catch (error) {
     console.error("Student payment update failed:", error);
+  }
+}
+
+async function handleBikeRental() {
+  if (currentRole !== "student") return;
+
+  const confirmed = await showPurchaseConfirm(
+    `공유 자전거를 ${BIKE_RENTAL_COST.toLocaleString()}P로 대여하시겠습니까? 대여 즉시 포인트가 차감됩니다.`
+  );
+  if (!confirmed) {
+    rentalMessage = "자전거 대여가 취소되었습니다.";
+    renderRentalPanel();
+    return;
+  }
+
+  if (isDemoSession) {
+    const result = applyDemoBikeRental();
+    rentalMessage = result.ok
+      ? "자전거 대여가 완료되었습니다. DEMO 계정이라 저장되지는 않습니다."
+      : result.error === "active_rental_exists"
+      ? "이미 이용 중인 자전거가 있습니다."
+      : "포인트가 부족합니다.";
+    renderStatus();
+    renderPointsHistory();
+    renderRentalPanel();
+    return;
+  }
+
+  try {
+    const data = await studentApiRequest("/api/student/rentals/bike", {
+      method: "POST"
+    });
+    applyStudentStateResponse(data);
+    state = buildStudentState();
+    rentalMessage = "자전거 대여가 완료되었습니다.";
+    renderStatus();
+    renderPointsHistory();
+    renderRentalPanel();
+  } catch (error) {
+    rentalMessage =
+      error.message === "not_enough_points"
+        ? "포인트가 부족합니다."
+        : error.message === "active_rental_exists"
+        ? "이미 이용 중인 자전거가 있습니다."
+        : "자전거 대여 처리 중 오류가 발생했습니다.";
+    renderRentalPanel();
   }
 }
 
@@ -2954,6 +3173,16 @@ if (calendarMonthSelect) {
 if (paymentButton) {
   paymentButton.addEventListener("click", async () => {
     await handleStudentPayment();
+  });
+}
+
+if (rentalPanel) {
+  rentalPanel.addEventListener("click", async (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (target.id !== "bike-rental-button") return;
+
+    await handleBikeRental();
   });
 }
 

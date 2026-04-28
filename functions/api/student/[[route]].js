@@ -10,6 +10,7 @@ import {
 } from "../../_lib/auth.js";
 
 const BASE_POINTS = 31000;
+const BIKE_RENTAL_COST = 1000;
 const STUDENT_AUDIT_LOG_RESET_MARKER = "auth:student:logs:reset:2026-04-23";
 const INITIAL_TOKEN_MARKET_STATE = {
   pointReserve: 24000,
@@ -215,6 +216,65 @@ async function markPaid(request, env, session) {
   }));
 
   return json(request, env, createStudentResponse(state), 200);
+}
+
+async function rentBike(request, env, session) {
+  if (session.role !== "student") {
+    return json(request, env, { error: "forbidden" }, 403);
+  }
+
+  try {
+    const state = await updateStudentAppState(env, session.userId, async (currentState) => {
+      if (getStudentPoints(currentState) < BIKE_RENTAL_COST) {
+        throw new Error("not_enough_points");
+      }
+      if (
+        Array.isArray(currentState.rentals) &&
+        currentState.rentals.some((item) => item?.assetType === "bike" && item?.status === "active")
+      ) {
+        throw new Error("active_rental_exists");
+      }
+
+      const rentedAt = new Date();
+      const rental = {
+        id: `bike-${rentedAt.getTime()}`,
+        assetType: "bike",
+        assetName: "공유 자전거",
+        cost: BIKE_RENTAL_COST,
+        status: "active",
+        rentedAt: rentedAt.toISOString()
+      };
+
+      return {
+        ...currentState,
+        rentals: [rental, ...(Array.isArray(currentState.rentals) ? currentState.rentals : [])],
+        tokenMarket: {
+          ...currentState.tokenMarket,
+          pointDelta: currentState.tokenMarket.pointDelta - BIKE_RENTAL_COST,
+          purchaseHistory: [
+            {
+              title: "공유 자전거 대여",
+              date: formatDate(rentedAt),
+              amount: -BIKE_RENTAL_COST,
+              type: "use"
+            },
+            ...currentState.tokenMarket.purchaseHistory
+          ]
+        }
+      };
+    });
+
+    return json(request, env, createStudentResponse(state), 200);
+  } catch (error) {
+    if (error.message === "not_enough_points") {
+      return json(request, env, { error: "not_enough_points" }, 400);
+    }
+    if (error.message === "active_rental_exists") {
+      return json(request, env, { error: "active_rental_exists" }, 400);
+    }
+
+    throw error;
+  }
 }
 
 async function earnGovernanceToken(request, env, session) {
@@ -426,6 +486,10 @@ export async function onRequest(context) {
 
   if (request.method === "POST" && route.length === 1 && route[0] === "pay") {
     return markPaid(request, env, session);
+  }
+
+  if (request.method === "POST" && route.length === 2 && route[0] === "rentals" && route[1] === "bike") {
+    return rentBike(request, env, session);
   }
 
   if (request.method === "POST" && route.length === 2 && route[0] === "governance" && route[1] === "earn") {
